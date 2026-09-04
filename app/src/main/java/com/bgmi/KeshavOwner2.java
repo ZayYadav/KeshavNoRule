@@ -191,7 +191,7 @@ public class KeshavOwner2 extends AppCompatActivity {
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.setData(Uri.parse(GetKey()));
                     startActivity(intent);
-                } catch (Exception e) {
+                } catch (Throwable ignored) {
                     Toast.makeText(this, "Cannot open link", Toast.LENGTH_SHORT).show();
                 }
             });
