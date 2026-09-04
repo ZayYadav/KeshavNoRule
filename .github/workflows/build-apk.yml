@@ -51,6 +51,49 @@ jobs:
       - name: Build release APK
         run: ./gradlew clean :app:assembleRelease --stacktrace --no-daemon
 
+      - name: Verify signed APK and native allowlist
+        shell: bash
+        run: |
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -n "$APK"
+
+          echo "Verifying signing certificate..."
+          CERT_LINE="$(apksigner verify --print-certs "$APK" | grep -i 'Signer #1 certificate SHA-256 digest:' | head -n1)"
+          echo "$CERT_LINE"
+          echo "$CERT_LINE" | grep -qi "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e"
+
+          echo "Verifying packaged native library allowlist..."
+          mapfile -t LIBS < <(unzip -Z1 "$APK" | grep '^lib/arm64-v8a/.*\.so
+        shell: bash
+        run: |
+          find app/build/outputs -maxdepth 6 -type f -print 2>/dev/null || true
+          if compgen -G "app/build/outputs/apk/release/*.apk" > /dev/null; then
+            du -h app/build/outputs/apk/release/*.apk
+            sha256sum app/build/outputs/apk/release/*.apk
+          fi
+
+      - name: Upload release APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KeshavNoRule-release
+          path: app/build/outputs/apk/release/NO-RULE-LOADER.apk
+          if-no-files-found: error
+          retention-days: 14
+ | sed 's#^lib/arm64-v8a/##' | sort)
+          printf '%s\n' "${LIBS[@]}"
+
+          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libKeshavOwner.so' | sort)"
+          ACTUAL="$(printf '%s\n' "${LIBS[@]}" | sort)"
+          test "$ACTUAL" = "$EXPECTED"
+
+          if unzip -Z1 "$APK" | grep -q 'libakshit\.so'; then
+            echo "Legacy libakshit.so unexpectedly present"
+            exit 1
+          fi
+
+          cp "$APK" app/build/outputs/apk/release/NO-RULE-LOADER.apk
+
       - name: Show APK output
         if: always()
         shell: bash
