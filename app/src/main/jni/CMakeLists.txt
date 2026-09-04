@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10.2)
 
-project("akshit")
+project("KeshavOwner")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,13 +27,13 @@ add_library(libcrypto STATIC IMPORTED)
 set_target_properties(libcrypto PROPERTIES IMPORTED_LOCATION
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/curl/openssl-android-${ANDROID_ABI}/lib/libcrypto.a)
 
-add_library(akshit SHARED
+add_library(KeshavOwner SHARED
     main.cpp
     oxorany.cpp
     custom_integrity.cpp
 )
 
-target_link_libraries(akshit
+target_link_libraries(KeshavOwner
     libcurl
     libssl
     libcrypto
@@ -43,7 +43,7 @@ target_link_libraries(akshit
 )
 
 # Unused code strip karne ke liye linker flag (APK size kam)
-target_link_options(akshit PRIVATE
+target_link_options(KeshavOwner PRIVATE
     -Wl,--gc-sections
     -Wl,--strip-all
     -Wl,--exclude-libs,ALL
