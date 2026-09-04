@@ -258,55 +258,174 @@ Java_com_bgmi_KeshavOwner2_nativeVerifySignature(
     return JNI_FALSE;
 }
 
-const char *GetAndroidID(JNIEnv *env, jobject context) {
+static bool clearJniException(JNIEnv *env) {
+    if (env == nullptr) return false;
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return true;
+    }
+    return false;
+}
+
+static std::string jstringToStd(JNIEnv *env, jstring value) {
+    if (env == nullptr || value == nullptr) return {};
+    const char *chars = env->GetStringUTFChars(value, nullptr);
+    if (chars == nullptr) {
+        clearJniException(env);
+        return {};
+    }
+    std::string out(chars);
+    env->ReleaseStringUTFChars(value, chars);
+    return out;
+}
+
+static std::string GetAndroidID(JNIEnv *env, jobject context) {
+    if (env == nullptr || context == nullptr) return {};
+
     jclass contextClass = env->FindClass("android/content/Context");
-    jmethodID getContentResolverMethod = env->GetMethodID(contextClass,"getContentResolver","()Landroid/content/ContentResolver;");
-    jclass settingSecureClass = env->FindClass("android/provider/Settings$Secure");
-    jmethodID getStringMethod = env->GetStaticMethodID(settingSecureClass,"getString", "(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;");
+    if (contextClass == nullptr || clearJniException(env)) return {};
 
-    auto obj = env->CallObjectMethod(context, getContentResolverMethod);
-    auto str = (jstring) env->CallStaticObjectMethod(settingSecureClass, getStringMethod, obj,env->NewStringUTF("android_id"));
-    return env->GetStringUTFChars(str, 0);
+    jmethodID getContentResolverMethod = env->GetMethodID(
+            contextClass,
+            "getContentResolver",
+            "()Landroid/content/ContentResolver;");
+    if (getContentResolverMethod == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(contextClass);
+        return {};
+    }
+
+    jobject resolver = env->CallObjectMethod(context, getContentResolverMethod);
+    if (resolver == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(contextClass);
+        return {};
+    }
+
+    jclass secureClass = env->FindClass("android/provider/Settings$Secure");
+    if (secureClass == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(resolver);
+        env->DeleteLocalRef(contextClass);
+        return {};
+    }
+
+    jmethodID getStringMethod = env->GetStaticMethodID(
+            secureClass,
+            "getString",
+            "(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;");
+    if (getStringMethod == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(secureClass);
+        env->DeleteLocalRef(resolver);
+        env->DeleteLocalRef(contextClass);
+        return {};
+    }
+
+    jstring key = env->NewStringUTF("android_id");
+    if (key == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(secureClass);
+        env->DeleteLocalRef(resolver);
+        env->DeleteLocalRef(contextClass);
+        return {};
+    }
+
+    auto value = static_cast<jstring>(
+            env->CallStaticObjectMethod(secureClass, getStringMethod, resolver, key));
+    const bool failed = clearJniException(env);
+    std::string result = failed ? std::string() : jstringToStd(env, value);
+
+    if (value != nullptr) env->DeleteLocalRef(value);
+    env->DeleteLocalRef(key);
+    env->DeleteLocalRef(secureClass);
+    env->DeleteLocalRef(resolver);
+    env->DeleteLocalRef(contextClass);
+    return result;
 }
 
-const char *GetDeviceModel(JNIEnv *env) {
+static std::string GetBuildString(JNIEnv *env, const char *fieldName) {
+    if (env == nullptr || fieldName == nullptr) return {};
+
     jclass buildClass = env->FindClass("android/os/Build");
-    jfieldID modelId = env->GetStaticFieldID(buildClass, "MODEL","Ljava/lang/String;");
+    if (buildClass == nullptr || clearJniException(env)) return {};
 
-    auto str = (jstring) env->GetStaticObjectField(buildClass, modelId);
-    return env->GetStringUTFChars(str, 0);
+    jfieldID field = env->GetStaticFieldID(
+            buildClass,
+            fieldName,
+            "Ljava/lang/String;");
+    if (field == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(buildClass);
+        return {};
+    }
+
+    auto value = static_cast<jstring>(
+            env->GetStaticObjectField(buildClass, field));
+    const bool failed = clearJniException(env);
+    std::string result = failed ? std::string() : jstringToStd(env, value);
+
+    if (value != nullptr) env->DeleteLocalRef(value);
+    env->DeleteLocalRef(buildClass);
+    return result;
 }
 
-const char *GetDeviceBrand(JNIEnv *env) {
-    jclass buildClass = env->FindClass("android/os/Build");
-    jfieldID modelId = env->GetStaticFieldID(buildClass, "BRAND","Ljava/lang/String;");
-
-    auto str = (jstring) env->GetStaticObjectField(buildClass, modelId);
-    return env->GetStringUTFChars(str, 0);
+static std::string GetDeviceModel(JNIEnv *env) {
+    return GetBuildString(env, "MODEL");
 }
 
-const char *GetPackageName(JNIEnv *env, jobject context) {
-    jclass contextClass = env->FindClass("android/content/Context");
-    jmethodID getPackageNameId = env->GetMethodID(contextClass, "getPackageName","()Ljava/lang/String;");
-
-    auto str = (jstring) env->CallObjectMethod(context, getPackageNameId);
-    return env->GetStringUTFChars(str, 0);
+static std::string GetDeviceBrand(JNIEnv *env) {
+    return GetBuildString(env, "BRAND");
 }
 
-const char *GetDeviceUniqueIdentifier(JNIEnv *env, const char *uuid) {
+static std::string GetDeviceUniqueIdentifier(JNIEnv *env, const std::string &value) {
+    if (env == nullptr || value.empty()) return {};
+
     jclass uuidClass = env->FindClass("java/util/UUID");
+    if (uuidClass == nullptr || clearJniException(env)) return {};
 
-    auto len = strlen(uuid);
+    jbyteArray bytes = env->NewByteArray(static_cast<jsize>(value.size()));
+    if (bytes == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(uuidClass);
+        return {};
+    }
 
-    jbyteArray myJByteArray = env->NewByteArray(len);
-    env->SetByteArrayRegion(myJByteArray, 0, len, (jbyte *) uuid);
+    env->SetByteArrayRegion(
+            bytes,
+            0,
+            static_cast<jsize>(value.size()),
+            reinterpret_cast<const jbyte *>(value.data()));
+    if (clearJniException(env)) {
+        env->DeleteLocalRef(bytes);
+        env->DeleteLocalRef(uuidClass);
+        return {};
+    }
 
-    jmethodID nameUUIDFromBytesMethod = env->GetStaticMethodID(uuidClass,"nameUUIDFromBytes","([B)Ljava/util/UUID;");
-    jmethodID toStringMethod = env->GetMethodID(uuidClass, "toString","()Ljava/lang/String;");
+    jmethodID fromBytes = env->GetStaticMethodID(
+            uuidClass,
+            "nameUUIDFromBytes",
+            "([B)Ljava/util/UUID;");
+    jmethodID toStringMethod = env->GetMethodID(
+            uuidClass,
+            "toString",
+            "()Ljava/lang/String;");
+    if (fromBytes == nullptr || toStringMethod == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(bytes);
+        env->DeleteLocalRef(uuidClass);
+        return {};
+    }
 
-    auto obj = env->CallStaticObjectMethod(uuidClass, nameUUIDFromBytesMethod, myJByteArray);
-    auto str = (jstring) env->CallObjectMethod(obj, toStringMethod);
-    return env->GetStringUTFChars(str, 0);
+    jobject uuid = env->CallStaticObjectMethod(uuidClass, fromBytes, bytes);
+    if (uuid == nullptr || clearJniException(env)) {
+        env->DeleteLocalRef(bytes);
+        env->DeleteLocalRef(uuidClass);
+        return {};
+    }
+
+    auto uuidString = static_cast<jstring>(
+            env->CallObjectMethod(uuid, toStringMethod));
+    const bool failed = clearJniException(env);
+    std::string result = failed ? std::string() : jstringToStd(env, uuidString);
+
+    if (uuidString != nullptr) env->DeleteLocalRef(uuidString);
+    env->DeleteLocalRef(uuid);
+    env->DeleteLocalRef(bytes);
+    env->DeleteLocalRef(uuidClass);
+    return result;
 }
 
 struct MemoryStruct {
@@ -318,10 +437,11 @@ static size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, voi
     size_t realsize = size * nmemb;
     struct MemoryStruct *mem = (struct MemoryStruct *) userp;
 
-    mem->memory = (char *) realloc(mem->memory, mem->size + realsize + 1);
-    if (mem->memory == NULL) {
+    char *expanded = (char *) realloc(mem->memory, mem->size + realsize + 1);
+    if (expanded == nullptr) {
         return 0;
     }
+    mem->memory = expanded;
 
     memcpy(&(mem->memory[mem->size]), contents, realsize);
     mem->size += realsize;
@@ -389,11 +509,25 @@ Java_com_bgmi_KeshavOwner2_Check(JNIEnv *env, jclass clazz, jobject mContext, js
         return env->NewStringUTF("Bad Parameter");
     }
 
+    const std::string androidId = GetAndroidID(env, mContext);
+    const std::string deviceModel = GetDeviceModel(env);
+    const std::string deviceBrand = GetDeviceBrand(env);
+
+    if (androidId.empty() || deviceModel.empty() || deviceBrand.empty()) {
+        env->ReleaseStringUTFChars(mUserKey, user_key);
+        return env->NewStringUTF("Device identity unavailable");
+    }
+
     std::string hwid = user_key;
-    hwid += GetAndroidID(env, mContext);
-    hwid += GetDeviceModel(env);
-    hwid += GetDeviceBrand(env);
-    std::string UUID = GetDeviceUniqueIdentifier(env, hwid.c_str());
+    hwid += androidId;
+    hwid += deviceModel;
+    hwid += deviceBrand;
+
+    const std::string UUID = GetDeviceUniqueIdentifier(env, hwid);
+    if (UUID.empty()) {
+        env->ReleaseStringUTFChars(mUserKey, user_key);
+        return env->NewStringUTF("Device identifier unavailable");
+    }
 
     std::string errMsg = "Authentication failed";
     struct MemoryStruct chunk{};
