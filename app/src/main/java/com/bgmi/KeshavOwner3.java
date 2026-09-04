@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class KeshavOwner3 extends AppCompatActivity {
     static {
         try {
-            System.loadLibrary("zenin");
+            System.loadLibrary("KeshavOwner");
         } catch (UnsatisfiedLinkError ignored) {}
     }
 
