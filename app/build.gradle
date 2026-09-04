@@ -60,7 +60,8 @@ android {
             abiFilters "arm64-v8a"
         }
 
-        
+        // Keep only the app's shipped locale to reduce packaged resources.
+        resourceConfigurations += ['en']
     }
 
     buildTypes {
@@ -68,10 +69,13 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
+            zipAlignEnabled true
+            debuggable false
+            jniDebuggable false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
 
             ndk {
-                debugSymbolLevel 'FULL' // Enable debugging symbols for native libraries
+                debugSymbolLevel 'NONE'
             }
         }
         debug {
@@ -94,12 +98,29 @@ android {
 
     buildFeatures {
         viewBinding true
+        buildConfig false
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     // APK size kam karne ke liye native libs ko compress karke store karo
     packagingOptions {
         jniLibs {
+            // Legacy packaging keeps native libraries compressed inside the APK.
             useLegacyPackaging = true
+        }
+        resources {
+            excludes += [
+                    'META-INF/DEPENDENCIES',
+                    'META-INF/LICENSE',
+                    'META-INF/LICENSE.txt',
+                    'META-INF/NOTICE',
+                    'META-INF/NOTICE.txt',
+                    'META-INF/*.kotlin_module'
+            ]
         }
     }
 
