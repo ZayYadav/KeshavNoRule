@@ -58,6 +58,18 @@ public class KeshavOwner1 extends Application {
             SDK_READY = false;
         }
     }
+
+    public static String getSdkStatusDetail() {
+        try {
+            String message = MetaActivationManager.getServerMessage();
+            if (message == null || message.trim().isEmpty()) {
+                return "SDK activation not ready";
+            }
+            return message.trim();
+        } catch (Throwable ignored) {
+            return "SDK activation not ready";
+        }
+    }
     
     @Override
     protected void attachBaseContext(Context base) {
