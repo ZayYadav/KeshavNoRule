@@ -181,7 +181,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                 anim.setStartOffset(300);
                 tipsCard.startAnimation(anim);
             }
-        } catch (Exception ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     private void handleStart() {
@@ -257,7 +257,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                         launchGame();
                     });
                 }
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 if (!isFinished.get()) {
                     isFinished.set(true);
                     runOnUiThread(() -> {
@@ -272,7 +272,7 @@ public class KeshavOwner3 extends AppCompatActivity {
     private void launchGame() {
         try {
             BlackBoxCore.get().launchApk(PKG_BGMI, USER_ID);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             KeshavOwner7.getInstance().playError();
             Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
