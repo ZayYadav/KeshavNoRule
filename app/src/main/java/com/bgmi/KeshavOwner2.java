@@ -47,10 +47,17 @@ import org.lsposed.lsparanoid.Obfuscate;
 @Obfuscate
 public class KeshavOwner2 extends AppCompatActivity {
 
+    private static final boolean NATIVE_READY;
+
     static {
+        boolean loaded = false;
         try {
             System.loadLibrary("akshit");
-        } catch (UnsatisfiedLinkError ignored) {}
+            loaded = true;
+        } catch (Throwable ignored) {
+            loaded = false;
+        }
+        NATIVE_READY = loaded;
     }
 
     private KeshavOwner6 prefs;
@@ -80,7 +87,20 @@ public class KeshavOwner2 extends AppCompatActivity {
             finishAndRemoveTask();
             return;
         }
-        if (!nativeVerifySignature(this) || !nativeCustomIntegrity(this)) {
+        if (!NATIVE_READY) {
+            Toast.makeText(this, "Security engine could not start", Toast.LENGTH_LONG).show();
+            finishAffinity();
+            return;
+        }
+
+        boolean integrityOk = false;
+        try {
+            integrityOk = nativeVerifySignature(this) && nativeCustomIntegrity(this);
+        } catch (Throwable ignored) {
+            integrityOk = false;
+        }
+
+        if (!integrityOk) {
             Toast.makeText(this, "Integrity check failed", Toast.LENGTH_LONG).show();
             finishAffinity();
             return;
