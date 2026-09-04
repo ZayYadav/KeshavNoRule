@@ -329,7 +329,17 @@ public class KeshavOwner2 extends AppCompatActivity {
             dismissLoadingDialog();
 
             if (!success) {
-                Toast.makeText(KeshavOwner2.this, "Download failed! Proceeding anyway...", Toast.LENGTH_SHORT).show();
+                KeshavOwner9.showIntegrityFailure(
+                        KeshavOwner2.this,
+                        "The trusted server loader could not be verified or securely bound.");
+                return;
+            }
+
+            if (!KeshavOwner8.verify(KeshavOwner2.this)) {
+                KeshavOwner9.showIntegrityFailure(
+                        KeshavOwner2.this,
+                        "The downloaded loader failed path, signature, or encrypted fingerprint validation.");
+                return;
             }
 
             Intent i = new Intent(m_Context, KeshavOwner3.class);
@@ -356,11 +366,10 @@ public class KeshavOwner2 extends AppCompatActivity {
 
         try {
             task.execute(KeshavOwner5.Link());
-        } catch (Exception e) {
-            Intent i = new Intent(m_Context, KeshavOwner3.class);
-            startActivity(i);
-            overridePendingTransition(R.anim.anim_slide_in_right, R.anim.anim_slide_out_left);
-            finish();
+        } catch (Throwable ignored) {
+            KeshavOwner9.showIntegrityFailure(
+                    KeshavOwner2.this,
+                    "The secure loader update could not be started safely.");
         }
     }
 
