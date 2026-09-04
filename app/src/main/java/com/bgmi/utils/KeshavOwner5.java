@@ -13,6 +13,10 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.Scanner;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -23,6 +27,10 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
     private static final String TAG = "KeshavOwner5";
     private static final long MAX_DOWNLOAD_BYTES = 100L * 1024L * 1024L;
     private static final long MAX_EXTRACTED_BYTES = 512L * 1024L * 1024L;
+
+    public static final String TRUSTED_LOADER_NAME = "libbgmi.so";
+    public static final String LOADER_HASH_KEY = "ko_loader_hash_v2";
+    public static final String LOADER_SIZE_KEY = "ko_loader_size_v2";
 
     public static native String Version();
     public static native String Link();
@@ -38,11 +46,11 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
     private final Context context;
     private final Callback callback;
     private ProgressListener progressListener;
+    private volatile boolean operationOk = false;
 
     private static final String PREF_NAME = "com.bgmi.download";
     private static final String PREF_VERSION_KEY = "version";
     private static final String ZIP_NAME = "imgui.zip";
-    private static final String SO_NAME = "libbgmi.so";
 
     public KeshavOwner5(Context context) {
         this(context, null);
@@ -57,18 +65,26 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
         this.progressListener = listener;
     }
 
+    public static File trustedLoaderFile(Context context) {
+        return new File(new File(context.getFilesDir(), "loader"), TRUSTED_LOADER_NAME);
+    }
+
     @Override
     protected String doInBackground(String... params) {
+        operationOk = false;
+
         try {
             String serverVersion = getServerVersion();
             if (serverVersion == null || serverVersion.length() > 128) {
-                Log.e(TAG, "Version check failed.");
-                return null;
+                return "Version check failed";
             }
 
             SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
             String localVersion = prefs.getString(PREF_VERSION_KEY, "0");
-            if (serverVersion.equals(localVersion)) {
+            File currentLoader = trustedLoaderFile(context);
+
+            if (serverVersion.equals(localVersion) && verifyStoredFingerprint(currentLoader)) {
+                operationOk = true;
                 return null;
             }
 
@@ -76,22 +92,28 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
 
             String err = downloadAndExtract(Link());
             if (err != null) {
-                Log.e(TAG, "Download failed.");
-                return null;
+                return err;
+            }
+
+            File loader = trustedLoaderFile(context);
+            if (!persistLoaderFingerprint(loader)) {
+                safeDelete(loader);
+                return "Loader integrity binding failed";
             }
 
             prefs.edit().putString(PREF_VERSION_KEY, serverVersion).apply();
+            operationOk = true;
             return null;
-        } catch (Exception e) {
-            Log.e(TAG, "Background operation failed.");
-            return null;
+
+        } catch (Throwable ignored) {
+            return "Secure loader update failed";
         }
     }
 
     @Override
     protected void onPostExecute(String result) {
         if (callback != null) {
-            callback.onComplete(true);
+            callback.onComplete(operationOk);
         }
     }
 
@@ -102,20 +124,18 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
     private void deleteExistingFiles(File dir) {
         if (dir == null || !dir.exists()) return;
 
-        File zipFile = new File(dir, ZIP_NAME);
-        if (zipFile.exists()) {
-            //noinspection ResultOfMethodCallIgnored
-            zipFile.delete();
-        }
+        safeDelete(new File(dir, ZIP_NAME));
 
         File loaderDir = new File(dir, "loader");
         if (loaderDir.exists()) {
-            File foundSo = findLib(loaderDir, SO_NAME);
-            if (foundSo != null && foundSo.exists()) {
-                //noinspection ResultOfMethodCallIgnored
-                foundSo.delete();
-            }
+            deleteSoFilesRecursively(loaderDir);
         }
+
+        try {
+            KeshavOwner6 secure = new KeshavOwner6(context);
+            secure.setSt(LOADER_HASH_KEY, "");
+            secure.setSt(LOADER_SIZE_KEY, "");
+        } catch (Throwable ignored) {}
     }
 
     private String downloadAndExtract(String urlString) {
@@ -156,6 +176,7 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
                         return "Download limit exceeded";
                     }
                     out.write(buf, 0, len);
+
                     if (total > 0 && progressListener != null) {
                         progressListener.onProgress((int) ((done * 100L) / total));
                     }
@@ -169,20 +190,29 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
 
             unzipSafely(zipFile, targetDir);
 
-            File so = findLib(targetDir, SO_NAME);
-            if (so == null || !so.isFile() || so.length() <= 0) {
-                return "Library file missing after extraction";
+            File loader = normalizeTrustedLoader(targetDir);
+            if (loader == null || !loader.isFile() || loader.length() <= 0) {
+                return "Trusted loader missing after extraction";
             }
 
+            if (loader.length() > MAX_DOWNLOAD_BYTES) {
+                return "Trusted loader exceeds size limit";
+            }
+
+            try {
+                loader.setReadable(true, true);
+                loader.setWritable(false, false);
+            } catch (Throwable ignored) {}
+
             return null;
-        } catch (Exception e) {
+
+        } catch (SecurityException e) {
+            return "Loader archive integrity rejected";
+        } catch (Throwable ignored) {
             return "Secure download failed";
         } finally {
             if (con != null) con.disconnect();
-            if (zipFile.exists()) {
-                //noinspection ResultOfMethodCallIgnored
-                zipFile.delete();
-            }
+            safeDelete(zipFile);
         }
     }
 
@@ -195,11 +225,22 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
             byte[] buffer = new byte[8192];
 
             while ((entry = zis.getNextEntry()) != null) {
-                File outFile = new File(targetDir, entry.getName());
+                String entryName = entry.getName();
+                if (entryName == null || entryName.isEmpty()) {
+                    throw new SecurityException("Bad zip entry");
+                }
+
+                File outFile = new File(targetDir, entryName);
                 String canonical = outFile.getCanonicalPath();
 
                 if (!canonical.startsWith(targetRoot)) {
-                    throw new SecurityException("Invalid zip entry");
+                    throw new SecurityException("Zip traversal");
+                }
+
+                if (!entry.isDirectory() && entryName.toLowerCase(Locale.US).endsWith(".so")) {
+                    if (!TRUSTED_LOADER_NAME.equals(outFile.getName())) {
+                        throw new SecurityException("Unexpected shared library");
+                    }
                 }
 
                 if (entry.isDirectory()) {
@@ -223,30 +264,156 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
                         }
                     }
                 }
+
                 zis.closeEntry();
             }
         }
     }
 
-    private File findLib(File dir, String name) {
-        if (dir == null || !dir.exists()) return null;
+    private File normalizeTrustedLoader(File targetDir) throws Exception {
+        List<File> soFiles = new ArrayList<>();
+        collectSoFiles(targetDir, soFiles);
 
-        File[] files = dir.listFiles();
-        if (files == null) return null;
+        if (soFiles.size() != 1) {
+            throw new SecurityException("Unexpected loader library count");
+        }
 
-        for (File child : files) {
-            if (child.isDirectory()) {
-                File result = findLib(child, name);
-                if (result != null) return result;
-            } else if (name.equals(child.getName())) {
-                return child;
+        File found = soFiles.get(0);
+        if (!TRUSTED_LOADER_NAME.equals(found.getName())) {
+            throw new SecurityException("Unexpected loader name");
+        }
+
+        File expected = new File(targetDir, TRUSTED_LOADER_NAME);
+        String expectedPath = expected.getCanonicalPath();
+        String foundPath = found.getCanonicalPath();
+
+        if (!foundPath.equals(expectedPath)) {
+            if (expected.exists()) safeDelete(expected);
+
+            if (!found.renameTo(expected)) {
+                copyFile(found, expected);
+                safeDelete(found);
             }
         }
-        return null;
+
+        if (!expected.getCanonicalPath().equals(expectedPath)) {
+            throw new SecurityException("Loader path normalization failed");
+        }
+
+        return expected;
+    }
+
+    private void collectSoFiles(File dir, List<File> out) {
+        if (dir == null || !dir.exists()) return;
+        File[] files = dir.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            if (file.isDirectory()) {
+                collectSoFiles(file, out);
+            } else if (file.getName().toLowerCase(Locale.US).endsWith(".so")) {
+                out.add(file);
+            }
+        }
+    }
+
+    private void deleteSoFilesRecursively(File dir) {
+        if (dir == null || !dir.exists()) return;
+        File[] files = dir.listFiles();
+        if (files == null) return;
+
+        for (File file : files) {
+            if (file.isDirectory()) {
+                deleteSoFilesRecursively(file);
+            } else if (file.getName().toLowerCase(Locale.US).endsWith(".so")) {
+                safeDelete(file);
+            }
+        }
+    }
+
+    private void copyFile(File src, File dst) throws Exception {
+        try (FileInputStream in = new FileInputStream(src);
+             FileOutputStream out = new FileOutputStream(dst)) {
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) != -1) {
+                out.write(buffer, 0, n);
+            }
+        }
+    }
+
+    private boolean persistLoaderFingerprint(File loader) {
+        try {
+            if (loader == null || !loader.isFile()) return false;
+            String hash = sha256File(loader);
+            if (hash == null || hash.length() != 64) return false;
+
+            KeshavOwner6 secure = new KeshavOwner6(context);
+            secure.setSt(LOADER_HASH_KEY, hash);
+            secure.setSt(LOADER_SIZE_KEY, Long.toString(loader.length()));
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean verifyStoredFingerprint(File loader) {
+        try {
+            if (loader == null || !loader.isFile() || loader.length() <= 0) return false;
+
+            String expectedPath = trustedLoaderFile(context).getCanonicalPath();
+            if (!loader.getCanonicalPath().equals(expectedPath)) return false;
+
+            KeshavOwner6 secure = new KeshavOwner6(context);
+            String expectedHash = secure.getSt(LOADER_HASH_KEY, "");
+            String expectedSize = secure.getSt(LOADER_SIZE_KEY, "");
+
+            if (expectedHash.isEmpty() || expectedSize.isEmpty()) {
+                // Migration path: force a fresh server download to establish a secure binding.
+                return false;
+            }
+
+            if (!Long.toString(loader.length()).equals(expectedSize)) return false;
+            return expectedHash.equalsIgnoreCase(sha256File(loader));
+
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    public static String sha256File(File file) {
+        if (file == null || !file.isFile()) return null;
+
+        try (FileInputStream in = new FileInputStream(file)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) != -1) {
+                digest.update(buffer, 0, n);
+            }
+
+            byte[] hash = digest.digest();
+            StringBuilder out = new StringBuilder(hash.length * 2);
+            for (byte b : hash) {
+                out.append(String.format(Locale.US, "%02x", b & 0xff));
+            }
+            return out.toString();
+
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private void safeDelete(File file) {
+        if (file == null) return;
+        try {
+            if (file.exists()) file.delete();
+        } catch (Throwable ignored) {}
     }
 
     private String getServerVersion() {
         HttpURLConnection con = null;
+
         try {
             URL url = new URL(Version());
             if (!isHttps(url)) return null;
@@ -264,7 +431,8 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
             try (Scanner sc = new Scanner(con.getInputStream())) {
                 return sc.hasNextLine() ? sc.nextLine().trim() : null;
             }
-        } catch (Exception e) {
+
+        } catch (Throwable ignored) {
             return null;
         } finally {
             if (con != null) con.disconnect();
