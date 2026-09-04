@@ -55,7 +55,7 @@ public class KeshavOwner2 extends AppCompatActivity {
     static {
         boolean loaded = false;
         try {
-            System.loadLibrary("KeshavOwner");
+            System.loadLibrary("KeshavLoader");
             loaded = true;
         } catch (Throwable ignored) {
             loaded = false;
