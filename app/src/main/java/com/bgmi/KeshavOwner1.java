@@ -27,6 +27,7 @@ public class KeshavOwner1 extends Application {
     private static final String TAG = "KeshavOwner1";
     private static volatile boolean ATTACH_READY = false;
     private static volatile boolean CORE_READY = false;
+    private static volatile boolean SDK_READY = false;
     private static volatile String STARTUP_ERROR = "";
 
     public static boolean isCoreReady() {
@@ -35,6 +36,27 @@ public class KeshavOwner1 extends Application {
 
     public static String getStartupError() {
         return STARTUP_ERROR;
+    }
+
+    public static boolean isSdkReady() {
+        return SDK_READY;
+    }
+
+    public static boolean refreshSdkReady() {
+        try {
+            SDK_READY = MetaActivationManager.getActivatedStatus();
+        } catch (Throwable ignored) {
+            SDK_READY = false;
+        }
+        return SDK_READY;
+    }
+
+    public static void requestSdkActivation() {
+        try {
+            MetaActivationManager.activateSdk("KESHAVFRIEND");
+        } catch (Throwable ignored) {
+            SDK_READY = false;
+        }
     }
     
     @Override
@@ -96,11 +118,7 @@ public class KeshavOwner1 extends Application {
             return;
         }
 
-        try {
-            MetaActivationManager.activateSdk("KESHAVFRIEND");
-        } catch (Throwable ignored) {
-            CORE_READY = false;
-            STARTUP_ERROR = "SDK activation initialization failed";
-        }
+        SDK_READY = false;
+        requestSdkActivation();
     }
 }
