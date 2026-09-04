@@ -77,12 +77,17 @@ jobs:
           printf 'Found libs:\n'
           printf '  %s\n' "${LIBS[@]}"
 
-          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libKeshavOwner.so' | sort)"
+          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libKeshavLoader.so' | sort)"
           ACTUAL="$(printf '%s\n' "${LIBS[@]}" | sort)"
           test "$ACTUAL" = "$EXPECTED"
 
           if unzip -Z1 "$APK" | grep -q 'libakshit\.so'; then
             echo "Legacy libakshit.so unexpectedly present"
+            exit 1
+          fi
+
+          if unzip -Z1 "$APK" | grep -q 'libKeshavOwner\.so'; then
+            echo "Legacy libKeshavOwner.so unexpectedly present"
             exit 1
           fi
 
