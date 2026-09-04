@@ -262,10 +262,14 @@ public class KeshavOwner2 extends AppCompatActivity {
     }
 
     private void checkAndRequestPermissions() {
-        if (!isStoragePermissionGranted()) {
-            requestStoragePermissionDirect();
-        } else if (!canRequestPackageInstalls()) {
-            requestUnknownAppPermissionsDirect();
+        try {
+            if (!isStoragePermissionGranted()) {
+                requestStoragePermissionDirect();
+            } else if (!canRequestPackageInstalls()) {
+                requestUnknownAppPermissionsDirect();
+            }
+        } catch (Throwable ignored) {
+            // Permission UI availability differs across OEM builds. Never crash startup.
         }
     }
 
@@ -274,29 +278,49 @@ public class KeshavOwner2 extends AppCompatActivity {
     }
 
     private void requestStoragePermissionDirect() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-            intent.setData(Uri.fromParts("package", getPackageName(), null));
-            startActivityForResult(intent, REQUEST_MANAGE_STORAGE_PERMISSION);
-        } else {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_MANAGE_STORAGE_PERMISSION);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                intent.setData(Uri.fromParts("package", getPackageName(), null));
+                startActivityForResult(intent, REQUEST_MANAGE_STORAGE_PERMISSION);
+            } else {
+                ActivityCompat.requestPermissions(
+                        this,
+                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                        REQUEST_MANAGE_STORAGE_PERMISSION);
+            }
+        } catch (Throwable ignored) {
+            // Some Android/OEM builds do not expose this settings activity.
         }
     }
 
     private boolean canRequestPackageInstalls() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls();
+        try {
+            return Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+                    || getPackageManager().canRequestPackageInstalls();
+        } catch (Throwable ignored) {
+            return true;
+        }
     }
 
     private void requestUnknownAppPermissionsDirect() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, REQUEST_MANAGE_UNKNOWN_APP_SOURCES);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Intent intent = new Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:" + getPackageName()));
+                startActivityForResult(intent, REQUEST_MANAGE_UNKNOWN_APP_SOURCES);
+            }
+        } catch (Throwable ignored) {
+            // Permission settings failure must not terminate the loader.
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+        try {
+            super.onActivityResult(requestCode, resultCode, data);
+        } catch (Throwable ignored) {}
         checkAndRequestPermissions();
     }
 
