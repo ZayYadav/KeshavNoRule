@@ -54,3 +54,11 @@ jobs:
           unzip -Z1 "$APK" | grep -q '^lib/arm64-v8a/libKeshavLoader.so$'
           unzip -Z1 "$APK" | grep -q '^lib/arm64-v8a/libKESHAVXOWNERCore.so$'
           echo "Unsigned compile check passed: $APK"
+
+      - name: Upload unsigned compile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NO-RULE-LOADER-unsigned-compile
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 2
