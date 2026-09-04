@@ -76,7 +76,8 @@ public final class KeshavOwner9 {
 
                 boolean ok = false;
                 try {
-                    ok = KeshavOwner8.verify(activity)
+                    ok = KeshavOwner1.refreshSdkReady()
+                            && KeshavOwner8.verify(activity)
                             && KeshavOwner2.nativeVerifySignature(activity)
                             && KeshavOwner2.nativeCustomIntegrity(activity);
                 } catch (Throwable ignored) {
@@ -90,7 +91,7 @@ public final class KeshavOwner9 {
                 }
 
                 try {
-                    handler.postDelayed(this, 3000L);
+                    handler.postDelayed(this, 8000L);
                 } catch (Throwable ignored) {
                     // Do not crash if the Activity is already shutting down.
                 }
@@ -98,7 +99,7 @@ public final class KeshavOwner9 {
         };
 
         try {
-            handler.postDelayed(guard, 3000L);
+            handler.postDelayed(guard, 8000L);
         } catch (Throwable ignored) {}
         return guard;
     }
