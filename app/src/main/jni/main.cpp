@@ -218,7 +218,7 @@ Java_com_bgmi_KeshavOwner2_nativeVerifySignature(
     if (sigArray == nullptr) return JNI_FALSE;
 
     const char *expected = oxorany(
-            "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e");
+            "b29da35338bc899495ab9352547ec29c3e1884113564fe51eacbb383bb767c08");
 
     const jsize sigCount = env->GetArrayLength(sigArray);
 
