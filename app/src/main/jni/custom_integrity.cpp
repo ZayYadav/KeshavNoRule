@@ -9,6 +9,8 @@
 #include <fstream>
 #include <string>
 #include <algorithm>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #define KESHAV_INTEGRITY_TAG "KeshavIntegrity"
 
@@ -25,8 +27,14 @@ static std::string baseName(const std::string &path) {
 }
 
 static bool isAllowedPackagedLibName(const std::string &name) {
-    return name == std::string(oxorany("libKeshavOwner.so"))
+    return name == std::string(oxorany("libKeshavLoader.so"))
         || name == std::string(oxorany("libKESHAVXOWNERCore.so"));
+}
+
+static bool isAllowedSdkStoredArtifact(const std::string &name) {
+    return name == std::string(oxorany("KESHAVXOWNER.so"))
+        || name == std::string(oxorany("libpubgm.so"))
+        || name == std::string(oxorany("libkorea.so"));
 }
 
 static std::string getJavaFilePath(
@@ -123,7 +131,7 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
     DIR *dir = opendir(dirPath.c_str());
     if (!dir) return false;
 
-    bool foundOwner = false;
+    bool foundLoader = false;
     bool foundCore = false;
     bool ok = true;
 
@@ -139,12 +147,80 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
             break;
         }
 
-        if (name == std::string(oxorany("libKeshavOwner.so"))) foundOwner = true;
+        if (name == std::string(oxorany("libKeshavLoader.so"))) foundLoader = true;
         if (name == std::string(oxorany("libKESHAVXOWNERCore.so"))) foundCore = true;
     }
 
     closedir(dir);
-    return ok && foundOwner && foundCore;
+    return ok && foundLoader && foundCore;
+}
+
+static bool hasElfMagic(const std::string &path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) return false;
+
+    unsigned char magic[4] = {};
+    input.read(reinterpret_cast<char *>(magic), sizeof(magic));
+    if (input.gcount() != 4) return false;
+
+    return magic[0] == 0x7f
+        && magic[1] == 'E'
+        && magic[2] == 'L'
+        && magic[3] == 'F';
+}
+
+static bool verifySdkArtifactDirectory(const std::string &noBackupDir) {
+    if (noBackupDir.empty()) return false;
+
+    const std::string sdkDir =
+            noBackupDir + std::string(oxorany("/native"));
+
+    struct stat rootStat {};
+    if (lstat(sdkDir.c_str(), &rootStat) != 0) {
+        // SDK runtime artifacts are optional until the SDK downloads/stages them.
+        return true;
+    }
+
+    if (!S_ISDIR(rootStat.st_mode) || S_ISLNK(rootStat.st_mode)) {
+        return false;
+    }
+
+    DIR *dir = opendir(sdkDir.c_str());
+    if (!dir) return false;
+
+    bool ok = true;
+    while (dirent *entry = readdir(dir)) {
+        if (!entry || !entry->d_name) continue;
+
+        std::string name(entry->d_name);
+        if (name == "." || name == "..") continue;
+
+        // NativeArtifactStore may briefly create a hidden .tmp while doing an atomic update.
+        if (!endsWith(name, std::string(oxorany(".so")))) {
+            continue;
+        }
+
+        if (!isAllowedSdkStoredArtifact(name)) {
+            ok = false;
+            break;
+        }
+
+        const std::string path = sdkDir + "/" + name;
+        struct stat st {};
+        if (lstat(path.c_str(), &st) != 0
+                || !S_ISREG(st.st_mode)
+                || S_ISLNK(st.st_mode)
+                || st.st_uid != getuid()
+                || (st.st_mode & 0077) != 0
+                || st.st_size < 4
+                || !hasElfMagic(path)) {
+            ok = false;
+            break;
+        }
+    }
+
+    closedir(dir);
+    return ok;
 }
 
 static std::string lowerCopy(std::string value) {
@@ -182,14 +258,20 @@ static bool containsSuspiciousRuntimeMarker(const std::string &lower) {
 
 static bool verifyProcessMaps(
         const std::string &nativeDir,
-        const std::string &filesDir) {
+        const std::string &filesDir,
+        const std::string &noBackupDir) {
 
-    if (nativeDir.empty() || filesDir.empty()) return false;
+    if (nativeDir.empty() || filesDir.empty() || noBackupDir.empty()) return false;
 
     const std::string trustedServerLoader =
             filesDir
             + std::string(oxorany("/loader/"))
             + std::string(oxorany("libbgmi.so"));
+
+    const std::string trustedSdkRuntime =
+            noBackupDir
+            + std::string(oxorany("/native/"))
+            + std::string(oxorany("KESHAVXOWNER.so"));
 
     std::ifstream maps(std::string(oxorany("/proc/self/maps")));
     if (!maps.is_open()) return false;
@@ -212,7 +294,7 @@ static bool verifyProcessMaps(
             continue;
         }
 
-        // Native libs shipped in the APK are allowed only by exact name.
+        // APK/AAR packaged native libraries.
         if (mappedPath.find(nativeDir + "/") == 0) {
             if (!isAllowedPackagedLibName(baseName(mappedPath))) {
                 return false;
@@ -220,13 +302,19 @@ static bool verifyProcessMaps(
             continue;
         }
 
-        // The only runtime-downloaded native library allowed in this process.
+        // Host-downloaded trusted game/runtime loader.
         if (mappedPath == trustedServerLoader) {
             continue;
         }
 
-        // Any other shared object mapped from our private files/data area is rejected.
-        if (mappedPath.find(filesDir + "/") == 0) {
+        // KESHAVXOWNER AAR explicitly loads only this SDK runtime artifact.
+        if (mappedPath == trustedSdkRuntime) {
+            continue;
+        }
+
+        // Any other shared object mapped from app-private runtime storage is rejected.
+        if (mappedPath.find(filesDir + "/") == 0
+                || mappedPath.find(noBackupDir + "/") == 0) {
             return false;
         }
 
@@ -320,12 +408,20 @@ bool run(JNIEnv *env, jobject context) {
             env,
             context,
             oxorany("getFilesDir"));
+    const std::string noBackupDir = getJavaFilePath(
+            env,
+            context,
+            oxorany("getNoBackupFilesDir"));
 
     if (!verifyNativeDirectory(nativeDir)) {
         return false;
     }
 
-    if (!verifyProcessMaps(nativeDir, filesDir)) {
+    if (!verifySdkArtifactDirectory(noBackupDir)) {
+        return false;
+    }
+
+    if (!verifyProcessMaps(nativeDir, filesDir, noBackupDir)) {
         return false;
     }
 
@@ -335,11 +431,12 @@ bool run(JNIEnv *env, jobject context) {
      * ============================================================
      * Put your private integrity code below.
      *
-     * Built-in checks above already enforce:
-     * - exact packaged native library allowlist
-     * - exact server-loader path exception
-     * - common runtime instrumentation markers
-     * - rejection of other private/external/temp mapped .so files
+     * Built-in checks above enforce:
+     * - libKeshavLoader + KESHAVXOWNERCore packaged allowlist
+     * - exact encrypted-bound files/loader/libbgmi.so exception
+     * - exact KESHAVXOWNER SDK no_backup/native runtime compatibility
+     * - owner-only/ELF checks for SDK-staged native artifacts
+     * - rejection of other app-private/external/temp mapped .so files
      *
      * return true  -> integrity accepted
      * return false -> stylish integrity dialog + safe shutdown
