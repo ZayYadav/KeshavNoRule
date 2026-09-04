@@ -2,7 +2,7 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := akshit
+LOCAL_MODULE := KeshavOwner
 
 LOCAL_CFLAGS := -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -w -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fno-ident
 LOCAL_CFLAGS += -fno-rtti -fno-exceptions -fpermissive
