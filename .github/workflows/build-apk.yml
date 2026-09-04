@@ -61,7 +61,7 @@ jobs:
 
           echo "APK: $APK"
           echo "Verifying signing certificate..."
-          CERT_OUT="$(apksigner verify --verbose --print-certs "$APK")"
+          CERT_OUT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK")"
           echo "$CERT_OUT"
           NORMALIZED_CERTS="$(printf '%s' "$CERT_OUT" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
           echo "$NORMALIZED_CERTS" | grep -q "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e"
