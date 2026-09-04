@@ -46,6 +46,9 @@ import org.lsposed.lsparanoid.Obfuscate;
 
 @Obfuscate
 public class KeshavOwner2 extends AppCompatActivity {
+    private final Handler securityHandler = new Handler(Looper.getMainLooper());
+    private Runnable securityGuard;
+
 
     private static final boolean NATIVE_READY;
 
@@ -84,18 +87,19 @@ public class KeshavOwner2 extends AppCompatActivity {
         // Security: prevent screenshots/recording of license UI and fail closed under an attached debugger.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
-            finishAndRemoveTask();
+            KeshavOwner9.showIntegrityFailure(this,
+                    "Debugger or runtime instrumentation was detected.");
             return;
         }
 
         if (!KeshavOwner8.verify(this)) {
-            Toast.makeText(this, "Security validation failed", Toast.LENGTH_LONG).show();
-            finishAffinity();
+            KeshavOwner9.showIntegrityFailure(this,
+                    "APK signature, package, native library, or loader integrity validation failed.");
             return;
         }
         if (!NATIVE_READY) {
-            Toast.makeText(this, "Security engine could not start", Toast.LENGTH_LONG).show();
-            finishAffinity();
+            KeshavOwner9.showIntegrityFailure(this,
+                    "The native security engine could not be initialized safely.");
             return;
         }
 
@@ -107,8 +111,8 @@ public class KeshavOwner2 extends AppCompatActivity {
         }
 
         if (!integrityOk) {
-            Toast.makeText(this, "Integrity check failed", Toast.LENGTH_LONG).show();
-            finishAffinity();
+            KeshavOwner9.showIntegrityFailure(this,
+                    "Native integrity validation rejected the current runtime.");
             return;
         }
 
@@ -122,6 +126,8 @@ public class KeshavOwner2 extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_login);
+
+        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
 
         prefs = new KeshavOwner6(this);
         checkAndRequestPermissions();
@@ -396,4 +402,13 @@ public class KeshavOwner2 extends AppCompatActivity {
 
     private static native String Check(Context mContext, String userKey);
     private native String GetKey();
+
+    @Override
+    protected void onDestroy() {
+        try {
+            securityHandler.removeCallbacksAndMessages(null);
+        } catch (Throwable ignored) {}
+        super.onDestroy();
+    }
+
 }
