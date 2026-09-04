@@ -333,8 +333,8 @@ public class KeshavOwner2 extends AppCompatActivity {
                 // Play Success Fanfare Chime
                 KeshavOwner7.getInstance().playSuccess();
 
-                // Do not copy the license back to the system clipboard after authentication.
-                startDownload(m_Context);
+                // Wait for the asynchronous KESHAVXOWNER SDK/native lease before continuing.
+                continueWhenSdkReady(m_Context);
             } else if (msg.what == 1) {
                 // Play Error Buzz
                 KeshavOwner7.getInstance().playError();
@@ -362,31 +362,113 @@ public class KeshavOwner2 extends AppCompatActivity {
         }, "KeshavLoginAuth").start();
     }
 
+    private void continueWhenSdkReady(Context m_Context) {
+        showLoadingDialog("Finalizing SDK Session...", false);
+
+        new Thread(() -> {
+            boolean ready = false;
+
+            try {
+                // Activation is asynchronous inside the AAR. Poll the real activated state
+                // instead of assuming activateSdk() completed when the method returned.
+                for (int attempt = 0; attempt < 40; attempt++) {
+                    if (KeshavOwner1.refreshSdkReady()) {
+                        ready = true;
+                        break;
+                    }
+
+                    // Re-request once in case Application startup raced the network.
+                    if (attempt == 8) {
+                        KeshavOwner1.requestSdkActivation();
+                    }
+
+                    try {
+                        Thread.sleep(500L);
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            } catch (Throwable ignored) {
+                ready = false;
+            }
+
+            final boolean sdkReady = ready;
+            runOnUiThread(() -> {
+                if (isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+                    return;
+                }
+
+                dismissLoadingDialog();
+
+                if (!sdkReady) {
+                    showLoadingDialog(
+                            "SDK activation is not ready. Check panel access/network and try again.",
+                            true);
+                    return;
+                }
+
+                startDownload(m_Context);
+            });
+        }, "KeshavSdkReady").start();
+    }
+
     private void startDownload(Context m_Context) {
         showLoadingDialog("Checking Security Assets...", false);
 
         KeshavOwner5 task = new KeshavOwner5(KeshavOwner2.this, success -> {
-            dismissLoadingDialog();
+            try {
+                if (isFinishing()
+                        || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+                    return;
+                }
 
-            if (!success) {
-                KeshavOwner9.showIntegrityFailure(
-                        KeshavOwner2.this,
-                        "The trusted server loader could not be verified or securely bound.");
-                return;
+                dismissLoadingDialog();
+
+                if (!success) {
+                    showLoadingDialog(
+                            "Trusted server loader download/verification failed. Please retry.",
+                            true);
+                    return;
+                }
+
+                if (!KeshavOwner1.refreshSdkReady()) {
+                    showLoadingDialog(
+                            "SDK session expired or was not ready after download. Please retry.",
+                            true);
+                    return;
+                }
+
+                if (!KeshavOwner8.verify(KeshavOwner2.this)) {
+                    KeshavOwner9.showIntegrityFailure(
+                            KeshavOwner2.this,
+                            "The downloaded loader failed path, signature, or encrypted fingerprint validation.");
+                    return;
+                }
+
+                boolean nativeOk = false;
+                try {
+                    nativeOk = nativeVerifySignature(KeshavOwner2.this)
+                            && nativeCustomIntegrity(KeshavOwner2.this);
+                } catch (Throwable ignored) {
+                    nativeOk = false;
+                }
+
+                if (!nativeOk) {
+                    KeshavOwner9.showIntegrityFailure(
+                            KeshavOwner2.this,
+                            "Native validation rejected the final loader session.");
+                    return;
+                }
+
+                safeOpenDashboard(m_Context);
+            } catch (Throwable ignored) {
+                if (!isFinishing()) {
+                    showLoadingDialog(
+                            "Continue failed safely. Please retry instead of restarting the app.",
+                            true);
+                }
             }
-
-            if (!KeshavOwner8.verify(KeshavOwner2.this)) {
-                KeshavOwner9.showIntegrityFailure(
-                        KeshavOwner2.this,
-                        "The downloaded loader failed path, signature, or encrypted fingerprint validation.");
-                return;
-            }
-
-            Intent i = new Intent(m_Context, KeshavOwner3.class);
-            i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            m_Context.startActivity(i);
-            overridePendingTransition(R.anim.anim_slide_in_right, R.anim.anim_slide_out_left);
-            finish();
         });
 
         task.setProgressListener(progress -> runOnUiThread(() -> {
@@ -413,7 +495,41 @@ public class KeshavOwner2 extends AppCompatActivity {
         }
     }
 
+    private void safeOpenDashboard(Context context) {
+        try {
+            if (isFinishing()
+                    || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+                return;
+            }
+
+            Intent intent = new Intent(KeshavOwner2.this, KeshavOwner3.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+            startActivity(intent);
+
+            try {
+                overridePendingTransition(R.anim.anim_slide_in_right, R.anim.anim_slide_out_left);
+            } catch (Throwable ignored) {}
+
+            try {
+                dismissLoadingDialog();
+            } catch (Throwable ignored) {}
+
+            finish();
+        } catch (Throwable ignored) {
+            showLoadingDialog(
+                    "Dashboard could not be opened safely. Please retry.",
+                    true);
+        }
+    }
+
     private void showLoadingDialog(String message, boolean isError) {
+        if (isFinishing()
+                || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+            return;
+        }
+
+        try {
         if (loadingDialog == null) {
             loadingDialog = new Dialog(this);
             loadingDialog.setContentView(R.layout.ios_loading);
@@ -441,12 +557,17 @@ public class KeshavOwner2 extends AppCompatActivity {
         }
 
         loadingDialog.show();
+        } catch (Throwable ignored) {
+            // Never terminate the process because a dialog/window token is unavailable.
+        }
     }
 
     private void dismissLoadingDialog() {
-        if (loadingDialog != null && loadingDialog.isShowing()) {
-            loadingDialog.dismiss();
-        }
+        try {
+            if (loadingDialog != null && loadingDialog.isShowing()) {
+                loadingDialog.dismiss();
+            }
+        } catch (Throwable ignored) {}
     }
 
     private static native String Check(Context mContext, String userKey);
