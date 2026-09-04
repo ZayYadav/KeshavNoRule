@@ -7,6 +7,7 @@
 -keepnames class com.bgmi.utils.KeshavOwner5
 -keepnames class com.bgmi.utils.KeshavOwner6
 -keepnames class com.bgmi.utils.KeshavOwner7
+-keepnames class com.bgmi.KeshavOwner8
 
 # Preserve JNI method names/descriptors while allowing normal R8 optimization elsewhere.
 -keepclasseswithmembernames,includedescriptorclasses class * {
