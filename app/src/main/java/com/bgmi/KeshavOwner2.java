@@ -80,7 +80,7 @@ public class KeshavOwner2 extends AppCompatActivity {
             finishAndRemoveTask();
             return;
         }
-        if (!nativeCustomIntegrity(this)) {
+        if (!nativeVerifySignature(this) || !nativeCustomIntegrity(this)) {
             Toast.makeText(this, "Integrity check failed", Toast.LENGTH_LONG).show();
             finishAffinity();
             return;
@@ -267,12 +267,7 @@ public class KeshavOwner2 extends AppCompatActivity {
                 // Play Success Fanfare Chime
                 KeshavOwner7.getInstance().playSuccess();
 
-                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                ClipData clip = ClipData.newPlainText("UserKey", userKey);
-                if (clipboard != null) {
-                    clipboard.setPrimaryClip(clip);
-                }
-
+                // Do not copy the license back to the system clipboard after authentication.
                 startDownload(m_Context);
             } else if (msg.what == 1) {
                 // Play Error Buzz
