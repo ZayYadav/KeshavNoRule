@@ -25,6 +25,16 @@ public class KeshavOwner1 extends Application {
     
     public static native String getSdkKey();
     private static final String TAG = "KeshavOwner1";
+    private static volatile boolean CORE_READY = false;
+    private static volatile String STARTUP_ERROR = "";
+
+    public static boolean isCoreReady() {
+        return CORE_READY;
+    }
+
+    public static String getStartupError() {
+        return STARTUP_ERROR;
+    }
     
     @Override
     protected void attachBaseContext(Context base) {
@@ -50,21 +60,36 @@ public class KeshavOwner1 extends Application {
                     return false;
                 }
             });
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Throwable ignored) {
+            CORE_READY = false;
+            STARTUP_ERROR = "Core attach failed";
         }
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        // Initialize BlackBoxCore
-        BlackBoxCore.get().doCreate();
+
+        CORE_READY = false;
+        STARTUP_ERROR = "";
+
         try {
-            // Updated SDK activation key
+            BlackBoxCore.get().doCreate();
+            CORE_READY = true;
+        } catch (Throwable ignored) {
+            CORE_READY = false;
+            STARTUP_ERROR = "Runtime core initialization failed";
+        }
+
+        if (!CORE_READY) {
+            return;
+        }
+
+        try {
             MetaActivationManager.activateSdk("KESHAVFRIEND");
-        } catch (Exception exception) {
-            exception.printStackTrace();
+        } catch (Throwable ignored) {
+            CORE_READY = false;
+            STARTUP_ERROR = "SDK activation initialization failed";
         }
     }
 }
