@@ -46,3 +46,18 @@ must return `true` to allow the login activity to continue.
 ## Important
 
 No client-side Android application can be made literally unextractable or permanently uncrackable. The goal here is layered hardening while keeping the existing panel/API flow compatible.
+
+
+## KESHAVXOWNER SDK runtime compatibility
+
+The host integrity guard recognizes the SDK's legitimate native load flow:
+
+- Packaged AAR core: `libKESHAVXOWNERCore.so`
+- SDK runtime artifact: `noBackupFilesDir/native/KESHAVXOWNER.so`
+- SDK-staged optional artifacts: `libpubgm.so` and `libkorea.so` may exist in the same private SDK directory
+- Only `KESHAVXOWNER.so` is allowed to map into the host process from that SDK directory
+- Unknown sibling `.so` files are rejected
+- SDK artifacts must be regular owner-owned ELF files with no group/world permissions
+- The host server loader remains separately restricted to `files/loader/libbgmi.so` with encrypted Java binding plus native SHA-256 verification
+
+These checks are compatibility-aware and fail closed through the app's non-crashing integrity dialog.
