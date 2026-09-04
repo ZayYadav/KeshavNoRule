@@ -77,6 +77,10 @@ public class KeshavOwner2 extends AppCompatActivity {
 
     public static native boolean nativeVerifySignature(Context context);
     public static native boolean nativeCustomIntegrity(Context context);
+    public static native boolean nativeVerifyServerLoader(
+            Context context,
+            String expectedHash,
+            long expectedSize);
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
