@@ -236,83 +236,181 @@ std::string CalcSHA256(std::string s) {
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_bgmi_LogAct_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring mUserKey) {
-    auto user_key = env->GetStringUTFChars(mUserKey, 0);
+    // Always reset auth state for every login attempt. Otherwise a previous
+    // successful login could incorrectly keep bValid=true after a later failure.
+    bValid = false;
+    g_Token.clear();
+    g_Auth.clear();
+    Enc.clear();
+    exdate = oxorany("NULL");
+    rng = 0;
+    ZENINOP[0] = '\0';
+
+    if (mUserKey == nullptr || mContext == nullptr) {
+        return env->NewStringUTF("Bad Parameter");
+    }
+
+    const char *user_key = env->GetStringUTFChars(mUserKey, nullptr);
+    if (user_key == nullptr || strlen(user_key) == 0) {
+        if (user_key != nullptr) {
+            env->ReleaseStringUTFChars(mUserKey, user_key);
+        }
+        return env->NewStringUTF("Bad Parameter");
+    }
+
     std::string hwid = user_key;
     hwid += GetAndroidID(env, mContext);
     hwid += GetDeviceModel(env);
     hwid += GetDeviceBrand(env);
     std::string UUID = GetDeviceUniqueIdentifier(env, hwid.c_str());
-    std::string errMsg;
+
+    std::string errMsg = "Authentication failed";
     struct MemoryStruct chunk{};
     chunk.memory = (char *) malloc(1);
     chunk.size = 0;
 
-    CURL *curl;
-    CURLcode res;
-    curl = curl_easy_init();
+    CURL *curl = curl_easy_init();
+    struct curl_slist *headers = nullptr;
+
     if (curl) {
-        char lol[1000];
-      sprintf(lol,oxorany("https://norule.ghostpanel.in/connect")); 
-//curl_easy_setopt(curl, CURLOPT_PINNEDPUBLICKEY, "sha256//GTU9ERwe4/HG4/aaPnNNFI9H4mhLyXXr05FsbO/2KSM=");
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST");
-        curl_easy_setopt(curl, CURLOPT_URL, lol);
-        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
-        curl_easy_setopt(curl, CURLOPT_DEFAULT_PROTOCOL, "https");
-        struct curl_slist *headers = NULL;
+        const char *url = oxorany("https://norule.ghostpanel.in/connect");
+
+        char *escapedKey = curl_easy_escape(curl, user_key, 0);
+        char *escapedSerial = curl_easy_escape(curl, UUID.c_str(), 0);
+
+        std::string postData = "game=PUBG&user_key=";
+        postData += escapedKey ? escapedKey : "";
+        postData += "&serial=";
+        postData += escapedSerial ? escapedSerial : "";
+
+        if (escapedKey) curl_free(escapedKey);
+        if (escapedSerial) curl_free(escapedSerial);
+
         headers = curl_slist_append(headers, "Accept: application/json");
-        headers = curl_slist_append(headers,"Content-Type: application/x-www-form-urlencoded");
+        headers = curl_slist_append(headers, "Content-Type: application/x-www-form-urlencoded");
         headers = curl_slist_append(headers, "Charset: UTF-8");
+
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_POST, 1L);
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postData.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long) postData.size());
+        curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        char data[4096];
-        sprintf(data, "game=PUBG&user_key=%s&serial=%s", user_key, UUID.c_str());
-        curl_easy_setopt(curl, CURLOPT_POST, 1);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *) &chunk);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYSTATUS, 0);
-        curl_easy_setopt(curl, CURLOPT_USERAGENT, "");
-        
-        res = curl_easy_perform(curl);
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 15L);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 25L);
+        curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+
+        // Kept compatible with the project's bundled legacy curl/OpenSSL setup.
+        // Prefer proper CA verification/pinning once the bundled CA strategy is updated.
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYSTATUS, 0L);
+
+        CURLcode res = curl_easy_perform(curl);
+
         if (res == CURLE_OK) {
-            try {
-                json result = json::parse(chunk.memory);
-                auto STATUS = std::string{"status"};
-                if (result[STATUS] == true) {
-                    std::string token = result["data"]["token"].get<std::string>();
-  					Enc = result["data"]["Enc"].get<std::string>();
-                    exdate = result["data"]["EXP"].get<std::string>();
-                    rng = result["data"]["rng"].get<time_t>();
-                    if (rng + 30 > time(0)) {
-                        std::string auth = "PUBG";
-                        auth += "-";
-                        auth += user_key;
-                        auth += "-";
-                        auth += UUID;
-                        auth += "-";
-                        std::string license = oxorany("Vm8Lk7Uj2JmsjCPVPVjrLa7zgfx3uz9E");
-                        auth += license.c_str();
-                        std::string outputAuth = CalcMD5(auth);
-                        g_Token = token;
-                        g_Auth = outputAuth;
-                        bValid = g_Token == g_Auth;
-                        if (bValid) {
-                        		strcpy(ZENINOP, Enc.c_str());
-                            printf(oxorany("Login Success \n"));
+            long httpCode = 0;
+            curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
+
+            if (httpCode < 200 || httpCode >= 300) {
+                errMsg = "Server HTTP " + std::to_string(httpCode);
+            } else {
+                try {
+                    json result = json::parse(chunk.memory ? chunk.memory : "");
+
+                    const bool status = result.contains("status")
+                                        && result["status"].is_boolean()
+                                        && result["status"].get<bool>();
+
+                    if (!status) {
+                        if (result.contains("reason") && result["reason"].is_string()) {
+                            errMsg = result["reason"].get<std::string>();
+                        } else {
+                            errMsg = "Access denied";
+                        }
+                    } else if (!result.contains("data") || !result["data"].is_object()) {
+                        // Connect.php returns status=true + reason during maintenance.
+                        if (result.contains("reason") && result["reason"].is_string()) {
+                            errMsg = result["reason"].get<std::string>();
+                        } else {
+                            errMsg = "Server response missing data";
+                        }
+                    } else {
+                        const json &data = result["data"];
+
+                        if (!data.contains("token") || !data["token"].is_string()) {
+                            errMsg = "Invalid server token";
+                        } else if (!data.contains("rng") || !data["rng"].is_number_integer()) {
+                            errMsg = "Invalid server time";
+                        } else {
+                            std::string token = data["token"].get<std::string>();
+                            rng = data["rng"].get<time_t>();
+
+                            // Connect.php does not provide Enc, so it is optional.
+                            if (data.contains("Enc") && data["Enc"].is_string()) {
+                                Enc = data["Enc"].get<std::string>();
+                                strncpy(ZENINOP, Enc.c_str(), sizeof(ZENINOP) - 1);
+                                ZENINOP[sizeof(ZENINOP) - 1] = '\0';
+                            }
+
+                            // Prefer the DB expiry string exposed by Connect.php.
+                            if (data.contains("expired_date") && data["expired_date"].is_string()) {
+                                exdate = data["expired_date"].get<std::string>();
+                            } else if (data.contains("exdate") && data["exdate"].is_string()) {
+                                exdate = data["exdate"].get<std::string>();
+                            } else if (data.contains("EXP") && data["EXP"].is_string()) {
+                                exdate = data["EXP"].get<std::string>();
+                            }
+
+                            const time_t now = time(nullptr);
+                            if (rng < now - 60 || rng > now + 60) {
+                                errMsg = "Server time mismatch";
+                            } else {
+                                std::string auth = "PUBG";
+                                auth += "-";
+                                auth += user_key;
+                                auth += "-";
+                                auth += UUID;
+                                auth += "-";
+                                auth += oxorany("Vm8Lk7Uj2JmsjCPVPVjrLa7zgfx3uz9E");
+
+                                g_Token = token;
+                                g_Auth = CalcMD5(auth);
+                                bValid = (g_Token == g_Auth);
+
+                                if (bValid) {
+                                    errMsg.clear();
+                                } else {
+                                    errMsg = "Token verification failed";
+                                }
+                            }
                         }
                     }
-                } else {
-                    auto REASON = std::string{"reason"};
-                    errMsg = result[REASON].get<std::string>();
+                } catch (const json::exception &e) {
+                    errMsg = std::string("Invalid server response: ") + e.what();
+                } catch (const std::exception &e) {
+                    errMsg = e.what();
                 }
-            } catch (json::exception &e) {
-                errMsg = e.what();
             }
         } else {
             errMsg = curl_easy_strerror(res);
         }
+    } else {
+        errMsg = "Network initialization failed";
     }
-    curl_easy_cleanup(curl);
+
+    if (headers) {
+        curl_slist_free_all(headers);
+    }
+    if (curl) {
+        curl_easy_cleanup(curl);
+    }
+    if (chunk.memory) {
+        free(chunk.memory);
+    }
+
+    env->ReleaseStringUTFChars(mUserKey, user_key);
     return bValid ? env->NewStringUTF("OK") : env->NewStringUTF(errMsg.c_str());
 }
