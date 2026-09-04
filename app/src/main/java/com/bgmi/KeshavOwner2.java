@@ -87,6 +87,12 @@ public class KeshavOwner2 extends AppCompatActivity {
             finishAndRemoveTask();
             return;
         }
+
+        if (!KeshavOwner8.verify(this)) {
+            Toast.makeText(this, "Security validation failed", Toast.LENGTH_LONG).show();
+            finishAffinity();
+            return;
+        }
         if (!NATIVE_READY) {
             Toast.makeText(this, "Security engine could not start", Toast.LENGTH_LONG).show();
             finishAffinity();
