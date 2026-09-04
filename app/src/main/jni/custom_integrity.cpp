@@ -1,4 +1,6 @@
 #include "custom_integrity.h"
+#include "oxorany.h"
+
 #include <android/log.h>
 #include <dirent.h>
 #include <fstream>
@@ -9,8 +11,67 @@
 
 namespace {
 
-static bool isAllowedLibName(const std::string &name) {
-    return name == "libKeshavOwner.so" || name == "libKESHAVXOWNERCore.so";
+static bool endsWith(const std::string &value, const std::string &suffix) {
+    if (value.size() < suffix.size()) return false;
+    return value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+static std::string baseName(const std::string &path) {
+    const auto slash = path.find_last_of('/');
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
+static bool isAllowedPackagedLibName(const std::string &name) {
+    return name == std::string(oxorany("libKeshavOwner.so"))
+        || name == std::string(oxorany("libKESHAVXOWNERCore.so"));
+}
+
+static std::string getJavaFilePath(
+        JNIEnv *env,
+        jobject context,
+        const char *contextMethodName) {
+
+    if (!env || !context || !contextMethodName) return {};
+
+    jclass contextClass = env->GetObjectClass(context);
+    if (!contextClass) return {};
+
+    jmethodID method = env->GetMethodID(
+            contextClass,
+            contextMethodName,
+            "()Ljava/io/File;");
+    if (!method) return {};
+
+    jobject fileObj = env->CallObjectMethod(context, method);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return {};
+    }
+    if (!fileObj) return {};
+
+    jclass fileClass = env->GetObjectClass(fileObj);
+    if (!fileClass) return {};
+
+    jmethodID canonicalMethod = env->GetMethodID(
+            fileClass,
+            "getCanonicalPath",
+            "()Ljava/lang/String;");
+    if (!canonicalMethod) return {};
+
+    auto pathString = static_cast<jstring>(
+            env->CallObjectMethod(fileObj, canonicalMethod));
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        return {};
+    }
+    if (!pathString) return {};
+
+    const char *chars = env->GetStringUTFChars(pathString, nullptr);
+    if (!chars) return {};
+
+    std::string result(chars);
+    env->ReleaseStringUTFChars(pathString, chars);
+    return result;
 }
 
 static std::string getNativeLibraryDir(JNIEnv *env, jobject context) {
@@ -26,10 +87,11 @@ static std::string getNativeLibraryDir(JNIEnv *env, jobject context) {
     if (!getApplicationInfo) return {};
 
     jobject appInfo = env->CallObjectMethod(context, getApplicationInfo);
-    if (!appInfo || env->ExceptionCheck()) {
+    if (env->ExceptionCheck()) {
         env->ExceptionClear();
         return {};
     }
+    if (!appInfo) return {};
 
     jclass appInfoClass = env->GetObjectClass(appInfo);
     if (!appInfoClass) return {};
@@ -67,15 +129,15 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
 
         std::string name(entry->d_name);
         if (name == "." || name == "..") continue;
-        if (name.size() < 3 || name.rfind(".so") != name.size() - 3) continue;
+        if (!endsWith(name, std::string(oxorany(".so")))) continue;
 
-        if (!isAllowedLibName(name)) {
+        if (!isAllowedPackagedLibName(name)) {
             ok = false;
             break;
         }
 
-        if (name == "libKeshavOwner.so") foundOwner = true;
-        if (name == "libKESHAVXOWNERCore.so") foundCore = true;
+        if (name == std::string(oxorany("libKeshavOwner.so"))) foundOwner = true;
+        if (name == std::string(oxorany("libKESHAVXOWNERCore.so"))) foundCore = true;
     }
 
     closedir(dir);
@@ -83,51 +145,94 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
 }
 
 static std::string lowerCopy(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(),
-                   [](unsigned char c) { return static_cast<char>(::tolower(c)); });
+    std::transform(
+            value.begin(),
+            value.end(),
+            value.begin(),
+            [](unsigned char c) {
+                return static_cast<char>(::tolower(c));
+            });
     return value;
 }
 
-static bool verifyProcessMaps(const std::string &nativeDir) {
-    std::ifstream maps("/proc/self/maps");
+static std::string mappedPathFromLine(const std::string &line) {
+    const auto slash = line.find('/');
+    if (slash == std::string::npos) return {};
+
+    std::string path = line.substr(slash);
+
+    const auto deleted = path.find(std::string(oxorany(" (deleted)")));
+    if (deleted != std::string::npos) {
+        path = path.substr(0, deleted);
+    }
+
+    return path;
+}
+
+static bool containsSuspiciousRuntimeMarker(const std::string &lower) {
+    return lower.find(std::string(oxorany("frida"))) != std::string::npos
+        || lower.find(std::string(oxorany("gadget"))) != std::string::npos
+        || lower.find(std::string(oxorany("substrate"))) != std::string::npos
+        || lower.find(std::string(oxorany("xposed"))) != std::string::npos
+        || lower.find(std::string(oxorany("lsposed"))) != std::string::npos;
+}
+
+static bool verifyProcessMaps(
+        const std::string &nativeDir,
+        const std::string &filesDir) {
+
+    if (nativeDir.empty() || filesDir.empty()) return false;
+
+    const std::string trustedServerLoader =
+            filesDir
+            + std::string(oxorany("/loader/"))
+            + std::string(oxorany("libbgmi.so"));
+
+    std::ifstream maps(std::string(oxorany("/proc/self/maps")));
     if (!maps.is_open()) return false;
 
     std::string line;
+
     while (std::getline(maps, line)) {
         std::string lower = lowerCopy(line);
 
-        // Common dynamic instrumentation / hook frameworks.
-        if (lower.find("frida") != std::string::npos ||
-            lower.find("gadget") != std::string::npos ||
-            lower.find("substrate") != std::string::npos ||
-            lower.find("xposed") != std::string::npos ||
-            lower.find("lsposed") != std::string::npos) {
+        if (containsSuspiciousRuntimeMarker(lower)) {
             return false;
         }
 
-        // Reject an unexpected shared library loaded from this app's native directory.
-        if (!nativeDir.empty() &&
-            line.find(nativeDir) != std::string::npos &&
-            lower.find(".so") != std::string::npos) {
-
-            const auto slash = line.find_last_of('/');
-            if (slash != std::string::npos) {
-                std::string base = line.substr(slash + 1);
-                const auto space = base.find(' ');
-                if (space != std::string::npos) base = base.substr(0, space);
-                const auto deleted = base.find(" (deleted)");
-                if (deleted != std::string::npos) base = base.substr(0, deleted);
-
-                if (!isAllowedLibName(base)) {
-                    return false;
-                }
-            }
+        if (lower.find(std::string(oxorany(".so"))) == std::string::npos) {
+            continue;
         }
 
-        // App-private injected library from common temporary locations.
-        if ((lower.find("/data/local/tmp/") != std::string::npos ||
-             lower.find("/dev/shm/") != std::string::npos) &&
-            lower.find(".so") != std::string::npos) {
+        std::string mappedPath = mappedPathFromLine(line);
+        if (mappedPath.empty()) {
+            continue;
+        }
+
+        // Native libs shipped in the APK are allowed only by exact name.
+        if (mappedPath.find(nativeDir + "/") == 0) {
+            if (!isAllowedPackagedLibName(baseName(mappedPath))) {
+                return false;
+            }
+            continue;
+        }
+
+        // The only runtime-downloaded native library allowed in this process.
+        if (mappedPath == trustedServerLoader) {
+            continue;
+        }
+
+        // Any other shared object mapped from our private files/data area is rejected.
+        if (mappedPath.find(filesDir + "/") == 0) {
+            return false;
+        }
+
+        // Reject typical external/temp injection locations.
+        const std::string lowerPath = lowerCopy(mappedPath);
+        if (lowerPath.find(std::string(oxorany("/data/local/tmp/"))) == 0
+            || lowerPath.find(std::string(oxorany("/dev/shm/"))) == 0
+            || lowerPath.find(std::string(oxorany("/sdcard/"))) == 0
+            || lowerPath.find(std::string(oxorany("/storage/emulated/"))) == 0) {
             return false;
         }
     }
@@ -145,11 +250,16 @@ bool run(JNIEnv *env, jobject context) {
     }
 
     const std::string nativeDir = getNativeLibraryDir(env, context);
+    const std::string filesDir = getJavaFilePath(
+            env,
+            context,
+            oxorany("getFilesDir"));
+
     if (!verifyNativeDirectory(nativeDir)) {
         return false;
     }
 
-    if (!verifyProcessMaps(nativeDir)) {
+    if (!verifyProcessMaps(nativeDir, filesDir)) {
         return false;
     }
 
@@ -157,14 +267,16 @@ bool run(JNIEnv *env, jobject context) {
      * ============================================================
      * KESHAV CUSTOM INTEGRITY ZONE
      * ============================================================
-     * Add your own app-integrity checks below.
+     * Put your private integrity code below.
      *
-     * Contract:
-     *   return true  -> integrity accepted
-     *   return false -> loader closes before showing login
+     * Built-in checks above already enforce:
+     * - exact packaged native library allowlist
+     * - exact server-loader path exception
+     * - common runtime instrumentation markers
+     * - rejection of other private/external/temp mapped .so files
      *
-     * Built-in signature/repack/native-injection checks run above.
-     * Keep your private checks self-contained in this function.
+     * return true  -> integrity accepted
+     * return false -> stylish integrity dialog + safe shutdown
      * ============================================================
      */
 
