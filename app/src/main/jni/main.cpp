@@ -273,7 +273,7 @@ Java_com_bgmi_LogAct_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring 
     struct curl_slist *headers = nullptr;
 
     if (curl) {
-        const char *url = oxorany("https://norule.ghostpanel.in/connect");
+        const char *url = oxorany("https://jaduloader.parallaxserver.online/connect");
 
         char *escapedKey = curl_easy_escape(curl, user_key, 0);
         char *escapedSerial = curl_easy_escape(curl, UUID.c_str(), 0);
