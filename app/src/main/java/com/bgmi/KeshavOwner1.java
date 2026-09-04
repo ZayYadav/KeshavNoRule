@@ -25,6 +25,7 @@ public class KeshavOwner1 extends Application {
     
     public static native String getSdkKey();
     private static final String TAG = "KeshavOwner1";
+    private static volatile boolean ATTACH_READY = false;
     private static volatile boolean CORE_READY = false;
     private static volatile String STARTUP_ERROR = "";
 
@@ -60,7 +61,9 @@ public class KeshavOwner1 extends Application {
                     return false;
                 }
             });
+            ATTACH_READY = true;
         } catch (Throwable ignored) {
+            ATTACH_READY = false;
             CORE_READY = false;
             STARTUP_ERROR = "Core attach failed";
         }
@@ -71,6 +74,14 @@ public class KeshavOwner1 extends Application {
         super.onCreate();
 
         CORE_READY = false;
+
+        if (!ATTACH_READY) {
+            if (STARTUP_ERROR == null || STARTUP_ERROR.isEmpty()) {
+                STARTUP_ERROR = "Core attach failed";
+            }
+            return;
+        }
+
         STARTUP_ERROR = "";
 
         try {
