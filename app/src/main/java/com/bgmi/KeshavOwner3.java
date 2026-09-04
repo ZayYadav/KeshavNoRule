@@ -185,23 +185,50 @@ public class KeshavOwner3 extends AppCompatActivity {
     }
 
     private void handleStart() {
-        if (BlackBoxCore.get() == null) {
-            KeshavOwner7.getInstance().playError();
-            Toast.makeText(this, "Core is null!", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (!BlackBoxCore.get().isInstalled(PKG_BGMI, USER_ID)) {
-            Toast.makeText(this, "Installing BGMI in Virtual Space...", Toast.LENGTH_SHORT).show();
-            InstallResult res = BlackBoxCore.get().installPackageAsUser(PKG_BGMI, USER_ID);
-            if (res.success) {
-                forceAutoCopyObb();
-            } else {
-                KeshavOwner7.getInstance().playError();
-                Toast.makeText(this, "Install Failed: " + res.msg, Toast.LENGTH_SHORT).show();
+        try {
+            if (isFinishing()
+                    || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed())) {
+                return;
             }
-        } else {
-            forceAutoCopyObb();
+
+            if (!KeshavOwner1.refreshSdkReady()) {
+                Toast.makeText(
+                        this,
+                        "SDK session is not ready. Re-open the loader and try again.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
+
+            if (BlackBoxCore.get() == null) {
+                KeshavOwner7.getInstance().playError();
+                Toast.makeText(this, "Core is not ready.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (!BlackBoxCore.get().isInstalled(PKG_BGMI, USER_ID)) {
+                Toast.makeText(this, "Installing BGMI in Virtual Space...", Toast.LENGTH_SHORT).show();
+                InstallResult res = BlackBoxCore.get().installPackageAsUser(PKG_BGMI, USER_ID);
+                if (res != null && res.success) {
+                    forceAutoCopyObb();
+                } else {
+                    KeshavOwner7.getInstance().playError();
+                    String detail = res == null ? "Unknown install error" : res.msg;
+                    Toast.makeText(this, "Install Failed: " + detail, Toast.LENGTH_LONG).show();
+                }
+            } else {
+                forceAutoCopyObb();
+            }
+        } catch (Throwable error) {
+            try {
+                KeshavOwner7.getInstance().playError();
+                String detail = error.getMessage();
+                Toast.makeText(
+                        this,
+                        detail == null || detail.trim().isEmpty()
+                                ? "Virtual core operation failed safely."
+                                : "Core Error: " + detail,
+                        Toast.LENGTH_LONG).show();
+            } catch (Throwable ignored) {}
         }
     }
 
@@ -271,10 +298,20 @@ public class KeshavOwner3 extends AppCompatActivity {
 
     private void launchGame() {
         try {
+            if (!KeshavOwner1.refreshSdkReady()) {
+                Toast.makeText(this, "SDK session is not ready.", Toast.LENGTH_LONG).show();
+                return;
+            }
             BlackBoxCore.get().launchApk(PKG_BGMI, USER_ID);
         } catch (Throwable e) {
-            KeshavOwner7.getInstance().playError();
-            Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            try {
+                KeshavOwner7.getInstance().playError();
+                String detail = e.getMessage();
+                Toast.makeText(
+                        this,
+                        detail == null ? "Launch failed safely." : "Launch Error: " + detail,
+                        Toast.LENGTH_LONG).show();
+            } catch (Throwable ignored) {}
         }
     }
 
@@ -333,7 +370,12 @@ public class KeshavOwner3 extends AppCompatActivity {
         try {
             securityHandler.removeCallbacksAndMessages(null);
         } catch (Throwable ignored) {}
-        super.onDestroy();
+        try {
+            timerHandler.removeCallbacksAndMessages(null);
+        } catch (Throwable ignored) {}
+        try {
+            super.onDestroy();
+        } catch (Throwable ignored) {}
     }
 
 }
