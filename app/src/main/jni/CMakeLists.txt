@@ -5,8 +5,8 @@ project("akshit")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -Os -w")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -Os -w -fpermissive")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -Os -w -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fno-ident")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=format-security -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -Os -w -fpermissive -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fno-ident")
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -42,5 +42,12 @@ target_link_libraries(akshit
 )
 
 # Unused code strip karne ke liye linker flag (APK size kam)
-target_link_options(akshit PRIVATE -Wl,--gc-sections)
+target_link_options(akshit PRIVATE
+    -Wl,--gc-sections
+    -Wl,--strip-all
+    -Wl,--exclude-libs,ALL
+    -Wl,-z,relro
+    -Wl,-z,now
+    -Wl,--build-id=none
+)
 
