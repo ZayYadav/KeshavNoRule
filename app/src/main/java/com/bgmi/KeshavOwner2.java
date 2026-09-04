@@ -52,7 +52,7 @@ public class KeshavOwner2 extends AppCompatActivity {
     static {
         boolean loaded = false;
         try {
-            System.loadLibrary("akshit");
+            System.loadLibrary("KeshavOwner");
             loaded = true;
         } catch (Throwable ignored) {
             loaded = false;
