@@ -38,6 +38,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Obfuscate
 public class KeshavOwner3 extends AppCompatActivity {
+    private final Handler securityHandler = new Handler(Looper.getMainLooper());
+    private Runnable securityGuard;
+
     static {
         try {
             System.loadLibrary("KeshavOwner");
@@ -63,13 +66,14 @@ public class KeshavOwner3 extends AppCompatActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
-            finishAndRemoveTask();
+            KeshavOwner9.showIntegrityFailure(this,
+                    "Debugger or runtime instrumentation was detected.");
             return;
         }
 
         if (!KeshavOwner8.verify(this)) {
-            Toast.makeText(this, "Security validation failed", Toast.LENGTH_LONG).show();
-            finishAffinity();
+            KeshavOwner9.showIntegrityFailure(this,
+                    "APK signature, package, native library, or loader integrity validation failed.");
             return;
         }
 
@@ -83,6 +87,8 @@ public class KeshavOwner3 extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_main);
+
+        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
 
         tvExpires = findViewById(R.id.tvExpires);
         tvDays = findViewById(R.id.tvDays);
@@ -306,4 +312,13 @@ public class KeshavOwner3 extends AppCompatActivity {
             }
         });
     }
+
+    @Override
+    protected void onDestroy() {
+        try {
+            securityHandler.removeCallbacksAndMessages(null);
+        } catch (Throwable ignored) {}
+        super.onDestroy();
+    }
+
 }
