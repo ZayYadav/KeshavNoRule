@@ -17,7 +17,7 @@ public class KeshavOwner1 extends Application {
 
     static {
         try {
-            System.loadLibrary("KeshavOwner");
+            System.loadLibrary("KeshavLoader");
         } catch (Throwable ignored) {
             // Login activity performs a fail-closed native readiness check.
         }
