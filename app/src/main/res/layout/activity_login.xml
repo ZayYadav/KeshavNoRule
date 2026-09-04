@@ -89,7 +89,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-black"
                         android:letterSpacing="0.10"
-                        android:text="KESHAV OWNER"
+                        android:text="NO RULE LOADER"
                         android:textColor="@color/white"
                         android:textSize="28sp"
                         android:textStyle="bold" />
@@ -295,7 +295,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="KESHAV OWNER SECURITY CORE"
+                    android:text="NO RULE SECURITY CORE"
                     android:textColor="@color/text_muted"
                     android:textSize="10sp"
                     android:textStyle="bold" />
