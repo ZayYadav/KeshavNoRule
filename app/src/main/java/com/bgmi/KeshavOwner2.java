@@ -402,8 +402,9 @@ public class KeshavOwner2 extends AppCompatActivity {
                 dismissLoadingDialog();
 
                 if (!sdkReady) {
+                    String detail = KeshavOwner1.getSdkStatusDetail();
                     showLoadingDialog(
-                            "SDK activation is not ready. Check panel access/network and try again.",
+                            "SDK activation not ready: " + detail,
                             true);
                     return;
                 }
