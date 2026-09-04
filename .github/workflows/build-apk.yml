@@ -48,7 +48,32 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Restore private signing key
+        shell: bash
+        env:
+          KESHAV_SIGNING_KEY_BASE64: ${{ secrets.KESHAV_SIGNING_KEY_BASE64 }}
+          KESHAV_SIGNING_STORE_PASSWORD: ${{ secrets.KESHAV_SIGNING_STORE_PASSWORD }}
+          KESHAV_SIGNING_KEY_ALIAS: ${{ secrets.KESHAV_SIGNING_KEY_ALIAS }}
+          KESHAV_SIGNING_KEY_PASSWORD: ${{ secrets.KESHAV_SIGNING_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KESHAV_SIGNING_KEY_BASE64"
+          test -n "$KESHAV_SIGNING_STORE_PASSWORD"
+          test -n "$KESHAV_SIGNING_KEY_ALIAS"
+          test -n "$KESHAV_SIGNING_KEY_PASSWORD"
+
+          mkdir -p "$RUNNER_TEMP/keshav-signing"
+          printf '%s' "$KESHAV_SIGNING_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/keshav-signing/KeshavLoader-release.jks"
+          chmod 600 "$RUNNER_TEMP/keshav-signing/KeshavLoader-release.jks"
+
+          keytool -list             -keystore "$RUNNER_TEMP/keshav-signing/KeshavLoader-release.jks"             -storepass "$KESHAV_SIGNING_STORE_PASSWORD"             -alias "$KESHAV_SIGNING_KEY_ALIAS" >/dev/null
+
       - name: Build release APK
+        env:
+          KESHAV_SIGNING_STORE_FILE: ${{ runner.temp }}/keshav-signing/KeshavLoader-release.jks
+          KESHAV_SIGNING_STORE_PASSWORD: ${{ secrets.KESHAV_SIGNING_STORE_PASSWORD }}
+          KESHAV_SIGNING_KEY_ALIAS: ${{ secrets.KESHAV_SIGNING_KEY_ALIAS }}
+          KESHAV_SIGNING_KEY_PASSWORD: ${{ secrets.KESHAV_SIGNING_KEY_PASSWORD }}
         run: ./gradlew clean :app:assembleRelease --stacktrace --no-daemon
 
       - name: Verify signed APK and native allowlist
@@ -64,7 +89,7 @@ jobs:
           CERT_OUT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK")"
           echo "$CERT_OUT"
           NORMALIZED_CERTS="$(printf '%s' "$CERT_OUT" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          echo "$NORMALIZED_CERTS" | grep -q "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e"
+          echo "$NORMALIZED_CERTS" | grep -q "b29da35338bc899495ab9352547ec29c3e1884113564fe51eacbb383bb767c08"
 
           echo "Verifying packaged native libraries..."
           mapfile -t LIBS < <(
