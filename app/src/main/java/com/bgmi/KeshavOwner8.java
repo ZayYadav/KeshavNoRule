@@ -64,10 +64,10 @@ public final class KeshavOwner8 {
     }
 
     private static String expectedCertSha256() {
-        return "93a4175b8945b658"
-                + "a95ff2863a3ca1ce"
-                + "03c840044e27567c"
-                + "b46f5e0a569e3d64";
+        return "088cd415ad2671e9"
+                + "d78fbe445777f367"
+                + "6d11abbf0f54f308"
+                + "78ac97a28ef16e5c";
     }
 
     private static boolean verifyInstalledSigningCertificate(Context context) throws Exception {
