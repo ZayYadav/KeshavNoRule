@@ -67,6 +67,12 @@ public class KeshavOwner3 extends AppCompatActivity {
             return;
         }
 
+        if (!KeshavOwner8.verify(this)) {
+            Toast.makeText(this, "Security validation failed", Toast.LENGTH_LONG).show();
+            finishAffinity();
+            return;
+        }
+
         // Immersive Cyber Transparent Status Bar
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Window window = getWindow();
