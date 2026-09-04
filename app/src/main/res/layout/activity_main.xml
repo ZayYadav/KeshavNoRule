@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -10,21 +9,22 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
+        android:overScrollMode="never"
         android:scrollbars="none">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="20dp"
-            android:paddingVertical="32dp">
+            android:paddingStart="20dp"
+            android:paddingTop="40dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="28dp">
 
-            <!-- Top Header Bar -->
             <LinearLayout
                 android:id="@+id/mainHeader"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -37,36 +37,37 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="DASHBOARD • VIP ACCESS"
+                        android:letterSpacing="0.12"
+                        android:text="SECURE DASHBOARD"
                         android:textColor="@color/cyber_cyan"
-                        android:textSize="12sp"
+                        android:textSize="10sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvMainTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="sans-serif-black"
                         android:text="NO RULE LOADER"
                         android:textColor="@color/white"
-                        android:textSize="22sp"
-                        android:textStyle="bold"
-                        android:fontFamily="sans-serif-black" />
+                        android:textSize="25sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
 
-                <!-- Status Badge -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/cyber_badge_green"
                     android:gravity="center_vertical"
-                    android:paddingHorizontal="12dp"
-                    android:paddingVertical="6dp">
+                    android:paddingStart="11dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="11dp"
+                    android:paddingBottom="6dp">
 
                     <View
-                        android:layout_width="8dp"
-                        android:layout_height="8dp"
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
                         android:layout_marginEnd="6dp"
                         android:background="@drawable/circle_bg"
                         android:backgroundTint="@color/cyber_emerald" />
@@ -74,32 +75,29 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.05"
-                        android:text="PROTECTED"
+                        android:text="ACTIVE"
                         android:textColor="@color/cyber_emerald"
-                        android:textSize="11sp"
+                        android:textSize="10sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- License Countdown Matrix Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/timerCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="22dp"
                 app:cardBackgroundColor="#E60D1424"
-                app:cardCornerRadius="22dp"
+                app:cardCornerRadius="24dp"
                 app:cardElevation="8dp"
                 app:strokeColor="#3300F0FF"
-                app:strokeWidth="1.2dp">
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingHorizontal="18dp"
-                    android:paddingVertical="20dp">
+                    android:padding="18dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -108,190 +106,107 @@
                         android:orientation="horizontal">
 
                         <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:contentDescription="Expiry timer"
                             android:src="@drawable/ic_timer"
                             app:tint="@color/cyber_cyan" />
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginStart="9dp"
                             android:layout_weight="1"
-                            android:letterSpacing="0.06"
-                            android:text="LICENSE EXPIRY COUNTDOWN"
+                            android:text="LICENSE TIME LEFT"
                             android:textColor="@color/text_muted"
-                            android:textSize="12sp"
+                            android:textSize="11sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/tvExpires"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="0d 0h 0m 0s"
-                            android:textColor="@color/cyber_cyan"
-                            android:textSize="13sp"
+                            android:text="Active"
+                            android:textColor="@color/cyber_emerald"
+                            android:textSize="11sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
-                    <!-- Digital Digit Blocks Matrix -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
-                        android:gravity="center"
+                        android:layout_marginTop="16dp"
                         android:orientation="horizontal">
 
-                        <!-- Days Block -->
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginHorizontal="3dp"
+                            android:layout_height="74dp"
+                            android:layout_marginEnd="4dp"
                             android:layout_weight="1"
                             android:background="@drawable/cyber_digit_bg"
                             android:gravity="center"
-                            android:orientation="vertical"
-                            android:paddingVertical="10dp">
-
-                            <TextView
-                                android:id="@+id/tvDays"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="00"
-                                android:textColor="@color/cyber_purple"
-                                android:textSize="22sp"
-                                android:textStyle="bold"
-                                android:fontFamily="sans-serif-black" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:letterSpacing="0.08"
-                                android:text="DAYS"
-                                android:textColor="@color/cyber_purple"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
+                            android:orientation="vertical">
+                            <TextView android:id="@+id/tvDays" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_purple" android:textSize="22sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="DAYS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
                         </LinearLayout>
 
-                        <!-- Hours Block -->
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginHorizontal="3dp"
+                            android:layout_height="74dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
                             android:layout_weight="1"
                             android:background="@drawable/cyber_digit_bg"
                             android:gravity="center"
-                            android:orientation="vertical"
-                            android:paddingVertical="10dp">
-
-                            <TextView
-                                android:id="@+id/tvHours"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="00"
-                                android:textColor="@color/cyber_pink"
-                                android:textSize="22sp"
-                                android:textStyle="bold"
-                                android:fontFamily="sans-serif-black" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:letterSpacing="0.08"
-                                android:text="HOURS"
-                                android:textColor="@color/cyber_pink"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
+                            android:orientation="vertical">
+                            <TextView android:id="@+id/tvHours" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_pink" android:textSize="22sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="HOURS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
                         </LinearLayout>
 
-                        <!-- Mins Block -->
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginHorizontal="3dp"
+                            android:layout_height="74dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
                             android:layout_weight="1"
                             android:background="@drawable/cyber_digit_bg"
                             android:gravity="center"
-                            android:orientation="vertical"
-                            android:paddingVertical="10dp">
-
-                            <TextView
-                                android:id="@+id/tvMins"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="00"
-                                android:textColor="@color/cyber_cyan"
-                                android:textSize="22sp"
-                                android:textStyle="bold"
-                                android:fontFamily="sans-serif-black" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:letterSpacing="0.08"
-                                android:text="MINS"
-                                android:textColor="@color/cyber_cyan"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
+                            android:orientation="vertical">
+                            <TextView android:id="@+id/tvMins" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_cyan" android:textSize="22sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="MINS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
                         </LinearLayout>
 
-                        <!-- Secs Block -->
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginHorizontal="3dp"
+                            android:layout_height="74dp"
+                            android:layout_marginStart="4dp"
                             android:layout_weight="1"
                             android:background="@drawable/cyber_digit_bg"
                             android:gravity="center"
-                            android:orientation="vertical"
-                            android:paddingVertical="10dp">
-
-                            <TextView
-                                android:id="@+id/tvSecs"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="00"
-                                android:textColor="@color/cyber_cyan"
-                                android:textSize="22sp"
-                                android:textStyle="bold"
-                                android:fontFamily="sans-serif-black" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:letterSpacing="0.08"
-                                android:text="SECS"
-                                android:textColor="@color/cyber_cyan"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
+                            android:orientation="vertical">
+                            <TextView android:id="@+id/tvSecs" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_emerald" android:textSize="22sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="SECS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
                         </LinearLayout>
-
                     </LinearLayout>
-
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Game Target Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/gameCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="14dp"
                 app:cardBackgroundColor="#E60D1424"
-                app:cardCornerRadius="22dp"
+                app:cardCornerRadius="24dp"
                 app:cardElevation="8dp"
-                app:strokeColor="#1AFFFFFF"
+                app:strokeColor="#26FFFFFF"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="20dp">
+                    android:padding="18dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -299,88 +214,56 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <!-- Game Icon Glass Box -->
-                        <FrameLayout
-                            android:layout_width="64dp"
-                            android:layout_height="64dp"
-                            android:background="@drawable/cyber_card_inner">
-
-                            <ImageView
-                                android:id="@+id/logo"
-                                android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:padding="8dp"
-                                android:scaleType="centerInside"
-                                android:src="@drawable/ic_launcher" />
-                        </FrameLayout>
+                        <ImageView
+                            android:layout_width="34dp"
+                            android:layout_height="34dp"
+                            android:contentDescription="Game"
+                            android:src="@drawable/ic_gamepad"
+                            app:tint="@color/cyber_cyan" />
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="16dp"
+                            android:layout_marginStart="12dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="BATTLEGROUNDS INDIA"
+                                android:text="BGMI secure container"
                                 android:textColor="@color/white"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
 
                             <TextView
-                                android:id="@+id/title"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="BGMI 64-Bit • Dual Space Mode"
+                                android:layout_marginTop="3dp"
+                                android:text="Environment ready • ARM64"
                                 android:textColor="@color/text_muted"
-                                android:textSize="12sp" />
-
-                            <!-- Feature Tags -->
-                            <LinearLayout
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="8dp"
-                                android:orientation="horizontal">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:background="@drawable/cyber_badge_green"
-                                    android:paddingHorizontal="8dp"
-                                    android:paddingVertical="3dp"
-                                    android:text="100% Safe"
-                                    android:textColor="@color/cyber_emerald"
-                                    android:textSize="10sp"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="6dp"
-                                    android:background="@drawable/cyber_badge_cyan"
-                                    android:paddingHorizontal="8dp"
-                                    android:paddingVertical="3dp"
-                                    android:text="Kernel ESP Ready"
-                                    android:textColor="@color/cyber_cyan"
-                                    android:textSize="10sp"
-                                    android:textStyle="bold" />
-                            </LinearLayout>
-
+                                android:textSize="11sp" />
                         </LinearLayout>
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/cyber_badge_green"
+                            android:paddingStart="10dp"
+                            android:paddingTop="5dp"
+                            android:paddingEnd="10dp"
+                            android:paddingBottom="5dp"
+                            android:text="READY"
+                            android:textColor="@color/cyber_emerald"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
                     </LinearLayout>
 
-                    <!-- START GAME ACTION BUTTON -->
-                    <androidx.cardview.widget.CardView
+                    <FrameLayout
                         android:id="@+id/btnStartContainer"
                         android:layout_width="match_parent"
-                        android:layout_height="60dp"
-                        android:layout_marginTop="22dp"
-                        app:cardBackgroundColor="@android:color/transparent"
-                        app:cardCornerRadius="18dp"
-                        app:cardElevation="8dp">
+                        android:layout_height="58dp"
+                        android:layout_marginTop="18dp">
 
                         <androidx.appcompat.widget.AppCompatButton
                             android:id="@+id/btnStart"
@@ -388,25 +271,23 @@
                             android:layout_height="match_parent"
                             android:background="@drawable/cyber_btn_primary"
                             android:letterSpacing="0.08"
-                            android:text="🚀 START GAME • LAUNCH BYPASS"
-                            android:textColor="#050811"
-                            android:textSize="16sp"
-                            android:textStyle="bold"
-                            android:fontFamily="sans-serif-black" />
-                    </androidx.cardview.widget.CardView>
-
+                            android:text="LAUNCH SECURE SESSION"
+                            android:textColor="@color/text_dark"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+                    </FrameLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Safety Guidelines Card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/tipsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                app:cardBackgroundColor="#CC090E18"
-                app:cardCornerRadius="18dp"
-                app:strokeColor="#1AFFFFFF"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="#C90A1020"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="4dp"
+                app:strokeColor="#269D4EDD"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -415,41 +296,24 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
-                            android:src="@drawable/ic_shield_check"
-                            app:tint="@color/cyber_emerald" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:letterSpacing="0.06"
-                            android:text="PRO SAFETY GUIDELINES"
-                            android:textColor="@color/white"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
+                        android:text="SECURITY CORE"
+                        android:textColor="@color/cyber_purple"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
+                        android:layout_marginTop="7dp"
                         android:lineSpacingExtra="3dp"
-                        android:text="• Recommended Kill Limit: 10 - 12 kills per match for main account safety.\n• Use Only ESP features for undetectable long-term play.\n• Zero Memory Modification • Kernel Virtualization Protected."
+                        android:text="Native integrity hook enabled • screenshot protection enabled • optimized release build active."
                         android:textColor="@color/text_muted"
                         android:textSize="11sp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
-
         </LinearLayout>
     </ScrollView>
-
 </RelativeLayout>

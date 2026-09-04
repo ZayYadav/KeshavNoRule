@@ -22,7 +22,7 @@ import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
 
 @Obfuscate
-public class AppManager {
+public class KeshavOwner4 {
 
     private final Context ctx;
 
@@ -33,7 +33,7 @@ public class AppManager {
         void onCopyCompleted(boolean success);
     }
 
-    public AppManager(Context ctx) {
+    public KeshavOwner4(Context ctx) {
         this.ctx = ctx;
     }
 

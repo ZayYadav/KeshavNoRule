@@ -1,5 +1,7 @@
 package com.bgmi.utils;
 
+import org.lsposed.lsparanoid.Obfuscate;
+
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.content.Context;
@@ -15,22 +17,23 @@ import android.view.animation.OvershootInterpolator;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class SoundManager {
+@Obfuscate
+public class KeshavOwner7 {
 
-    private static volatile SoundManager instance;
+    private static volatile KeshavOwner7 instance;
     private final ExecutorService soundExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private boolean soundEnabled = true;
 
     private static final int SAMPLE_RATE = 44100;
 
-    private SoundManager() {}
+    private KeshavOwner7() {}
 
-    public static SoundManager getInstance() {
+    public static KeshavOwner7 getInstance() {
         if (instance == null) {
-            synchronized (SoundManager.class) {
+            synchronized (KeshavOwner7.class) {
                 if (instance == null) {
-                    instance = new SoundManager();
+                    instance = new KeshavOwner7();
                 }
             }
         }

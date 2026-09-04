@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.10.2)
 
-project("akshit")
+project("KeshavLoader")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -Os -w")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -Os -w -fpermissive")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -Os -w -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fno-ident")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=format-security -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -Os -w -fpermissive -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fno-ident")
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -27,12 +27,13 @@ add_library(libcrypto STATIC IMPORTED)
 set_target_properties(libcrypto PROPERTIES IMPORTED_LOCATION
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/curl/openssl-android-${ANDROID_ABI}/lib/libcrypto.a)
 
-add_library(akshit SHARED
+add_library(KeshavLoader SHARED
     main.cpp
     oxorany.cpp
+    custom_integrity.cpp
 )
 
-target_link_libraries(akshit
+target_link_libraries(KeshavLoader
     libcurl
     libssl
     libcrypto
@@ -42,5 +43,12 @@ target_link_libraries(akshit
 )
 
 # Unused code strip karne ke liye linker flag (APK size kam)
-target_link_options(akshit PRIVATE -Wl,--gc-sections)
+target_link_options(KeshavLoader PRIVATE
+    -Wl,--gc-sections
+    -Wl,--strip-all
+    -Wl,--exclude-libs,ALL
+    -Wl,-z,relro
+    -Wl,-z,now
+    -Wl,--build-id=none
+)
 

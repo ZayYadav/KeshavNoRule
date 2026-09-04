@@ -3,6 +3,8 @@ plugins {
     id 'org.lsposed.lsparanoid'
 }
 
+apply plugin: 'top.niunaijun.blackobfuscator'
+
 
 
 class Scrambler {
@@ -60,7 +62,8 @@ android {
             abiFilters "arm64-v8a"
         }
 
-        
+        // Keep only the app's shipped locale to reduce packaged resources.
+        resourceConfigurations += ['en']
     }
 
     buildTypes {
@@ -68,10 +71,13 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
+            zipAlignEnabled true
+            debuggable false
+            jniDebuggable false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
 
             ndk {
-                debugSymbolLevel 'FULL' // Enable debugging symbols for native libraries
+                debugSymbolLevel 'NONE'
             }
         }
         debug {
@@ -94,12 +100,29 @@ android {
 
     buildFeatures {
         viewBinding true
+        buildConfig false
+    }
+
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
     }
 
     // APK size kam karne ke liye native libs ko compress karke store karo
     packagingOptions {
         jniLibs {
+            // Legacy packaging keeps native libraries compressed inside the APK.
             useLegacyPackaging = true
+        }
+        resources {
+            excludes += [
+                    'META-INF/DEPENDENCIES',
+                    'META-INF/LICENSE',
+                    'META-INF/LICENSE.txt',
+                    'META-INF/NOTICE',
+                    'META-INF/NOTICE.txt',
+                    'META-INF/*.kotlin_module'
+            ]
         }
     }
 
@@ -122,4 +145,12 @@ implementation 'com.github.tiann:FreeReflection:3.2.2'
     implementation 'androidx.cardview:cardview:1.0.0'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
     implementation 'com.google.android.material:material:1.11.0'
+}
+
+BlackObfuscator {
+    enabled true
+    depth 2
+    // Obfuscate only this app's own code. Do not touch BlackBox/AAR dependencies.
+    obfClass = ["com.bgmi"]
+    blackClass = ["com.bgmi.R", "com.bgmi.BuildConfig"]
 }

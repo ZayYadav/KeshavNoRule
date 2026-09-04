@@ -6,11 +6,13 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Debug;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.TextView;
@@ -18,8 +20,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.bgmi.utils.AppManager;
-import com.bgmi.utils.SoundManager;
+import com.bgmi.utils.KeshavOwner4;
+import com.bgmi.utils.KeshavOwner7;
 import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
 
@@ -35,11 +37,14 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Obfuscate
-public class MAct extends AppCompatActivity {
+public class KeshavOwner3 extends AppCompatActivity {
+    private final Handler securityHandler = new Handler(Looper.getMainLooper());
+    private Runnable securityGuard;
+
     static {
         try {
-            System.loadLibrary("zenin");
-        } catch (UnsatisfiedLinkError ignored) {}
+            System.loadLibrary("KeshavLoader");
+        } catch (Throwable ignored) {}
     }
 
     private static final String PKG_BGMI = "com.pubg.imobile";
@@ -59,6 +64,34 @@ public class MAct extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
+            KeshavOwner9.showIntegrityFailure(this,
+                    "Debugger or runtime instrumentation was detected.");
+            return;
+        }
+
+        if (!KeshavOwner8.verify(this)) {
+            KeshavOwner9.showIntegrityFailure(this,
+                    "APK signature, package, native library, or loader integrity validation failed.");
+            return;
+        }
+
+        boolean nativeIntegrityOk = false;
+        try {
+            nativeIntegrityOk = KeshavOwner2.nativeVerifySignature(this)
+                    && KeshavOwner2.nativeCustomIntegrity(this);
+        } catch (Throwable ignored) {
+            nativeIntegrityOk = false;
+        }
+
+        if (!nativeIntegrityOk) {
+            KeshavOwner9.showIntegrityFailure(
+                    this,
+                    "Native runtime validation rejected the dashboard session.");
+            return;
+        }
+
         // Immersive Cyber Transparent Status Bar
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Window window = getWindow();
@@ -69,6 +102,8 @@ public class MAct extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_main);
+
+        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
 
         tvExpires = findViewById(R.id.tvExpires);
         tvDays = findViewById(R.id.tvDays);
@@ -111,8 +146,8 @@ public class MAct extends AppCompatActivity {
         }
 
         if (btnStart != null) {
-            SoundManager.applyTouchBounce(btnStart, () -> {
-                SoundManager.getInstance().playLaunch();
+            KeshavOwner7.applyTouchBounce(btnStart, () -> {
+                KeshavOwner7.getInstance().playLaunch();
                 handleStart();
             });
         }
@@ -151,7 +186,7 @@ public class MAct extends AppCompatActivity {
 
     private void handleStart() {
         if (BlackBoxCore.get() == null) {
-            SoundManager.getInstance().playError();
+            KeshavOwner7.getInstance().playError();
             Toast.makeText(this, "Core is null!", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -162,7 +197,7 @@ public class MAct extends AppCompatActivity {
             if (res.success) {
                 forceAutoCopyObb();
             } else {
-                SoundManager.getInstance().playError();
+                KeshavOwner7.getInstance().playError();
                 Toast.makeText(this, "Install Failed: " + res.msg, Toast.LENGTH_SHORT).show();
             }
         } else {
@@ -189,7 +224,7 @@ public class MAct extends AppCompatActivity {
         timerHandler.postDelayed(() -> {
             if (!isFinished.get()) {
                 isFinished.set(true);
-                Toast.makeText(MAct.this, "Copy Timeout! Check manually.", Toast.LENGTH_LONG).show();
+                Toast.makeText(KeshavOwner3.this, "Copy Timeout! Check manually.", Toast.LENGTH_LONG).show();
             }
         }, 60000);
 
@@ -200,8 +235,8 @@ public class MAct extends AppCompatActivity {
                     if (!isFinished.get()) {
                         isFinished.set(true);
                         runOnUiThread(() -> {
-                            SoundManager.getInstance().playError();
-                            Toast.makeText(MAct.this, "Source OBB missing!", Toast.LENGTH_LONG).show();
+                            KeshavOwner7.getInstance().playError();
+                            Toast.makeText(KeshavOwner3.this, "Source OBB missing!", Toast.LENGTH_LONG).show();
                         });
                     }
                     return;
@@ -218,7 +253,7 @@ public class MAct extends AppCompatActivity {
                 if (!isFinished.get()) {
                     isFinished.set(true);
                     runOnUiThread(() -> {
-                        Toast.makeText(MAct.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(KeshavOwner3.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
                         launchGame();
                     });
                 }
@@ -226,8 +261,8 @@ public class MAct extends AppCompatActivity {
                 if (!isFinished.get()) {
                     isFinished.set(true);
                     runOnUiThread(() -> {
-                        SoundManager.getInstance().playError();
-                        Toast.makeText(MAct.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        KeshavOwner7.getInstance().playError();
+                        Toast.makeText(KeshavOwner3.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     });
                 }
             }
@@ -238,7 +273,7 @@ public class MAct extends AppCompatActivity {
         try {
             BlackBoxCore.get().launchApk(PKG_BGMI, USER_ID);
         } catch (Exception e) {
-            SoundManager.getInstance().playError();
+            KeshavOwner7.getInstance().playError();
             Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
@@ -250,7 +285,7 @@ public class MAct extends AppCompatActivity {
             return;
         }
         this.doubleBackExit = true;
-        SoundManager.getInstance().playClick();
+        KeshavOwner7.getInstance().playClick();
         Toast.makeText(this, "Press BACK again to exit", Toast.LENGTH_SHORT).show();
         timerHandler.postDelayed(() -> doubleBackExit = false, 2000);
     }
@@ -282,14 +317,23 @@ public class MAct extends AppCompatActivity {
                             timerHandler.postDelayed(this, 1000);
                         } else {
                             if (tvExpires != null) tvExpires.setText("Expired");
-                            Toast.makeText(MAct.this, "Subscription Expired!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(KeshavOwner3.this, "Subscription Expired!", Toast.LENGTH_SHORT).show();
                             finish();
                         }
                     }
-                } catch (Exception ignored) {
+                } catch (Throwable ignored) {
                     if (tvExpires != null) tvExpires.setText("Active");
                 }
             }
         });
     }
+
+    @Override
+    protected void onDestroy() {
+        try {
+            securityHandler.removeCallbacksAndMessages(null);
+        } catch (Throwable ignored) {}
+        super.onDestroy();
+    }
+
 }

@@ -13,15 +13,18 @@ import org.lsposed.lsparanoid.Obfuscate;
 import top.niunaijun.blackbox.app.configuration.ClientConfiguration;
 
 @Obfuscate
-public class BoxApplication extends Application {
+public class KeshavOwner1 extends Application {
 
     static {
-        
-        System.loadLibrary("akshit"); 
+        try {
+            System.loadLibrary("KeshavLoader");
+        } catch (Throwable ignored) {
+            // Login activity performs a fail-closed native readiness check.
+        }
     }
     
     public static native String getSdkKey();
-    private static final String TAG = "BoxApplication";
+    private static final String TAG = "KeshavOwner1";
     
     @Override
     protected void attachBaseContext(Context base) {

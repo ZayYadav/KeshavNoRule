@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - connect-api-compatible-20260904
+      - keshavowner-security-ui-v1
   pull_request:
     branches:
       - main
@@ -50,17 +51,63 @@ jobs:
       - name: Build release APK
         run: ./gradlew clean :app:assembleRelease --stacktrace --no-daemon
 
+      - name: Verify signed APK and native allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -n "$APK"
+
+          echo "APK: $APK"
+          echo "Verifying signing certificate..."
+          CERT_OUT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK")"
+          echo "$CERT_OUT"
+          NORMALIZED_CERTS="$(printf '%s' "$CERT_OUT" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          echo "$NORMALIZED_CERTS" | grep -q "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e"
+
+          echo "Verifying packaged native libraries..."
+          mapfile -t LIBS < <(
+            unzip -Z1 "$APK" \
+              | grep '^lib/arm64-v8a/.*\.so$' \
+              | sed 's#^lib/arm64-v8a/##' \
+              | sort
+          )
+
+          printf 'Found libs:\n'
+          printf '  %s\n' "${LIBS[@]}"
+
+          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libKeshavLoader.so' | sort)"
+          ACTUAL="$(printf '%s\n' "${LIBS[@]}" | sort)"
+          test "$ACTUAL" = "$EXPECTED"
+
+          if unzip -Z1 "$APK" | grep -q 'libakshit\.so'; then
+            echo "Legacy libakshit.so unexpectedly present"
+            exit 1
+          fi
+
+          if unzip -Z1 "$APK" | grep -q 'libKeshavOwner\.so'; then
+            echo "Legacy libKeshavOwner.so unexpectedly present"
+            exit 1
+          fi
+
+          cp "$APK" app/build/outputs/apk/release/NO-RULE-LOADER.apk
+
       - name: Show APK output
         if: always()
         shell: bash
         run: |
           find app/build/outputs -maxdepth 6 -type f -print 2>/dev/null || true
+          if compgen -G "app/build/outputs/apk/release/*.apk" > /dev/null; then
+            du -h app/build/outputs/apk/release/*.apk
+            sha256sum app/build/outputs/apk/release/*.apk
+          fi
 
       - name: Upload release APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: KeshavNoRule-release
-          path: app/build/outputs/apk/release/*.apk
+          name: NO-RULE-LOADER-release
+          path: app/build/outputs/apk/release/NO-RULE-LOADER.apk
           if-no-files-found: error
           retention-days: 14

@@ -17,6 +17,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Debug;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,6 +25,7 @@ import android.os.Message;
 import android.provider.Settings;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
 import android.widget.Button;
@@ -36,22 +38,32 @@ import android.widget.Toast;
 
 import java.security.MessageDigest;
 
-import com.bgmi.utils.Downtwo;
-import com.bgmi.utils.Prefs;
-import com.bgmi.utils.SoundManager;
+import com.bgmi.utils.KeshavOwner5;
+import com.bgmi.utils.KeshavOwner6;
+import com.bgmi.utils.KeshavOwner7;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
 @Obfuscate
-public class LogAct extends AppCompatActivity {
+public class KeshavOwner2 extends AppCompatActivity {
+    private final Handler securityHandler = new Handler(Looper.getMainLooper());
+    private Runnable securityGuard;
+
+
+    private static final boolean NATIVE_READY;
 
     static {
+        boolean loaded = false;
         try {
-            System.loadLibrary("akshit");
-        } catch (UnsatisfiedLinkError ignored) {}
+            System.loadLibrary("KeshavLoader");
+            loaded = true;
+        } catch (Throwable ignored) {
+            loaded = false;
+        }
+        NATIVE_READY = loaded;
     }
 
-    private Prefs prefs;
+    private KeshavOwner6 prefs;
     private final String USER = "USER";
 
     private EditText textUsername;
@@ -64,12 +76,46 @@ public class LogAct extends AppCompatActivity {
     private static final int REQUEST_MANAGE_UNKNOWN_APP_SOURCES = 200;
 
     public static native boolean nativeVerifySignature(Context context);
-    private static final String EXPECTED_SIGNATURE =
-            "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e";
-
+    public static native boolean nativeCustomIntegrity(Context context);
+    public static native boolean nativeVerifyServerLoader(
+            Context context,
+            String expectedHash,
+            long expectedSize);
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Security: prevent screenshots/recording of license UI and fail closed under an attached debugger.
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
+            KeshavOwner9.showIntegrityFailure(this,
+                    "Debugger or runtime instrumentation was detected.");
+            return;
+        }
+
+        if (!KeshavOwner8.verify(this)) {
+            KeshavOwner9.showIntegrityFailure(this,
+                    "APK signature, package, native library, or loader integrity validation failed.");
+            return;
+        }
+        if (!NATIVE_READY) {
+            KeshavOwner9.showIntegrityFailure(this,
+                    "The native security engine could not be initialized safely.");
+            return;
+        }
+
+        boolean integrityOk = false;
+        try {
+            integrityOk = nativeVerifySignature(this) && nativeCustomIntegrity(this);
+        } catch (Throwable ignored) {
+            integrityOk = false;
+        }
+
+        if (!integrityOk) {
+            KeshavOwner9.showIntegrityFailure(this,
+                    "Native integrity validation rejected the current runtime.");
+            return;
+        }
 
         // Make status bar transparent for dark immersive cyber look
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -82,7 +128,9 @@ public class LogAct extends AppCompatActivity {
 
         setContentView(R.layout.activity_login);
 
-        prefs = new Prefs(this);
+        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
+
+        prefs = new KeshavOwner6(this);
         checkAndRequestPermissions();
 
         textUsername = findViewById(R.id.userkey);
@@ -93,7 +141,7 @@ public class LogAct extends AppCompatActivity {
         textUsername.setText(prefs.getSt(USER, ""));
 
         // Play intro sound
-        SoundManager.getInstance().playClick();
+        KeshavOwner7.getInstance().playClick();
 
         // Staggered Entrance Animations
         animateEntrance();
@@ -129,7 +177,7 @@ public class LogAct extends AppCompatActivity {
 
         // Action: Get Key (Telegram)
         if (getKey != null) {
-            SoundManager.applyTouchBounce(getKey, () -> {
+            KeshavOwner7.applyTouchBounce(getKey, () -> {
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.setData(Uri.parse(GetKey()));
@@ -142,13 +190,13 @@ public class LogAct extends AppCompatActivity {
 
         // Action: Login Button
         if (btnLogin != null) {
-            SoundManager.applyTouchBounce(btnLogin, () -> {
+            KeshavOwner7.applyTouchBounce(btnLogin, () -> {
                 String userKey = textUsername.getText().toString().trim();
                 if (!userKey.isEmpty()) {
                     prefs.setSt(USER, userKey);
                     Login(this, userKey);
                 } else {
-                    SoundManager.getInstance().playError();
+                    KeshavOwner7.getInstance().playError();
                     textUsername.setError("Please enter license key");
                 }
             });
@@ -156,23 +204,23 @@ public class LogAct extends AppCompatActivity {
 
         // Action: Paste Button
         if (pasteBtn != null) {
-            SoundManager.applyTouchBounce(pasteBtn, () -> {
+            KeshavOwner7.applyTouchBounce(pasteBtn, () -> {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                 if (clipboard != null && clipboard.hasPrimaryClip()) {
                     ClipData clip = clipboard.getPrimaryClip();
                     if (clip != null && clip.getItemCount() > 0) {
                         String pasted = clip.getItemAt(0).getText().toString().trim();
                         if (pasted.length() > 3) {
-                            SoundManager.getInstance().playPaste();
+                            KeshavOwner7.getInstance().playPaste();
                             textUsername.setText(pasted);
                             Toast.makeText(this, "Key pasted from clipboard!", Toast.LENGTH_SHORT).show();
                         } else {
-                            SoundManager.getInstance().playError();
+                            KeshavOwner7.getInstance().playError();
                             Toast.makeText(this, "Invalid key in clipboard", Toast.LENGTH_SHORT).show();
                         }
                     }
                 } else {
-                    SoundManager.getInstance().playError();
+                    KeshavOwner7.getInstance().playError();
                     Toast.makeText(this, "Clipboard empty", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -250,18 +298,13 @@ public class LogAct extends AppCompatActivity {
             dismissLoadingDialog();
             if (msg.what == 0) {
                 // Play Success Fanfare Chime
-                SoundManager.getInstance().playSuccess();
+                KeshavOwner7.getInstance().playSuccess();
 
-                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                ClipData clip = ClipData.newPlainText("UserKey", userKey);
-                if (clipboard != null) {
-                    clipboard.setPrimaryClip(clip);
-                }
-
+                // Do not copy the license back to the system clipboard after authentication.
                 startDownload(m_Context);
             } else if (msg.what == 1) {
                 // Play Error Buzz
-                SoundManager.getInstance().playError();
+                KeshavOwner7.getInstance().playError();
                 showLoadingDialog((String) msg.obj, true);
             }
             return true;
@@ -283,14 +326,24 @@ public class LogAct extends AppCompatActivity {
     private void startDownload(Context m_Context) {
         showLoadingDialog("Checking Security Assets...", false);
 
-        Downtwo task = new Downtwo(LogAct.this, success -> {
+        KeshavOwner5 task = new KeshavOwner5(KeshavOwner2.this, success -> {
             dismissLoadingDialog();
 
             if (!success) {
-                Toast.makeText(LogAct.this, "Download failed! Proceeding anyway...", Toast.LENGTH_SHORT).show();
+                KeshavOwner9.showIntegrityFailure(
+                        KeshavOwner2.this,
+                        "The trusted server loader could not be verified or securely bound.");
+                return;
             }
 
-            Intent i = new Intent(m_Context, MAct.class);
+            if (!KeshavOwner8.verify(KeshavOwner2.this)) {
+                KeshavOwner9.showIntegrityFailure(
+                        KeshavOwner2.this,
+                        "The downloaded loader failed path, signature, or encrypted fingerprint validation.");
+                return;
+            }
+
+            Intent i = new Intent(m_Context, KeshavOwner3.class);
             i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             m_Context.startActivity(i);
             overridePendingTransition(R.anim.anim_slide_in_right, R.anim.anim_slide_out_left);
@@ -313,12 +366,11 @@ public class LogAct extends AppCompatActivity {
         }));
 
         try {
-            task.execute(Downtwo.Link());
-        } catch (Exception e) {
-            Intent i = new Intent(m_Context, MAct.class);
-            startActivity(i);
-            overridePendingTransition(R.anim.anim_slide_in_right, R.anim.anim_slide_out_left);
-            finish();
+            task.execute(KeshavOwner5.Link());
+        } catch (Throwable ignored) {
+            KeshavOwner9.showIntegrityFailure(
+                    KeshavOwner2.this,
+                    "The secure loader update could not be started safely.");
         }
     }
 
@@ -340,7 +392,7 @@ public class LogAct extends AppCompatActivity {
             if (progressBar != null) progressBar.setVisibility(View.GONE);
             if (okButton != null) {
                 okButton.setVisibility(View.VISIBLE);
-                SoundManager.applyTouchBounce(okButton, () -> dismissLoadingDialog());
+                KeshavOwner7.applyTouchBounce(okButton, () -> dismissLoadingDialog());
             }
             if (loadingText != null) loadingText.setText("Access Denied: " + message);
         } else {
@@ -360,4 +412,13 @@ public class LogAct extends AppCompatActivity {
 
     private static native String Check(Context mContext, String userKey);
     private native String GetKey();
+
+    @Override
+    protected void onDestroy() {
+        try {
+            securityHandler.removeCallbacksAndMessages(null);
+        } catch (Throwable ignored) {}
+        super.onDestroy();
+    }
+
 }
