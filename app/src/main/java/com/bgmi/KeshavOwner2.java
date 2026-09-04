@@ -93,6 +93,15 @@ public class KeshavOwner2 extends AppCompatActivity {
             return;
         }
 
+        if (!KeshavOwner1.isCoreReady()) {
+            String detail = KeshavOwner1.getStartupError();
+            KeshavOwner9.showIntegrityFailure(this,
+                    detail == null || detail.isEmpty()
+                            ? "The runtime core could not be initialized safely."
+                            : detail);
+            return;
+        }
+
         if (!KeshavOwner8.verify(this)) {
             KeshavOwner9.showIntegrityFailure(this,
                     "APK signature, package, native library, or loader integrity validation failed.");
