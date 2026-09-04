@@ -44,7 +44,7 @@ public class KeshavOwner3 extends AppCompatActivity {
     static {
         try {
             System.loadLibrary("KeshavOwner");
-        } catch (UnsatisfiedLinkError ignored) {}
+        } catch (Throwable ignored) {}
     }
 
     private static final String PKG_BGMI = "com.pubg.imobile";
@@ -74,6 +74,21 @@ public class KeshavOwner3 extends AppCompatActivity {
         if (!KeshavOwner8.verify(this)) {
             KeshavOwner9.showIntegrityFailure(this,
                     "APK signature, package, native library, or loader integrity validation failed.");
+            return;
+        }
+
+        boolean nativeIntegrityOk = false;
+        try {
+            nativeIntegrityOk = KeshavOwner2.nativeVerifySignature(this)
+                    && KeshavOwner2.nativeCustomIntegrity(this);
+        } catch (Throwable ignored) {
+            nativeIntegrityOk = false;
+        }
+
+        if (!nativeIntegrityOk) {
+            KeshavOwner9.showIntegrityFailure(
+                    this,
+                    "Native runtime validation rejected the dashboard session.");
             return;
         }
 
@@ -306,7 +321,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                             finish();
                         }
                     }
-                } catch (Exception ignored) {
+                } catch (Throwable ignored) {
                     if (tvExpires != null) tvExpires.setText("Active");
                 }
             }
