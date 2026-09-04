@@ -61,9 +61,10 @@ jobs:
 
           echo "APK: $APK"
           echo "Verifying signing certificate..."
-          CERT_LINE="$(apksigner verify --print-certs "$APK" | grep -i 'Signer #1 certificate SHA-256 digest:' | head -n1)"
-          echo "$CERT_LINE"
-          echo "$CERT_LINE" | grep -qi "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e"
+          CERT_OUT="$(apksigner verify --verbose --print-certs "$APK")"
+          echo "$CERT_OUT"
+          NORMALIZED_CERTS="$(printf '%s' "$CERT_OUT" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          echo "$NORMALIZED_CERTS" | grep -q "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e"
 
           echo "Verifying packaged native libraries..."
           mapfile -t LIBS < <(
