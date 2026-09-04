@@ -4,11 +4,11 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := akshit
 
-LOCAL_CFLAGS := -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -w
+LOCAL_CFLAGS := -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -w -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fno-ident
 LOCAL_CFLAGS += -fno-rtti -fno-exceptions -fpermissive
-LOCAL_CPPFLAGS += -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -w -Werror -s -std=c++17
+LOCAL_CPPFLAGS += -Wno-error=format-security -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections -w -Werror -s -std=c++17 -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fno-ident
 LOCAL_CPPFLAGS += -Wno-error=c++11-narrowing -fms-extensions -fno-rtti -fno-exceptions -fpermissive
-LOCAL_LDFLAGS += -Wl,--gc-sections,--strip-all, -llog
+LOCAL_LDFLAGS += -Wl,--gc-sections -Wl,--strip-all -Wl,--exclude-libs,ALL -Wl,-z,relro -Wl,-z,now -Wl,--build-id=none -llog
 LOCAL_ARM_MODE := arm
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/
