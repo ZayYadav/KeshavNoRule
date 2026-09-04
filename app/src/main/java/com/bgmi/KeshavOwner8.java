@@ -230,7 +230,25 @@ public final class KeshavOwner8 {
         if (!Long.toString(loader.length()).equals(expectedSize)) return false;
 
         String actualHash = KeshavOwner5.sha256File(loader);
-        return actualHash != null && expectedHash.equalsIgnoreCase(actualHash);
+        if (actualHash == null || !expectedHash.equalsIgnoreCase(actualHash)) {
+            return false;
+        }
+
+        long boundSize;
+        try {
+            boundSize = Long.parseLong(expectedSize);
+        } catch (Throwable ignored) {
+            return false;
+        }
+
+        try {
+            return KeshavOwner2.nativeVerifyServerLoader(
+                    context,
+                    expectedHash,
+                    boundSize);
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     private static void collectSoFiles(File dir, List<File> out) {
