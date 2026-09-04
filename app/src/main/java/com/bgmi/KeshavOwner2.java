@@ -320,16 +320,22 @@ public class KeshavOwner2 extends AppCompatActivity {
         });
 
         new Thread(() -> {
-            String result = Check(m_Context, userKey);
+            String result;
+            try {
+                result = Check(m_Context, userKey);
+            } catch (Throwable ignored) {
+                result = "Authentication engine failed safely";
+            }
+
             if ("OK".equals(result)) {
                 loginHandler.sendEmptyMessage(0);
             } else {
                 Message msg = Message.obtain();
                 msg.what = 1;
-                msg.obj = result;
+                msg.obj = result == null ? "Authentication failed" : result;
                 loginHandler.sendMessage(msg);
             }
-        }).start();
+        }, "KeshavLoginAuth").start();
     }
 
     private void startDownload(Context m_Context) {
