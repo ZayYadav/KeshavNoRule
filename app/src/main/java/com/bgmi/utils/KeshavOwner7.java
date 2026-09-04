@@ -260,8 +260,12 @@ public class KeshavOwner7 {
                     set.start();
 
                     if (event.getAction() == MotionEvent.ACTION_UP && onClickAction != null) {
-                        getInstance().playClick();
-                        onClickAction.run();
+                        try {
+                            getInstance().playClick();
+                            onClickAction.run();
+                        } catch (Throwable ignored) {
+                            // Button callbacks must never terminate the main/UI thread.
+                        }
                     }
                     break;
             }
