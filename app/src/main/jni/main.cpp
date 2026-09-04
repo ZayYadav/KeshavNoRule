@@ -77,6 +77,32 @@ Java_com_bgmi_KeshavOwner2_nativeCustomIntegrity(
 
 extern "C"
 JNIEXPORT jboolean JNICALL
+Java_com_bgmi_KeshavOwner2_nativeVerifyServerLoader(
+        JNIEnv *env,
+        jclass,
+        jobject context,
+        jstring expectedHash,
+        jlong expectedSize) {
+
+    if (!env || !context || !expectedHash || expectedSize <= 0) {
+        return JNI_FALSE;
+    }
+
+    const char *hashChars = env->GetStringUTFChars(expectedHash, nullptr);
+    if (!hashChars) return JNI_FALSE;
+
+    const bool ok = keshav_integrity::verify_server_loader(
+            env,
+            context,
+            hashChars,
+            expectedSize);
+
+    env->ReleaseStringUTFChars(expectedHash, hashChars);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
 Java_com_bgmi_KeshavOwner2_nativeVerifySignature(
         JNIEnv *env,
         jobject,
