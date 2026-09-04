@@ -43,7 +43,7 @@ public class KeshavOwner3 extends AppCompatActivity {
 
     static {
         try {
-            System.loadLibrary("KeshavOwner");
+            System.loadLibrary("KeshavLoader");
         } catch (Throwable ignored) {}
     }
 
