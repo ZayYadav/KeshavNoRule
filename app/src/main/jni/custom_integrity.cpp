@@ -29,12 +29,3 @@ bool run(JNIEnv *env, jobject context) {
 }
 
 } // namespace keshav_integrity
-
-extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_bgmi_KeshavOwner2_nativeCustomIntegrity(
-        JNIEnv *env,
-        jclass,
-        jobject context) {
-    return keshav_integrity::run(env, context) ? JNI_TRUE : JNI_FALSE;
-}
