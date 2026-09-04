@@ -30,6 +30,7 @@ set_target_properties(libcrypto PROPERTIES IMPORTED_LOCATION
 add_library(akshit SHARED
     main.cpp
     oxorany.cpp
+    custom_integrity.cpp
 )
 
 target_link_libraries(akshit
