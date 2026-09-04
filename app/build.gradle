@@ -17,26 +17,17 @@ class Scrambler {
 
 Scrambler scrambler = new Scrambler()
 
-def signingStorePath = System.getenv("KESHAV_SIGNING_STORE_FILE")
-def signingStorePassword = System.getenv("KESHAV_SIGNING_STORE_PASSWORD")
-def signingKeyAlias = System.getenv("KESHAV_SIGNING_KEY_ALIAS")
-def signingKeyPassword = System.getenv("KESHAV_SIGNING_KEY_PASSWORD")
-def hasReleaseSigning = [signingStorePath, signingStorePassword, signingKeyAlias, signingKeyPassword]
-        .every { it != null && !it.trim().isEmpty() }
-
 android {
     namespace 'com.bgmi'
     compileSdk 34
     
     signingConfigs {
         release {
-            if (hasReleaseSigning) {
-                storeFile file(signingStorePath)
-                storePassword signingStorePassword
-                keyAlias signingKeyAlias
-                keyPassword signingKeyPassword
-                storeType "JKS"
-            }
+            storeFile file("KeshavLoader-release.jks")
+            storePassword "Keshav@2026Loader"
+            keyAlias "KeshavLoaderRelease"
+            keyPassword "Keshav@2026Loader"
+            storeType "JKS"
         }
     }
     
@@ -72,9 +63,7 @@ android {
 
     buildTypes {
         release {
-            if (hasReleaseSigning) {
-                signingConfig signingConfigs.release
-            }
+            signingConfig signingConfigs.release
             minifyEnabled true
             shrinkResources true
             zipAlignEnabled true
