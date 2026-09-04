@@ -30,7 +30,7 @@ public final class KeshavOwner8 {
     private static final Set<String> ALLOWED_NATIVE_LIBS = new HashSet<>();
 
     static {
-        ALLOWED_NATIVE_LIBS.add("libKeshavOwner.so");
+        ALLOWED_NATIVE_LIBS.add("libKeshavLoader.so");
         ALLOWED_NATIVE_LIBS.add("libKESHAVXOWNERCore.so");
     }
 
@@ -50,6 +50,7 @@ public final class KeshavOwner8 {
             if (!verifyApkNativeEntries(app)) return false;
             if (!verifyExtractedNativeDirectory(app)) return false;
             if (!verifyTrustedServerLoader(app)) return false;
+            if (!verifySdkRuntimeArtifacts(app)) return false;
 
             return true;
 
@@ -149,7 +150,7 @@ public final class KeshavOwner8 {
         }
 
         return found.size() == 2
-                && found.contains("libKeshavOwner.so")
+                && found.contains("libKeshavLoader.so")
                 && found.contains("libKESHAVXOWNERCore.so");
     }
 
@@ -179,7 +180,7 @@ public final class KeshavOwner8 {
         }
 
         return found.size() == 2
-                && found.contains("libKeshavOwner.so")
+                && found.contains("libKeshavLoader.so")
                 && found.contains("libKESHAVXOWNERCore.so");
     }
 
@@ -249,6 +250,51 @@ public final class KeshavOwner8 {
         } catch (Throwable ignored) {
             return false;
         }
+    }
+
+
+    private static boolean verifySdkRuntimeArtifacts(Context context) throws Exception {
+        File root = context.getNoBackupFilesDir();
+        if (root == null) return false;
+
+        File nativeDir = new File(root, "native");
+        if (!nativeDir.exists()) return true;
+        if (!nativeDir.isDirectory()) return false;
+
+        String rootPath = root.getCanonicalPath() + File.separator;
+        String nativePath = nativeDir.getCanonicalPath() + File.separator;
+        if (!nativePath.startsWith(rootPath)) return false;
+
+        File[] files = nativeDir.listFiles();
+        if (files == null) return false;
+
+        Set<String> allowed = new HashSet<>();
+        allowed.add("KESHAVXOWNER.so");
+        allowed.add("libpubgm.so");
+        allowed.add("libkorea.so");
+
+        for (File file : files) {
+            if (file == null) continue;
+            if (file.isDirectory()) return false;
+            if (!file.getName().toLowerCase(Locale.US).endsWith(".so")) continue;
+
+            if (!allowed.contains(file.getName())) return false;
+            if (!file.isFile() || file.length() < 4) return false;
+
+            String canonical = file.getCanonicalPath();
+            if (!canonical.startsWith(nativePath)) return false;
+
+            try (java.io.FileInputStream in = new java.io.FileInputStream(file)) {
+                if (in.read() != 0x7f
+                        || in.read() != 'E'
+                        || in.read() != 'L'
+                        || in.read() != 'F') {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     private static void collectSoFiles(File dir, List<File> out) {
