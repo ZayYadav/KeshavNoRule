@@ -16,8 +16,11 @@ import top.niunaijun.blackbox.app.configuration.ClientConfiguration;
 public class KeshavOwner1 extends Application {
 
     static {
-        
-        System.loadLibrary("akshit"); 
+        try {
+            System.loadLibrary("akshit");
+        } catch (Throwable ignored) {
+            // Login activity performs a fail-closed native readiness check.
+        }
     }
     
     public static native String getSdkKey();
