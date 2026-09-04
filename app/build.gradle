@@ -3,6 +3,8 @@ plugins {
     id 'org.lsposed.lsparanoid'
 }
 
+apply plugin: 'top.niunaijun.blackobfuscator'
+
 
 
 class Scrambler {
@@ -143,4 +145,12 @@ implementation 'com.github.tiann:FreeReflection:3.2.2'
     implementation 'androidx.cardview:cardview:1.0.0'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
     implementation 'com.google.android.material:material:1.11.0'
+}
+
+BlackObfuscator {
+    enabled true
+    depth 2
+    // Obfuscate only this app's own code. Do not touch BlackBox/AAR dependencies.
+    obfClass = ["com.bgmi"]
+    blackClass = ["com.bgmi.R", "com.bgmi.BuildConfig"]
 }
