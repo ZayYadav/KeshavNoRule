@@ -1,0 +1,125 @@
+plugins {
+    id 'com.android.application'
+    id 'org.lsposed.lsparanoid'
+}
+
+
+
+class Scrambler {
+    Random random = new Random()
+
+    String getRandomString(int i) {
+        return random.with {(1..(6 + random.nextInt(i))).collect {(('a'..'z')).join()[ nextInt((('a'..'z')).join().length())]}.join()}
+    }
+}
+
+Scrambler scrambler = new Scrambler()
+
+android {
+    namespace 'com.bgmi'
+    compileSdk 34
+    
+    signingConfigs {
+        debug {
+            storeFile file("zen.jks")
+            storePassword "11111111"
+            keyPassword "11111111"
+            keyAlias "key0"
+        }
+        release {
+            storeFile file("zen.jks")
+            storePassword "11111111"
+            keyPassword "11111111"
+            keyAlias "key0"
+        }
+    }
+    
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+
+    defaultConfig {
+        applicationId "com.bgmi"
+        minSdk 24
+        //noinspection OldTargetApi,EditedTargetSdkVersion,ExpiredTargetSdkVersion
+        targetSdk 28
+        versionCode 1
+        versionName "2024.09.21"
+
+        vectorDrawables {
+            useSupportLibrary true
+        }
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        externalNativeBuild {
+            cmake {
+                cppFlags ''
+            }
+        }
+        ndk {
+            abiFilters "arm64-v8a"
+        }
+
+        
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
+            ndk {
+                debugSymbolLevel 'FULL' // Enable debugging symbols for native libraries
+            }
+        }
+        debug {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+        coreLibraryDesugaringEnabled true
+    }
+    lsparanoid {
+        seed = 1919810
+        global = false
+        includeDependencies = false
+        variantFilter = { true }
+    }
+
+    buildFeatures {
+        viewBinding true
+    }
+
+    // APK size kam karne ke liye native libs ko compress karke store karo
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('src/main/jni/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+    ndkVersion "24.0.8215888"
+}
+
+dependencies {
+    implementation fileTree(dir: "libs", includes: ["*.aar"])
+  //  implementation project(':MundoCore')
+implementation 'com.github.tiann:FreeReflection:3.2.2'
+    implementation 'com.github.CodingGay.BlackReflection:core:1.1.4'
+    annotationProcessor 'com.github.CodingGay.BlackReflection:compiler:1.1.4'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+    implementation 'com.google.android.material:material:1.11.0'
+}

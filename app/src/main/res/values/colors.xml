@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorAccent">#00F0FF</color>
+    <color name="primary">#00F0FF</color>
+    <color name="error">#FF3366</color>   
+    <color name="black">#000000</color>
+    <color name="secondary">#7928CA</color>
+    <color name="primaryText">#FFFFFF</color>
+    <color name="hintText">#64748B</color>
+    <color name="buttonPrimary">#00F0FF</color>
+    <color name="white">#FFFFFF</color>
+    <color name="background">#070A12</color>
+    <color name="secodary2">#0F1626</color>
+    <color name="button">#00F0FF</color>
+    <color name="background2">#0A0F1D</color>
+    <color name="crbgdm">#00F0FF</color>
+    <color name="darker_gray">#475569</color>
+    
+    <!-- Multi-Color Vibrant Mix Palette -->
+    <color name="cyber_black">#070814</color>
+    <color name="cyber_card_bg">#E60F1328</color>
+    <color name="cyber_card_inner">#181E3B</color>
+    <color name="cyber_cyan">#00F0FF</color>
+    <color name="cyber_cyan_dark">#0072FF</color>
+    <color name="cyber_purple">#9D4EDD</color>
+    <color name="cyber_violet">#7928CA</color>
+    <color name="cyber_pink">#FF007F</color>
+    <color name="cyber_magenta">#FF00A0</color>
+    <color name="cyber_orange">#FF5E00</color>
+    <color name="cyber_amber">#FFB703</color>
+    <color name="cyber_emerald">#00FF87</color>
+    <color name="cyber_stroke">#4DFF007F</color>
+    <color name="cyber_stroke_cyan">#4D00F0FF</color>
+    <color name="cyber_stroke_subtle">#26FFFFFF</color>
+    <color name="text_muted">#94A3B8</color>
+    <color name="text_dark">#050711</color>
+    <color name="status_live">#00FF87</color>
+
+    <!-- Legacy Compatibility Colors -->
+    <color name="button_cyan">#00F0FF</color>
+    <color name="button_gray">#475569</color>
+    <color name="card_background">#161F33</color>
+    <color name="yellow_light">#FFEB3B</color>
+    <color name="yellow_dark">#FFD600</color>
+    <color name="package_red">#FF3366</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#94A3B8</color>
+</resources>

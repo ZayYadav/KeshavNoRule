@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/cyber_bg_gradient">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="24dp"
+            android:paddingVertical="36dp">
+
+            <!-- Top Header & Logo Area -->
+            <LinearLayout
+                android:id="@+id/headerArea"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_alignParentTop="true"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="20dp"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <!-- Glowing Logo Container -->
+                <FrameLayout
+                    android:id="@+id/logoContainer"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:padding="6dp">
+
+                    <!-- Outer Glow Ring -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/cyber_card_glass" />
+
+                    <ImageView
+                        android:id="@+id/logo"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:padding="12dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_launcher" />
+                </FrameLayout>
+
+                <!-- Title Banner -->
+                <LinearLayout
+                    android:id="@+id/titleBanner"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tvTitlePart1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="NO "
+                        android:textColor="@color/cyber_pink"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-black"
+                        android:shadowColor="#99FF007F"
+                        android:shadowRadius="16" />
+
+                    <TextView
+                        android:id="@+id/tvTitlePart2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="RULE "
+                        android:textColor="@color/cyber_purple"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-black"
+                        android:shadowColor="#999D4EDD"
+                        android:shadowRadius="16" />
+
+                    <TextView
+                        android:id="@+id/tvTitlePart3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="LOADER"
+                        android:textColor="@color/cyber_cyan"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:fontFamily="sans-serif-black"
+                        android:shadowColor="#9900F0FF"
+                        android:shadowRadius="16" />
+                </LinearLayout>
+
+                <!-- Server Online Pill -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/cyber_badge_green"
+                    android:gravity="center"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="5dp">
+
+                    <View
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/circle_bg"
+                        android:backgroundTint="@color/cyber_emerald" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.08"
+                        android:text="SERVER ONLINE • BYPASS ACTIVE"
+                        android:textColor="@color/cyber_emerald"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Main Credentials Glass Card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/loginCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/headerArea"
+                android:layout_marginTop="32dp"
+                app:cardBackgroundColor="#E60D1424"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="10dp"
+                app:strokeColor="#3300F0FF"
+                app:strokeWidth="1.2dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="22dp"
+                    android:paddingVertical="26dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.05"
+                        android:text="LICENSE AUTHENTICATION"
+                        android:textColor="@color/white"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Paste your VIP activation key below to proceed."
+                        android:textColor="@color/text_muted"
+                        android:textSize="12sp" />
+
+                    <!-- Key Input Container -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="20dp"
+                        android:background="@drawable/cyber_input_bg"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingHorizontal="14dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:src="@drawable/ic_cyber_key"
+                            app:tint="@color/cyber_cyan" />
+
+                        <EditText
+                            android:id="@+id/userkey"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_marginStart="10dp"
+                            android:layout_marginEnd="6dp"
+                            android:layout_weight="1"
+                            android:background="@android:color/transparent"
+                            android:hint="ENTER LICENSE KEY..."
+                            android:inputType="textPassword"
+                            android:textColor="@color/white"
+                            android:textColorHint="#475569"
+                            android:textSize="14sp" />
+
+                        <!-- Paste Button -->
+                        <FrameLayout
+                            android:id="@+id/paste"
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:background="@drawable/cyber_btn_secondary"
+                            android:clickable="true"
+                            android:focusable="true">
+
+                            <ImageView
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:layout_gravity="center"
+                                android:src="@drawable/ic_content_paste"
+                                app:tint="@color/cyber_cyan" />
+                        </FrameLayout>
+
+                    </LinearLayout>
+
+                    <!-- Login / Activate Button -->
+                    <androidx.cardview.widget.CardView
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:layout_marginTop="22dp"
+                        app:cardBackgroundColor="@android:color/transparent"
+                        app:cardCornerRadius="18dp"
+                        app:cardElevation="6dp">
+
+                        <androidx.appcompat.widget.AppCompatButton
+                            android:id="@+id/login"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="@drawable/cyber_btn_primary"
+                            android:letterSpacing="0.06"
+                            android:text="⚡ ACTIVATE &amp; ENTER"
+                            android:textColor="#050811"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+                    </androidx.cardview.widget.CardView>
+
+                    <!-- Telegram Get Key Button -->
+                    <LinearLayout
+                        android:id="@+id/GetKey"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/cyber_btn_secondary"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:gravity="center"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:layout_marginEnd="8dp"
+                            android:src="@drawable/ic_telegram"
+                            app:tint="@color/cyber_cyan" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:letterSpacing="0.04"
+                            android:text="GET KEY • OFFICIAL TELEGRAM"
+                            android:textColor="@color/cyber_cyan"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Bottom Security Notice -->
+            <LinearLayout
+                android:id="@+id/footerArea"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_below="@id/loginCard"
+                android:layout_centerHorizontal="true"
+                android:layout_marginTop="28dp"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.08"
+                    android:text="🛡️ KERNEL BYPASS • 64-BIT DUAL SPACE"
+                    android:textColor="#475569"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/footer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="#334155"
+                    android:textSize="10sp"
+                    android:text="NO RULE LOADER" />
+            </LinearLayout>
+
+        </RelativeLayout>
+    </ScrollView>
+
+</RelativeLayout>

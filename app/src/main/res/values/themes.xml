@@ -1,0 +1,20 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Base.AppTheme" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/cyber_cyan</item>
+        <item name="colorSecondary">@color/cyber_purple</item>
+        <item name="android:windowBackground">@color/cyber_black</item>
+        <item name="android:statusBarColor">@color/cyber_black</item>
+        <item name="android:navigationBarColor">@color/cyber_black</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+    </style>
+    <style name="ActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/cyber_cyan</item>
+    </style>
+
+    <style name="CustomCheckbox02" parent="@style/Widget.AppCompat.CompoundButton.CheckBox">
+        <item name="android:button">@drawable/checkbox_selector</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:buttonTint">@color/cyber_cyan</item>
+    </style>
+</resources>
