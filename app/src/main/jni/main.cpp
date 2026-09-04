@@ -66,9 +66,6 @@ Java_com_bgmi_KeshavOwner1_getSdkKey(JNIEnv *env, jclass clazz) {
 }
 
 
-// Expected SHA-256 signature
-static const char *EXPECTED_SIGNATURE ="77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e";
-
 extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_bgmi_KeshavOwner2_nativeCustomIntegrity(
@@ -80,60 +77,158 @@ Java_com_bgmi_KeshavOwner2_nativeCustomIntegrity(
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_bgmi_KeshavOwner2_nativeVerifySignature(JNIEnv *env, jobject thiz, jobject context) {
+Java_com_bgmi_KeshavOwner2_nativeVerifySignature(
+        JNIEnv *env,
+        jobject,
+        jobject context) {
+
+    if (env == nullptr || context == nullptr) {
+        return JNI_FALSE;
+    }
+
+    auto clearPending = [env]() -> bool {
+        if (env->ExceptionCheck()) {
+            env->ExceptionClear();
+            return true;
+        }
+        return false;
+    };
+
     jclass contextClass = env->GetObjectClass(context);
+    if (!contextClass) return JNI_FALSE;
 
-    // Get PackageManager
-    jmethodID midGetPM = env->GetMethodID(contextClass, "getPackageManager", "()Landroid/content/pm/PackageManager;");
+    jmethodID midGetPM = env->GetMethodID(
+            contextClass,
+            "getPackageManager",
+            "()Landroid/content/pm/PackageManager;");
+    jmethodID midGetPkg = env->GetMethodID(
+            contextClass,
+            "getPackageName",
+            "()Ljava/lang/String;");
+
+    if (!midGetPM || !midGetPkg) return JNI_FALSE;
+
     jobject pm = env->CallObjectMethod(context, midGetPM);
+    if (clearPending() || !pm) return JNI_FALSE;
 
-    // Get package name
-    jmethodID midGetPkg = env->GetMethodID(contextClass, "getPackageName", "()Ljava/lang/String;");
-    jstring pkgName = (jstring) env->CallObjectMethod(context, midGetPkg);
+    auto pkgName = static_cast<jstring>(env->CallObjectMethod(context, midGetPkg));
+    if (clearPending() || !pkgName) return JNI_FALSE;
 
-    // Get package info with signatures (flag = 64)
+    int sdk = 0;
+    jclass versionClass = env->FindClass("android/os/Build$VERSION");
+    if (versionClass) {
+        jfieldID sdkField = env->GetStaticFieldID(versionClass, "SDK_INT", "I");
+        if (sdkField) {
+            sdk = env->GetStaticIntField(versionClass, sdkField);
+            clearPending();
+        }
+    } else {
+        clearPending();
+    }
+
     jclass pmClass = env->GetObjectClass(pm);
-    jmethodID midGetInfo = env->GetMethodID(pmClass, "getPackageInfo",
-                                            "(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;");
-    jobject pkgInfo = env->CallObjectMethod(pm, midGetInfo, pkgName, 64);
+    if (!pmClass) return JNI_FALSE;
 
-    // Get signatures[]
+    jmethodID midGetInfo = env->GetMethodID(
+            pmClass,
+            "getPackageInfo",
+            "(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;");
+    if (!midGetInfo) return JNI_FALSE;
+
+    // GET_SIGNING_CERTIFICATES on API 28+, GET_SIGNATURES below it.
+    const jint flags = sdk >= 28 ? static_cast<jint>(0x08000000) : static_cast<jint>(0x00000040);
+
+    jobject pkgInfo = env->CallObjectMethod(pm, midGetInfo, pkgName, flags);
+    if (clearPending() || !pkgInfo) return JNI_FALSE;
+
+    jobjectArray sigArray = nullptr;
     jclass pkgInfoClass = env->GetObjectClass(pkgInfo);
-    jfieldID fidSignatures = env->GetFieldID(pkgInfoClass, "signatures", "[Landroid/content/pm/Signature;");
-    jobjectArray sigArray = (jobjectArray) env->GetObjectField(pkgInfo, fidSignatures);
+    if (!pkgInfoClass) return JNI_FALSE;
+
+    if (sdk >= 28) {
+        jfieldID signingInfoField = env->GetFieldID(
+                pkgInfoClass,
+                "signingInfo",
+                "Landroid/content/pm/SigningInfo;");
+
+        if (signingInfoField) {
+            jobject signingInfo = env->GetObjectField(pkgInfo, signingInfoField);
+            if (!clearPending() && signingInfo) {
+                jclass signingInfoClass = env->GetObjectClass(signingInfo);
+                if (signingInfoClass) {
+                    jmethodID getSigners = env->GetMethodID(
+                            signingInfoClass,
+                            "getApkContentsSigners",
+                            "()[Landroid/content/pm/Signature;");
+
+                    if (getSigners) {
+                        sigArray = static_cast<jobjectArray>(
+                                env->CallObjectMethod(signingInfo, getSigners));
+                        if (clearPending()) sigArray = nullptr;
+                    }
+                }
+            }
+        } else {
+            clearPending();
+        }
+    }
+
+    // Compatibility fallback if a vendor implementation does not expose SigningInfo as expected.
+    if (sigArray == nullptr) {
+        jfieldID signaturesField = env->GetFieldID(
+                pkgInfoClass,
+                "signatures",
+                "[Landroid/content/pm/Signature;");
+
+        if (signaturesField) {
+            sigArray = static_cast<jobjectArray>(
+                    env->GetObjectField(pkgInfo, signaturesField));
+            if (clearPending()) sigArray = nullptr;
+        } else {
+            clearPending();
+        }
+    }
 
     if (sigArray == nullptr) return JNI_FALSE;
 
-    jsize sigCount = env->GetArrayLength(sigArray);
-    for (jsize i = 0; i < sigCount; i++) {
+    const char *expected = oxorany(
+            "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e");
+
+    const jsize sigCount = env->GetArrayLength(sigArray);
+
+    for (jsize i = 0; i < sigCount; ++i) {
         jobject sig = env->GetObjectArrayElement(sigArray, i);
+        if (!sig) continue;
 
         jclass sigClass = env->GetObjectClass(sig);
+        if (!sigClass) continue;
+
         jmethodID midToBytes = env->GetMethodID(sigClass, "toByteArray", "()[B");
-        jbyteArray sigBytes = (jbyteArray) env->CallObjectMethod(sig, midToBytes);
+        if (!midToBytes) continue;
 
-        jsize len = env->GetArrayLength(sigBytes);
+        auto sigBytes = static_cast<jbyteArray>(
+                env->CallObjectMethod(sig, midToBytes));
+        if (clearPending() || !sigBytes) continue;
+
+        const jsize len = env->GetArrayLength(sigBytes);
         jbyte *buf = env->GetByteArrayElements(sigBytes, nullptr);
+        if (!buf) continue;
 
-        // Hash with SHA-256
         unsigned char hash[SHA256_DIGEST_LENGTH];
-        SHA256((unsigned char *) buf, len, hash);
+        SHA256(reinterpret_cast<unsigned char *>(buf), len, hash);
+        env->ReleaseByteArrayElements(sigBytes, buf, JNI_ABORT);
 
-        env->ReleaseByteArrayElements(sigBytes, buf, 0);
-
-        // Convert hash to hex string
         char hexHash[SHA256_DIGEST_LENGTH * 2 + 1];
-        for (int j = 0; j < SHA256_DIGEST_LENGTH; j++) {
-            sprintf(&hexHash[j * 2], "%02x", hash[j]);
+        for (int j = 0; j < SHA256_DIGEST_LENGTH; ++j) {
+            snprintf(&hexHash[j * 2], 3, "%02x", hash[j]);
         }
         hexHash[SHA256_DIGEST_LENGTH * 2] = '\0';
 
-        if (strcasecmp(hexHash, EXPECTED_SIGNATURE) == 0) {
+        if (strcasecmp(hexHash, expected) == 0) {
             return JNI_TRUE;
-        } else {
-            LOGE("Invalid signature: %s", hexHash);
         }
     }
+
     return JNI_FALSE;
 }
 
