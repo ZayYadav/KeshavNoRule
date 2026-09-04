@@ -13,7 +13,8 @@
 #include "oxorany.h"
 #include <openssl/sha.h> 
 #define LOG_TAG "SignatureCheck"
-#include "decrypt.h" 
+#include "decrypt.h"
+#include "custom_integrity.h" 
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 using json = nlohmann::ordered_json;
@@ -67,6 +68,15 @@ Java_com_bgmi_KeshavOwner1_getSdkKey(JNIEnv *env, jclass clazz) {
 
 // Expected SHA-256 signature
 static const char *EXPECTED_SIGNATURE ="77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e";
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_bgmi_KeshavOwner2_nativeCustomIntegrity(
+        JNIEnv *env,
+        jclass,
+        jobject context) {
+    return keshav_integrity::run(env, context) ? JNI_TRUE : JNI_FALSE;
+}
 
 extern "C"
 JNIEXPORT jboolean JNICALL
