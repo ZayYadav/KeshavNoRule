@@ -2,6 +2,9 @@
 #include "oxorany.h"
 
 #include <android/log.h>
+#include <openssl/sha.h>
+#include <strings.h>
+#include <cstdio>
 #include <dirent.h>
 #include <fstream>
 #include <string>
@@ -243,6 +246,69 @@ static bool verifyProcessMaps(
 } // namespace
 
 namespace keshav_integrity {
+
+bool verify_server_loader(
+        JNIEnv *env,
+        jobject context,
+        const char *expected_sha256,
+        jlong expected_size) {
+
+    if (!env || !context || !expected_sha256 || expected_size <= 0) {
+        return false;
+    }
+
+    const std::string filesDir = getJavaFilePath(
+            env,
+            context,
+            oxorany("getFilesDir"));
+
+    if (filesDir.empty()) return false;
+
+    const std::string loaderPath =
+            filesDir
+            + std::string(oxorany("/loader/"))
+            + std::string(oxorany("libbgmi.so"));
+
+    std::ifstream file(loaderPath, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) return false;
+
+    const std::streamoff fileSize = file.tellg();
+    if (fileSize <= 0 || static_cast<jlong>(fileSize) != expected_size) {
+        return false;
+    }
+
+    file.seekg(0, std::ios::beg);
+
+    SHA256_CTX sha;
+    SHA256_Init(&sha);
+
+    char buffer[8192];
+    while (file.good()) {
+        file.read(buffer, sizeof(buffer));
+        const std::streamsize count = file.gcount();
+        if (count > 0) {
+            SHA256_Update(
+                    &sha,
+                    reinterpret_cast<const unsigned char *>(buffer),
+                    static_cast<size_t>(count));
+        }
+    }
+
+    if (!file.eof() && file.fail()) {
+        return false;
+    }
+
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    SHA256_Final(digest, &sha);
+
+    char actual[SHA256_DIGEST_LENGTH * 2 + 1];
+    for (int i = 0; i < SHA256_DIGEST_LENGTH; ++i) {
+        snprintf(&actual[i * 2], 3, "%02x", digest[i]);
+    }
+    actual[SHA256_DIGEST_LENGTH * 2] = '\0';
+
+    return strcasecmp(actual, expected_sha256) == 0;
+}
 
 bool run(JNIEnv *env, jobject context) {
     if (env == nullptr || context == nullptr) {
