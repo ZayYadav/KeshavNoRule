@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - connect-api-compatible-20260904
+      - keshavowner-security-ui-v1
   pull_request:
     branches:
       - main
@@ -55,6 +56,10 @@ jobs:
         shell: bash
         run: |
           find app/build/outputs -maxdepth 6 -type f -print 2>/dev/null || true
+          if compgen -G "app/build/outputs/apk/release/*.apk" > /dev/null; then
+            du -h app/build/outputs/apk/release/*.apk
+            sha256sum app/build/outputs/apk/release/*.apk
+          fi
 
       - name: Upload release APK
         if: success()
