@@ -151,11 +151,14 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
             con = (HttpURLConnection) url.openConnection();
             con.setConnectTimeout(10000);
             con.setReadTimeout(20000);
-            con.setInstanceFollowRedirects(false);
+            con.setInstanceFollowRedirects(true);
             con.setUseCaches(false);
             con.connect();
 
             int code = con.getResponseCode();
+            if (!isHttps(con.getURL())) {
+                return "Unsafe redirect rejected";
+            }
             if (code < 200 || code >= 300) {
                 return "HTTP Error: " + code;
             }
@@ -421,11 +424,12 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
             con = (HttpURLConnection) url.openConnection();
             con.setConnectTimeout(5000);
             con.setReadTimeout(10000);
-            con.setInstanceFollowRedirects(false);
+            con.setInstanceFollowRedirects(true);
             con.setUseCaches(false);
             con.connect();
 
             int code = con.getResponseCode();
+            if (!isHttps(con.getURL())) return null;
             if (code < 200 || code >= 300) return null;
 
             try (Scanner sc = new Scanner(con.getInputStream())) {
