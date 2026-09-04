@@ -77,9 +77,6 @@ public class KeshavOwner2 extends AppCompatActivity {
 
     public static native boolean nativeVerifySignature(Context context);
     public static native boolean nativeCustomIntegrity(Context context);
-    private static final String EXPECTED_SIGNATURE =
-            "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e";
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
