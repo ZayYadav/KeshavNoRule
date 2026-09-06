@@ -96,6 +96,7 @@ jobs:
             echo "sdk_ref=${SDK_REF}"
             echo "sdk_sha=${SDK_SHA}"
             echo "sdk_commit_url=https://github.com/${SDK_REPO}/commit/${SDK_SHA}"
+            echo "sdk_activation_restore=durable-backup"
           } | tee build-integration-info/sdk-source.txt
 
       - name: Verify SDK panel trust anchors
