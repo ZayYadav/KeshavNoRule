@@ -4,7 +4,9 @@
 -keepnames class com.bgmi.KeshavOwner2
 -keepnames class com.bgmi.KeshavOwner3
 -keepnames class com.bgmi.utils.KeshavOwner4
--keepnames class com.bgmi.utils.KeshavOwner5
+# KeshavOwner5 performs network/archive/integrity work and must stay verifier-stable.
+# Keep its bytecode shape intact on Android 16; native Version()/Link() bindings remain unchanged.
+-keep class com.bgmi.utils.KeshavOwner5 { *; }
 -keepnames class com.bgmi.utils.KeshavOwner6
 -keepnames class com.bgmi.utils.KeshavOwner7
 -keepnames class com.bgmi.KeshavOwner8
