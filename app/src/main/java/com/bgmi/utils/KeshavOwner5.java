@@ -5,7 +5,6 @@ import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.util.Log;
 
-import org.lsposed.lsparanoid.Obfuscate;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -21,7 +20,6 @@ import java.util.Scanner;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-@Obfuscate
 public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
 
     private static final String TAG = "KeshavOwner5";
