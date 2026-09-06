@@ -47,7 +47,7 @@ extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_bgmi_utils_KeshavOwner5_Version(JNIEnv *env, jclass clazz) {
     // return URL to version file
-    const char *versionUrl = (oxorany("https://github.com/k4414597-creator/Y36373u/releases/download/566/version.txt"));
+    const char *versionUrl = (oxorany("https://github.com/k4414597-creator/jaduloader/releases/download/Jadu/version.txt"));
     return env->NewStringUTF(versionUrl);
 }
 
@@ -55,7 +55,7 @@ extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_bgmi_utils_KeshavOwner5_Link(JNIEnv *env, jclass clazz) {
     
-    const char *downloadUrl = (oxorany("https://github.com/k4414597-creator/Y36373u/releases/download/566/V4.zip")); //Last Mai Apka Zip Name
+    const char *downloadUrl = (oxorany("https://github.com/k4414597-creator/jaduloader/releases/download/Jadu/V4.zip")); //Last Mai Apka Zip Name
     return env->NewStringUTF(downloadUrl);
 }
 
