@@ -39,7 +39,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
         android:letterSpacing="0.12"
-        android:text="NO RULE SECURITY CORE"
+        android:text="JADU LOADER SECURITY CORE"
         android:textColor="@color/error"
         android:textSize="10sp"
         android:textStyle="bold" />

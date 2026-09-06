@@ -71,9 +71,8 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:layout_gravity="center"
-                        android:contentDescription="Keshav Owner security"
-                        android:src="@drawable/ic_shield_check"
-                        app:tint="@color/cyber_cyan" />
+                        android:contentDescription="JADU LOADER"
+                        android:src="@drawable/icon" />
                 </com.google.android.material.card.MaterialCardView>
 
                 <LinearLayout
@@ -89,7 +88,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-black"
                         android:letterSpacing="0.10"
-                        android:text="NO RULE LOADER"
+                        android:text="JADU LOADER"
                         android:textColor="@color/white"
                         android:textSize="28sp"
                         android:textStyle="bold" />
@@ -295,7 +294,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="NO RULE SECURITY CORE"
+                    android:text="JADU LOADER SECURITY CORE"
                     android:textColor="@color/text_muted"
                     android:textSize="10sp"
                     android:textStyle="bold" />

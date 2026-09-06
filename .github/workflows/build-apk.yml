@@ -91,7 +91,7 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" app/build/outputs/apk/release/NO-RULE-LOADER.apk
+          cp "$APK" app/build/outputs/apk/release/JADU-LOADER.apk
 
       - name: Show APK output
         if: always()
@@ -107,7 +107,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: NO-RULE-LOADER-release
-          path: app/build/outputs/apk/release/NO-RULE-LOADER.apk
+          name: JADU-LOADER-release
+          path: app/build/outputs/apk/release/JADU-LOADER.apk
           if-no-files-found: error
           retention-days: 14

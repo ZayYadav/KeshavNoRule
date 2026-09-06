@@ -49,7 +49,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
                         android:fontFamily="sans-serif-black"
-                        android:text="NO RULE LOADER"
+                        android:text="JADU LOADER"
                         android:textColor="@color/white"
                         android:textSize="25sp"
                         android:textStyle="bold" />

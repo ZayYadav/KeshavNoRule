@@ -1,5 +1,5 @@
 
-rootProject.name = "A15ZBox"
+rootProject.name = "JaduLoader"
 include ':app'
 //include ':MundoCore'
 

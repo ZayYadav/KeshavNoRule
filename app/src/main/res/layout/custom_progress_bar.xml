@@ -35,7 +35,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="NO RULE LOADER"
+        android:text="JADU LOADER"
         android:textColor="#64748B"
         android:textSize="10sp"
         android:letterSpacing="0.08"
