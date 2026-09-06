@@ -96,6 +96,36 @@ jobs:
             echo "sdk_sha=${SDK_SHA}"
           } | tee build-integration-info/sdk-source.txt
 
+      - name: Verify SDK panel trust anchors
+        shell: bash
+        run: |
+          set -euo pipefail
+          TRUST_JSON="${SDK_CHECKOUT_DIR}/panels/sdk-panel/sdk-v3-public-trust.json"
+          SDK_GRADLE="${SDK_PROJECT_DIR}/${SDK_MODULE_DIR}/build.gradle"
+          test -s "$TRUST_JSON"
+          test -s "$SDK_GRADLE"
+
+          python3 - "$TRUST_JSON" "$SDK_GRADLE" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          trust = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          gradle = pathlib.Path(sys.argv[2]).read_text(encoding="utf-8")
+          expected = {
+              "SDK_PANEL_KEY_ID": trust["key_id"],
+              "SDK_PANEL_ECDH_PUBLIC_KEY": trust["ecdh_public_key_b64"],
+              "SDK_PANEL_SIGNING_PUBLIC_KEY": trust["signing_public_key_b64"],
+          }
+          missing = [
+              name for name, value in expected.items()
+              if f"'{name}', '\"{value}\"'" not in gradle
+          ]
+          if missing:
+              raise SystemExit("SDK panel trust anchor mismatch: " + ", ".join(missing))
+          print("SDK panel trust anchors match", trust["key_id"])
+          PY
+
       - name: Build KESHAVXOWNER SDK release AAR
         working-directory: ${{ env.SDK_PROJECT_DIR }}
         shell: bash
