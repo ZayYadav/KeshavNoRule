@@ -152,5 +152,5 @@ BlackObfuscator {
     depth 2
     // Obfuscate only this app's own code. Do not touch BlackBox/AAR dependencies.
     obfClass = ["com.bgmi"]
-    blackClass = ["com.bgmi.R", "com.bgmi.BuildConfig"]
+    blackClass = ["com.bgmi.R", "com.bgmi.BuildConfig", "com.bgmi.utils.KeshavOwner5"]
 }
