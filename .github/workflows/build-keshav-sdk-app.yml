@@ -1,4 +1,5 @@
 name: Build KESHAVXOWNER SDK + KeshavNoRule
+run-name: Build KESHAVXOWNER fresh SDK (${{ inputs.sdk_ref || 'KESHAVXOWNER' }})
 
 on:
   workflow_dispatch:
