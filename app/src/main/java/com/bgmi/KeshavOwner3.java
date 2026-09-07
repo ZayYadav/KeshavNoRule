@@ -42,6 +42,7 @@ public class KeshavOwner3 extends AppCompatActivity {
     private Runnable securityGuard;
     private ObjectAnimator titleAnimator;
     private ObjectAnimator startPulseAnimator;
+    private boolean dashboardReady = false;
 
     static {
         try {
@@ -152,11 +153,13 @@ public class KeshavOwner3 extends AppCompatActivity {
             });
         }
 
+        dashboardReady = true;
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        if (!dashboardReady) return;
 
         // The dashboard is allowed to do periodic UI/security work only while it
         // is actually foreground. As soon as BGMI takes over, onPause() removes
@@ -366,6 +369,7 @@ public class KeshavOwner3 extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        dashboardReady = false;
         try {
             securityHandler.removeCallbacksAndMessages(null);
             timerHandler.removeCallbacksAndMessages(null);
