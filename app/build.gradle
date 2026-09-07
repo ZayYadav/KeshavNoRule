@@ -51,7 +51,7 @@ android {
         //noinspection OldTargetApi,EditedTargetSdkVersion,ExpiredTargetSdkVersion
         targetSdk 28
         versionCode 1
-        versionName "2024.09.21"
+        versionName "DARKv1"
 
         vectorDrawables {
             useSupportLibrary true
