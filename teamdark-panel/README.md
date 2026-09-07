@@ -70,3 +70,10 @@ Until that wiring is added, panel generation/management works, but Android key e
 - Rotate APP_KEY only with a migration plan because license ciphertext/device fingerprints depend on it.
 - Set PHP display_errors=Off; log errors server-side.
 - Keep PHP/MySQL/web server patched and force HTTPS.
+
+## Automatic expiry cron
+For true background expiry on cPanel, add a Cron Job every minute or every 5 minutes:
+
+php /home/YOUR_CPANEL_USER/teamdarkloader.parallaxserver.online/bin/expire-keys.php
+
+The web/API paths also check expiry, so a key is never accepted after its expiry even if cron is delayed.
