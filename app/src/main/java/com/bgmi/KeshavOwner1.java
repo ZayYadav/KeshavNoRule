@@ -160,9 +160,15 @@ public class KeshavOwner1 extends Application {
         super.onCreate();
         BlackBoxCore.get().doCreate();
         try {
-            MetaActivationManager.activateSdk("KESHAVFRIEND");
-        } catch (Exception exception) {
-            exception.printStackTrace();
+            String sdkKey = getSdkKey();
+            if (sdkKey != null && !sdkKey.trim().isEmpty()) {
+                MetaActivationManager.activateSdk(sdkKey.trim());
+                Log.i(TAG, "SDK activation requested at startup");
+            } else {
+                Log.e(TAG, "SDK activation key is empty");
+            }
+        } catch (Throwable throwable) {
+            Log.e(TAG, "SDK activation startup request failed", throwable);
         }
     }
 }

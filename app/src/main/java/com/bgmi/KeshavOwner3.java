@@ -10,6 +10,7 @@ import android.os.Debug;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -22,6 +23,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.bgmi.utils.KeshavOwner4;
 import com.bgmi.utils.KeshavOwner7;
+import net_62v.external.MetaActivationManager;
 import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
 
@@ -53,6 +55,10 @@ public class KeshavOwner3 extends AppCompatActivity {
     private static final String PKG_BGMI = "com.pubg.imobile";
     private static final int USER_ID = 0;
     private final Handler timerHandler = new Handler(Looper.getMainLooper());
+    private final Handler sdkActivationHandler = new Handler(Looper.getMainLooper());
+    private final AtomicBoolean sdkActivationPending = new AtomicBoolean(false);
+    private static final long SDK_ACTIVATION_POLL_MS = 500L;
+    private static final long SDK_ACTIVATION_TIMEOUT_MS = 60_000L;
     private boolean doubleBackExit = false;
 
     private TextView tvExpires;
@@ -185,6 +191,8 @@ public class KeshavOwner3 extends AppCompatActivity {
         try {
             securityHandler.removeCallbacksAndMessages(null);
             timerHandler.removeCallbacksAndMessages(null);
+            sdkActivationHandler.removeCallbacksAndMessages(null);
+            sdkActivationPending.set(false);
             securityGuard = null;
 
             if (titleAnimator != null) titleAnimator.cancel();
@@ -224,6 +232,100 @@ public class KeshavOwner3 extends AppCompatActivity {
     }
 
     private void handleStart() {
+        if (!ensureSdkActivatedThenContinue()) {
+            return;
+        }
+        handleStartAfterSdkReady();
+    }
+
+    private boolean ensureSdkActivatedThenContinue() {
+        try {
+            if (MetaActivationManager.getActivatedStatus()) {
+                sdkActivationPending.set(false);
+                sdkActivationHandler.removeCallbacksAndMessages(null);
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        if (!sdkActivationPending.compareAndSet(false, true)) {
+            Toast.makeText(this, "SDK activation in progress...", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        final String sdkKey;
+        try {
+            sdkKey = KeshavOwner1.getSdkKey();
+        } catch (Throwable throwable) {
+            sdkActivationPending.set(false);
+            KeshavOwner7.getInstance().playError();
+            Toast.makeText(this, "SDK key unavailable", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        if (sdkKey == null || sdkKey.trim().isEmpty()) {
+            sdkActivationPending.set(false);
+            KeshavOwner7.getInstance().playError();
+            Toast.makeText(this, "SDK key unavailable", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        try {
+            MetaActivationManager.activateSdk(sdkKey.trim());
+        } catch (Throwable throwable) {
+            sdkActivationPending.set(false);
+            KeshavOwner7.getInstance().playError();
+            Toast.makeText(this, "SDK activation could not start", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        Toast.makeText(this, "Activating SDK...", Toast.LENGTH_SHORT).show();
+        final long deadline = SystemClock.elapsedRealtime() + SDK_ACTIVATION_TIMEOUT_MS;
+
+        sdkActivationHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || isDestroyed()) {
+                    sdkActivationPending.set(false);
+                    return;
+                }
+
+                boolean activated = false;
+                try {
+                    activated = MetaActivationManager.getActivatedStatus();
+                } catch (Throwable ignored) {
+                }
+
+                if (activated) {
+                    sdkActivationPending.set(false);
+                    sdkActivationHandler.removeCallbacksAndMessages(null);
+                    Toast.makeText(KeshavOwner3.this, "SDK Activated", Toast.LENGTH_SHORT).show();
+                    handleStartAfterSdkReady();
+                    return;
+                }
+
+                if (SystemClock.elapsedRealtime() >= deadline) {
+                    sdkActivationPending.set(false);
+                    String message = "SDK activation failed";
+                    try {
+                        String serverMessage = MetaActivationManager.getServerMessage();
+                        if (serverMessage != null && !serverMessage.trim().isEmpty()) {
+                            message = serverMessage;
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                    KeshavOwner7.getInstance().playError();
+                    Toast.makeText(KeshavOwner3.this, message, Toast.LENGTH_LONG).show();
+                    return;
+                }
+
+                sdkActivationHandler.postDelayed(this, SDK_ACTIVATION_POLL_MS);
+            }
+        });
+        return false;
+    }
+
+    private void handleStartAfterSdkReady() {
         if (BlackBoxCore.get() == null) {
             KeshavOwner7.getInstance().playError();
             Toast.makeText(this, "Core is null!", Toast.LENGTH_SHORT).show();
@@ -373,6 +475,8 @@ public class KeshavOwner3 extends AppCompatActivity {
         try {
             securityHandler.removeCallbacksAndMessages(null);
             timerHandler.removeCallbacksAndMessages(null);
+            sdkActivationHandler.removeCallbacksAndMessages(null);
+            sdkActivationPending.set(false);
             securityGuard = null;
             if (titleAnimator != null) titleAnimator.cancel();
             if (startPulseAnimator != null) startPulseAnimator.cancel();
