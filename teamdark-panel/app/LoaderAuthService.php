@@ -3,24 +3,34 @@ declare(strict_types=1);
 
 namespace TeamDark\Panel;
 
-use DateInterval;
-use DateTimeImmutable;
 use PDOException;
 use RuntimeException;
 use Throwable;
 
 final class LoaderAuthService
 {
-    public static function makeToken(string $game, string $userKey, string $serial): string
-    {
+    public static function makeToken(
+        string $game,
+        string $userKey,
+        string $serial
+    ): string {
         $secret = (string)Config::get('teamdark_auth_secret', '');
+
         if ($secret === '') {
-            throw new RuntimeException('TeamDark loader auth secret is not configured.');
+            throw new RuntimeException(
+                'TeamDark loader auth secret is not configured.'
+            );
         }
 
-        // 1:1 with TeamDarkLoader main.cpp:
-        // PUBG-user_key-serial-SERVER_SECRET -> lowercase MD5 hex.
-        return md5($game . '-' . $userKey . '-' . $serial . '-' . $secret);
+        // Exact TeamDarkLoader native contract:
+        // PUBG-user_key-serial-SERVER_SECRET
+        // md5() returns lowercase hex, matching CalcMD5() in main.cpp.
+        return md5(
+            $game . '-' .
+            $userKey . '-' .
+            $serial . '-' .
+            $secret
+        );
     }
 
     public static function authenticate(
@@ -43,16 +53,17 @@ final class LoaderAuthService
         }
 
         if (
-            strlen($game) > 16
-            || strlen($userKey) > 200
-            || strlen($serial) > 255
+            strlen($game) > 16 ||
+            strlen($userKey) > 200 ||
+            strlen($serial) > 255
         ) {
             return self::fail('Invalid Request');
         }
 
-        // Fail closed if the server was deployed without the matching native secret.
         if ((string)Config::get('teamdark_auth_secret', '') === '') {
-            throw new RuntimeException('TeamDark loader auth secret is not configured.');
+            throw new RuntimeException(
+                'TeamDark loader auth secret is not configured.'
+            );
         }
 
         $pdo = Database::pdo();
@@ -106,13 +117,13 @@ final class LoaderAuthService
 
             $nowTs = time();
             $nowString = date('Y-m-d H:i:s', $nowTs);
-            $unlimitedExpiry = (int)($key['unlimited_expiry'] ?? 0) === 1;
+            $unlimitedExpiry =
+                (int)($key['unlimited_expiry'] ?? 0) === 1;
 
-            // Existing active key: expire it before any device mutation.
             if (
-                !$unlimitedExpiry
-                && !empty($key['expires_at'])
-                && strtotime((string)$key['expires_at']) <= $nowTs
+                !$unlimitedExpiry &&
+                !empty($key['expires_at']) &&
+                strtotime((string)$key['expires_at']) <= $nowTs
             ) {
                 $pdo->prepare(
                     "UPDATE license_keys SET status='expired' WHERE id=?"
@@ -122,20 +133,31 @@ final class LoaderAuthService
                 return self::fail('Key Expired');
             }
 
-            // First successful use starts the lifetime. The key row is locked,
-            // so only one concurrent request can initialize this timestamp.
+            // First successful login starts the countdown.
+            // The license row is locked, so concurrent first-use requests
+            // cannot race to set different activation timestamps.
             if (empty($key['activated_at']) || $status === 'unused') {
                 $activatedAt = $nowString;
                 $expiresAt = null;
 
                 if (!$unlimitedExpiry) {
-                    $durationSeconds = max(3600, (int)($key['duration_seconds'] ?? 86400));
-                    $expiresAt = date('Y-m-d H:i:s', $nowTs + $durationSeconds);
+                    $durationSeconds = max(
+                        3600,
+                        (int)($key['duration_seconds'] ?? 86400)
+                    );
+
+                    $expiresAt = date(
+                        'Y-m-d H:i:s',
+                        $nowTs + $durationSeconds
+                    );
                 }
 
                 $pdo->prepare(
                     "UPDATE license_keys
-                     SET activated_at=?, expires_at=?, status='active', last_used_at=?
+                     SET activated_at=?,
+                         expires_at=?,
+                         status='active',
+                         last_used_at=?
                      WHERE id=?"
                 )->execute([
                     $activatedAt,
@@ -156,12 +178,17 @@ final class LoaderAuthService
                  LIMIT 1"
             );
             $deviceQ->execute([$key['id'], $serial]);
-            $existingDevice = $deviceQ->fetch();
+            $device = $deviceQ->fetch();
 
-            $unlimitedDevices = (int)($key['unlimited_devices'] ?? 0) === 1;
-            $maxDevices = max(1, (int)($key['max_devices'] ?? 1));
+            $unlimitedDevices =
+                (int)($key['unlimited_devices'] ?? 0) === 1;
+            $maxDevices = max(
+                1,
+                (int)($key['max_devices'] ?? 1)
+            );
 
-            if ($existingDevice && (int)$existingDevice['active'] === 1) {
+            if ($device && (int)$device['active'] === 1) {
+                // Same serial: do not consume another slot.
                 $pdo->prepare(
                     "UPDATE license_devices
                      SET last_seen_at=?, ip_address=?
@@ -169,7 +196,7 @@ final class LoaderAuthService
                 )->execute([
                     $nowString,
                     $ipAddress,
-                    $existingDevice['id'],
+                    $device['id'],
                 ]);
             } else {
                 $countQ = $pdo->prepare(
@@ -180,75 +207,94 @@ final class LoaderAuthService
                 $countQ->execute([$key['id']]);
                 $usedDevices = (int)$countQ->fetchColumn();
 
-                if (!$unlimitedDevices && $usedDevices >= $maxDevices) {
+                if (
+                    !$unlimitedDevices &&
+                    $usedDevices >= $maxDevices
+                ) {
                     $pdo->rollBack();
                     return self::fail('Device Limit Reached');
                 }
 
                 $deviceHash = Crypto::fingerprint($serial);
 
-                if ($existingDevice) {
+                if ($device) {
+                    // Previously reset serial: reactivate the same unique row.
                     $pdo->prepare(
                         "UPDATE license_devices
-                         SET active=1, device_hash=?, first_seen_at=?, last_seen_at=?, ip_address=?
+                         SET active=1,
+                             device_hash=?,
+                             first_seen_at=?,
+                             last_seen_at=?,
+                             ip_address=?
                          WHERE id=?"
                     )->execute([
                         $deviceHash,
                         $nowString,
                         $nowString,
                         $ipAddress,
-                        $existingDevice['id'],
+                        $device['id'],
                     ]);
                 } else {
                     try {
                         $pdo->prepare(
                             "INSERT INTO license_devices(
-                            license_key_id,device_hash,serial,device_label,
-                            first_seen_at,last_seen_at,ip_address,active
-                         ) VALUES(?,?,?,?,?,?,?,1)"
-                    )->execute([
-                        $key['id'],
-                        $deviceHash,
-                        $serial,
-                        '',
-                        $nowString,
-                        $nowString,
-                        $ipAddress,
-                    ]);
-                } catch (PDOException $e) {
-                    // Defensive duplicate handling. The key row lock already
-                    // serializes normal registrations for this license.
-                    if ($e->getCode() !== '23000') {
-                        throw $e;
+                                license_key_id,
+                                device_hash,
+                                serial,
+                                device_label,
+                                first_seen_at,
+                                last_seen_at,
+                                ip_address,
+                                active
+                             ) VALUES(?,?,?,?,?,?,?,1)"
+                        )->execute([
+                            $key['id'],
+                            $deviceHash,
+                            $serial,
+                            '',
+                            $nowString,
+                            $nowString,
+                            $ipAddress,
+                        ]);
+                    } catch (PDOException $e) {
+                        // Defensive duplicate recovery. The key row lock
+                        // already serializes normal device registrations.
+                        if ($e->getCode() !== '23000') {
+                            throw $e;
+                        }
+
+                        $again = $pdo->prepare(
+                            "SELECT id
+                             FROM license_devices
+                             WHERE license_key_id=? AND serial=?
+                             LIMIT 1"
+                        );
+                        $again->execute([$key['id'], $serial]);
+                        $found = $again->fetch();
+
+                        if (!$found) {
+                            throw $e;
+                        }
+
+                        $pdo->prepare(
+                            "UPDATE license_devices
+                             SET active=1,
+                                 last_seen_at=?,
+                                 ip_address=?
+                             WHERE id=?"
+                        )->execute([
+                            $nowString,
+                            $ipAddress,
+                            $found['id'],
+                        ]);
                     }
-
-                    $again = $pdo->prepare(
-                        "SELECT id
-                         FROM license_devices
-                         WHERE license_key_id=? AND serial=? AND active=1
-                         LIMIT 1"
-                    );
-                    $again->execute([$key['id'], $serial]);
-                    $found = $again->fetch();
-
-                    if (!$found) {
-                        throw $e;
-                    }
-
-                    $pdo->prepare(
-                        "UPDATE license_devices
-                         SET last_seen_at=?, ip_address=?
-                         WHERE id=?"
-                    )->execute([
-                        $nowString,
-                        $ipAddress,
-                        $found['id'],
-                    ]);
                 }
             }
 
             $pdo->prepare(
-                "UPDATE license_keys SET last_used_at=? WHERE id=?"
+                "UPDATE license_keys
+                 SET last_used_at=?
+                 WHERE id=?"
             )->execute([
                 $nowString,
                 $key['id'],
@@ -265,28 +311,42 @@ final class LoaderAuthService
             $pdo->commit();
 
             try {
-                Security::audit((int)$key['owner_user_id'], 'loader_login_success', [
-                    'license_id'=>(int)$key['id'],
-                    'serial_hash'=>substr(hash('sha256', $serial), 0, 16),
-                    'used_devices'=>$usedDevices,
-                ]);
+                Security::audit(
+                    (int)$key['owner_user_id'],
+                    'loader_login_success',
+                    [
+                        'license_id'=>(int)$key['id'],
+                        'serial_hash'=>substr(
+                            hash('sha256', $serial),
+                            0,
+                            16
+                        ),
+                        'used_devices'=>$usedDevices,
+                    ]
+                );
             } catch (Throwable) {
-                // Auth must not fail because non-critical audit logging failed.
+                // Login must not fail because optional audit logging failed.
             }
 
+            // Must be fresh for the native ±60 second check.
             $rng = time();
+
             $expiredDate = $unlimitedExpiry
                 ? 'UNLIMITED'
                 : (string)$key['expires_at'];
 
             return [
-                'status' => true,
-                'data' => [
-                    'token' => self::makeToken($game, $userKey, $serial),
-                    'rng' => $rng,
-                    'expired_date' => $expiredDate,
-                    'exdate' => $expiredDate,
-                    'EXP' => $expiredDate,
+                'status'=>true,
+                'data'=>[
+                    'token'=>self::makeToken(
+                        $game,
+                        $userKey,
+                        $serial
+                    ),
+                    'rng'=>$rng,
+                    'expired_date'=>$expiredDate,
+                    'exdate'=>$expiredDate,
+                    'EXP'=>$expiredDate,
                 ],
             ];
         } catch (Throwable $e) {
@@ -301,8 +361,8 @@ final class LoaderAuthService
     private static function fail(string $reason): array
     {
         return [
-            'status' => false,
-            'reason' => $reason,
+            'status'=>false,
+            'reason'=>$reason,
         ];
     }
 }
