@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_user_ref FOREIGN KEY (referred_by) REFERENCES users(id) ON DELETE SET NULL,
   CONSTRAINT fk_user_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-  INDEX idx_users_role(role), INDEX idx_users_ref(referred_by)
+  INDEX idx_users_role(role),
+  INDEX idx_users_ref(referred_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS license_keys (
@@ -26,31 +27,39 @@ CREATE TABLE IF NOT EXISTS license_keys (
   key_iv VARCHAR(64) NOT NULL,
   key_tag VARCHAR(64) NOT NULL,
   label VARCHAR(100) NOT NULL DEFAULT '',
+  game VARCHAR(16) NOT NULL DEFAULT 'PUBG',
   duration_seconds BIGINT UNSIGNED NOT NULL DEFAULT 86400,
+  unlimited_expiry TINYINT(1) NOT NULL DEFAULT 0,
   activated_at DATETIME NULL,
   expires_at DATETIME NULL,
   last_used_at DATETIME NULL,
   max_devices INT UNSIGNED NOT NULL DEFAULT 10,
-  status ENUM('unused','active','disabled','expired') NOT NULL DEFAULT 'unused',
+  unlimited_devices TINYINT(1) NOT NULL DEFAULT 0,
+  status ENUM('unused','active','expired','disabled','revoked') NOT NULL DEFAULT 'unused',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_key_owner FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_key_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_keys_owner(owner_user_id),
   INDEX idx_keys_creator(created_by),
   INDEX idx_keys_status(status),
-  INDEX idx_keys_expiry(expires_at)
+  INDEX idx_keys_expiry(expires_at),
+  INDEX idx_keys_game(game)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS license_devices (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   license_key_id BIGINT UNSIGNED NOT NULL,
   device_hash CHAR(64) NOT NULL,
+  serial VARCHAR(255) NOT NULL,
   device_label VARCHAR(120) NOT NULL DEFAULT '',
   first_seen_at DATETIME NOT NULL,
   last_seen_at DATETIME NOT NULL,
+  ip_address VARCHAR(45) NOT NULL DEFAULT '',
+  active TINYINT(1) NOT NULL DEFAULT 1,
   CONSTRAINT fk_device_key FOREIGN KEY (license_key_id) REFERENCES license_keys(id) ON DELETE CASCADE,
-  UNIQUE KEY uq_key_device(license_key_id, device_hash),
-  INDEX idx_device_last_seen(last_seen_at)
+  UNIQUE KEY uq_key_serial(license_key_id, serial),
+  INDEX idx_device_last_seen(last_seen_at),
+  INDEX idx_device_active(license_key_id, active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS balance_ledger (
@@ -85,7 +94,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   meta_json JSON NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-  INDEX idx_audit_user(user_id), INDEX idx_audit_action(action), INDEX idx_audit_created(created_at)
+  INDEX idx_audit_user(user_id),
+  INDEX idx_audit_action(action),
+  INDEX idx_audit_created(created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS rate_limits (
