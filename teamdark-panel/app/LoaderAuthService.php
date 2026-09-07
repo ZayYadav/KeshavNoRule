@@ -150,9 +150,9 @@ final class LoaderAuthService
             }
 
             $deviceQ = $pdo->prepare(
-                "SELECT id
+                "SELECT id,active
                  FROM license_devices
-                 WHERE license_key_id=? AND serial=? AND active=1
+                 WHERE license_key_id=? AND serial=?
                  LIMIT 1"
             );
             $deviceQ->execute([$key['id'], $serial]);
@@ -161,7 +161,7 @@ final class LoaderAuthService
             $unlimitedDevices = (int)($key['unlimited_devices'] ?? 0) === 1;
             $maxDevices = max(1, (int)($key['max_devices'] ?? 1));
 
-            if ($existingDevice) {
+            if ($existingDevice && (int)$existingDevice['active'] === 1) {
                 $pdo->prepare(
                     "UPDATE license_devices
                      SET last_seen_at=?, ip_address=?
@@ -187,7 +187,19 @@ final class LoaderAuthService
 
                 $deviceHash = Crypto::fingerprint($serial);
 
-                try {
+                if ($existingDevice) {
+                    $pdo->prepare(
+                        "UPDATE license_devices
+                         SET active=1, device_hash=?, first_seen_at=?, last_seen_at=?, ip_address=?
+                         WHERE id=?"
+                    )->execute([
+                        $deviceHash,
+                        $nowString,
+                        $nowString,
+                        $ipAddress,
+                        $existingDevice['id'],
+                    ]);
+                } else try {
                     $pdo->prepare(
                         "INSERT INTO license_devices(
                             license_key_id,device_hash,serial,device_label,
