@@ -17,7 +17,7 @@ class Scrambler {
 
 Scrambler scrambler = new Scrambler()
 
-def teamDarkKeystore = file('TeamDark-release.jks')
+def teamDarkKeystore = file('TeamDarkParallax.jks')
 def teamDarkStorePassword = System.getenv('TEAM_DARK_STORE_PASSWORD')
 def teamDarkKeyPassword = System.getenv('TEAM_DARK_KEY_PASSWORD') ?: teamDarkStorePassword
 def teamDarkKeyAlias = System.getenv('TEAM_DARK_KEY_ALIAS') ?: 'TeamDarkParallax'
@@ -168,7 +168,7 @@ gradle.taskGraph.whenReady { graph ->
     }
     if (releaseRequested) {
         if (!teamDarkKeystore.isFile()) {
-            throw new GradleException('Missing app/TeamDark-release.jks. Exact TeamDark signing keystore is required.')
+            throw new GradleException('Missing app/TeamDarkParallax.jks. Exact TeamDark signing keystore is required.')
         }
         if (!teamDarkStorePassword || !teamDarkKeyPassword) {
             throw new GradleException('Set TEAM_DARK_STORE_PASSWORD and TEAM_DARK_KEY_PASSWORD for TeamDark release signing.')
