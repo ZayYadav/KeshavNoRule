@@ -24,9 +24,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          LIBBGMI_BEFORE="$(git grep -n -F 'libbgmi.so' -- ':!.github/**' || true)"
-          PANEL_BEFORE="$(git grep -n -F 'jaduloader.parallaxserver.online' -- ':!.github/**' || true)"
-          ACTKEY_BEFORE="$(git grep -n -F 'KESHAVFRIEND' -- ':!.github/**' || true)"
+          LIBBGMI_BEFORE="$(git grep -h -F 'libbgmi.so' -- ':!.github/**' || true)"
+          PANEL_BEFORE="$(git grep -h -F 'jaduloader.parallaxserver.online' -- ':!.github/**' || true)"
+          ACTKEY_BEFORE="$(git grep -h -F 'KESHAVFRIEND' -- ':!.github/**' || true)"
 
           python3 <<'PY'
           from pathlib import Path
@@ -77,9 +77,9 @@ jobs:
                   p.write_text(updated, encoding="utf-8")
           PY
 
-          LIBBGMI_AFTER="$(git grep -n -F 'libbgmi.so' -- ':!.github/**' || true)"
-          PANEL_AFTER="$(git grep -n -F 'jaduloader.parallaxserver.online' -- ':!.github/**' || true)"
-          ACTKEY_AFTER="$(git grep -n -F 'KESHAVFRIEND' -- ':!.github/**' || true)"
+          LIBBGMI_AFTER="$(git grep -h -F 'libbgmi.so' -- ':!.github/**' || true)"
+          PANEL_AFTER="$(git grep -h -F 'jaduloader.parallaxserver.online' -- ':!.github/**' || true)"
+          ACTKEY_AFTER="$(git grep -h -F 'KESHAVFRIEND' -- ':!.github/**' || true)"
           test "$LIBBGMI_AFTER" = "$LIBBGMI_BEFORE"
           test "$PANEL_AFTER" = "$PANEL_BEFORE"
           test "$ACTKEY_AFTER" = "$ACTKEY_BEFORE"
