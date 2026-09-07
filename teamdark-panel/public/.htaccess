@@ -4,6 +4,9 @@ RewriteEngine On
 # Existing TeamDarkLoader native endpoint.
 RewriteRule ^connect/?$ connect.php [L,QSA]
 
+# Telegram Bot API webhook endpoint.
+RewriteRule ^telegram/webhook/?$ telegram-webhook.php [L,QSA]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]

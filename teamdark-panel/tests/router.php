@@ -9,6 +9,11 @@ if ($path === '/connect' || $path === '/connect/') {
     return true;
 }
 
+if ($path === '/telegram/webhook' || $path === '/telegram/webhook/') {
+    require $root.'/public/telegram-webhook.php';
+    return true;
+}
+
 $publicFile = $root.'/public'.$path;
 if ($path !== '/' && is_file($publicFile)) {
     return false;

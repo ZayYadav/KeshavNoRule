@@ -9,6 +9,9 @@ RewriteRule ^(?:\.env(?:\..*)?|composer\.(?:json|lock)|README\.md)$ - [F,L,NC]
 # Existing TeamDarkLoader native endpoint.
 RewriteRule ^connect/?$ public/connect.php [L,QSA]
 
+# Telegram Bot API webhook endpoint.
+RewriteRule ^telegram/webhook/?$ public/telegram-webhook.php [L,QSA]
+
 # Serve static public assets when the hosting document root is teamdark-panel/.
 RewriteRule ^assets/(.*)$ public/assets/$1 [L,NC]
 

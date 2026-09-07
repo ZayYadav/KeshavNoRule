@@ -16,6 +16,10 @@ $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
 foreach ([
     'license_devices',
     'license_keys',
+    'telegram_link_tokens',
+    'telegram_update_ids',
+    'telegram_users',
+    'referral_invites',
     'api_tokens',
     'balance_ledger',
     'audit_logs',

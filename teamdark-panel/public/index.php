@@ -9,6 +9,7 @@ use TeamDark\Panel\{
     KeyManager,
     LicenseService,
     ReferralManager,
+    TelegramService,
     Security,
     View
 };
@@ -26,6 +27,7 @@ foreach ([
     'KeyManager',
     'LicenseService',
     'ReferralManager',
+    'TelegramService',
 ] as $file) {
     require $root.'/app/'.$file.'.php';
 }
@@ -635,6 +637,50 @@ try {
                 .'<h3>'.View::e($displayName).'</h3>'
                 .'<p class="muted">Your account cannot create referral codes.</p></div>';
 
+
+        $telegramInfo = TelegramService::linkInfo($user);
+        $linkState = $_SESSION['telegram_link_code'] ?? null;
+
+        if (
+            is_array($linkState)
+            && (int)($linkState['expires_ts'] ?? 0) <= time()
+        ) {
+            unset($_SESSION['telegram_link_code']);
+            $linkState = null;
+        }
+
+        if ($telegramInfo) {
+            $telegramCard = '<div class="card half telegram-card">'
+                .'<div class="eyebrow">TELEGRAM LINK</div><h3>Verified & linked</h3>'
+                .'<p class="muted">Chat ID: <span class="key">'.View::e($telegramInfo['chat_id']).'</span><br>'
+                .'Telegram: '.View::e(TelegramService::displayName($telegramInfo))
+                .($telegramInfo['username'] ? ' • @'.View::e($telegramInfo['username']) : '')
+                .'</p>'
+                .'<form method="post" action="/telegram/unlink" class="inline">'
+                .View::csrf()
+                .'<button class="ghost danger">Unlink Telegram</button></form>'
+                .'</div>';
+        } else {
+            $verify = '';
+
+            if (is_array($linkState)) {
+                $verify = '<div class="verify-box"><div class="eyebrow">15 MIN VERIFY CODE</div>'
+                    .'<div class="key verify-code">'.View::e($linkState['code']).'</div>'
+                    .'<p class="muted">Open the bot from Chat ID '.View::e($linkState['chat_id'])
+                    .' and send <span class="key">/link '.View::e($linkState['code']).'</span></p></div>';
+            }
+
+            $telegramCard = '<div class="card half telegram-card spotlight">'
+                .'<div class="eyebrow">TELEGRAM SECURITY</div><h3>Link your Telegram</h3>'
+                .'<p class="muted">Enter your private Telegram Chat ID. Linking completes only after the same Telegram account verifies the one-time code in the bot.</p>'
+                .'<form method="post" action="/telegram/link/start" class="stack">'
+                .View::csrf()
+                .'<div class="field"><label>Telegram Chat ID</label>'
+                .'<input name="chat_id" inputmode="numeric" pattern="[0-9]{5,19}" maxlength="19" required placeholder="Example: 1234567890"></div>'
+                .'<button class="primary">Generate verification code</button>'
+                .'</form>'.$verify.'</div>';
+        }
+
         $body = '<section class="hero hero-dashboard">'
             .'<div><span class="tag">'.View::e(strtoupper($user['role'])).'</span>'
             .'<h1>Hello, '.View::e($displayName).'</h1>'
@@ -651,6 +697,7 @@ try {
             .'<div class="card quarter metric"><div class="eyebrow">REFERRED</div>'
             .'<div class="stat">'.$users.'</div></div>'
             .$referralCard
+            .$telegramCard
             .'<div class="card half"><div class="eyebrow">PROFILE</div><h3>Account</h3>'
             .'<p class="muted">Username: '.View::e($user['username']).'<br>'
             .'Role: '.View::e($user['role']).'<br>'
@@ -659,6 +706,50 @@ try {
 
         View::page('Dashboard', $body, $user);
         exit;
+    }
+
+
+    if ($path === '/telegram/link/start' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Security::rateLimit('telegram-link-start-'.$user['id'], 8, 3600);
+
+        try {
+            $challenge = TelegramService::createLinkChallenge(
+                $user,
+                input('chat_id')
+            );
+
+            $_SESSION['telegram_link_code'] = [
+                'code'=>$challenge['code'],
+                'chat_id'=>$challenge['chat_id'],
+                'expires_ts'=>time() + 900,
+            ];
+
+            flash(
+                'ok',
+                'Verification code created. Send /link '
+                .$challenge['code']
+                .' to the Team Dark bot from that exact Chat ID.'
+            );
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+
+        redirectTo('/dashboard');
+    }
+
+    if ($path === '/telegram/unlink' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        try {
+            TelegramService::unlink($user);
+            unset($_SESSION['telegram_link_code']);
+            flash('ok', 'Telegram account unlinked.');
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+
+        redirectTo('/dashboard');
     }
 
     if (($path === '/keys' || $path === '/keys/expired') && $method === 'GET') {
@@ -983,6 +1074,134 @@ try {
         redirectTo('/keys/devices?id='.$keyId);
     }
 
+
+    if ($path === '/telegram-users' && $method === 'GET') {
+        Auth::requireRole($user, 'owner');
+
+        $guests = TelegramService::unregisteredGuests();
+        $guestRows = '';
+        $guestKeyTotal = 0;
+
+        foreach ($guests as $guest) {
+            $keys = TelegramService::guestKeys((int)$guest['id'], 5);
+            $guestKeyTotal += (int)$guest['guest_key_count_db'];
+            $keyHtml = '';
+
+            foreach ($keys as $keyRow) {
+                try {
+                    $plain = Crypto::decrypt(
+                        $keyRow['key_cipher'],
+                        $keyRow['key_iv'],
+                        $keyRow['key_tag']
+                    );
+                } catch (Throwable) {
+                    $plain = '[unavailable]';
+                }
+
+                $toggle = '';
+
+                if ($keyRow['status'] === 'disabled') {
+                    $toggle = '<form method="post" action="/telegram-users/key-action" class="inline">'
+                        .View::csrf()
+                        .'<input type="hidden" name="key_id" value="'.(int)$keyRow['id'].'">'
+                        .'<input type="hidden" name="action" value="enable">'
+                        .'<button class="ghost compact">Unblock</button></form>';
+                } elseif (in_array($keyRow['status'], ['unused','active'], true)) {
+                    $toggle = '<form method="post" action="/telegram-users/key-action" class="inline">'
+                        .View::csrf()
+                        .'<input type="hidden" name="key_id" value="'.(int)$keyRow['id'].'">'
+                        .'<input type="hidden" name="action" value="disable">'
+                        .'<button class="ghost compact">Block</button></form>';
+                }
+
+                $keyHtml .= '<div class="tg-keybox">'
+                    .'<div><span class="key">'.View::e($plain).'</span> '
+                    .'<span class="status-chip status-'.View::e($keyRow['status']).'">'.View::e(strtoupper($keyRow['status'])).'</span></div>'
+                    .'<div class="tg-key-actions">'
+                    .'<button type="button" class="ghost compact" data-copy="'.View::e($plain).'">Copy</button>'
+                    .$toggle
+                    .'<form method="post" action="/telegram-users/key-action" class="inline">'
+                    .View::csrf()
+                    .'<input type="hidden" name="key_id" value="'.(int)$keyRow['id'].'">'
+                    .'<input type="hidden" name="action" value="reset">'
+                    .'<button class="ghost compact">Reset</button></form>'
+                    .'<form method="post" action="/telegram-users/key-action" class="inline">'
+                    .View::csrf()
+                    .'<input type="hidden" name="key_id" value="'.(int)$keyRow['id'].'">'
+                    .'<input type="hidden" name="action" value="delete">'
+                    .'<button class="ghost compact danger" data-confirm="Delete this Telegram guest key?">Delete</button></form>'
+                    .'</div></div>';
+            }
+
+            if ($keyHtml === '') {
+                $keyHtml = '<span class="muted">No guest keys yet.</span>';
+            }
+
+            $tgName = TelegramService::displayName($guest);
+            $username = $guest['username']
+                ? '@'.View::e($guest['username'])
+                : '—';
+
+            $guestRows .= '<tr>'
+                .'<td><strong>'.View::e($tgName).'</strong><br><span class="muted">'.$username.'</span></td>'
+                .'<td><span class="key">'.View::e($guest['chat_id']).'</span></td>'
+                .'<td>'.View::e($guest['first_seen_at']).'</td>'
+                .'<td>'.View::e($guest['last_seen_at']).'</td>'
+                .'<td>'.View::e(TelegramService::nextGuestEligible($guest['guest_last_key_at'])).'</td>'
+                .'<td>'.$keyHtml.'</td>'
+                .'</tr>';
+        }
+
+        if ($guestRows === '') {
+            $guestRows = '<tr><td colspan="6"><div class="empty-state"><div class="empty-orb">TG</div><h3>No unregistered TG users</h3><p class="muted">Telegram guests will appear here after they start the bot.</p></div></td></tr>';
+        }
+
+        $linkedCount = (int)Database::pdo()->query(
+            "SELECT COUNT(*) FROM telegram_users WHERE linked_user_id IS NOT NULL"
+        )->fetchColumn();
+
+        $body = '<section class="hero keys-hero"><div>'
+            .'<div class="eyebrow">OWNER ONLY</div><h1>TG Users</h1>'
+            .'<p class="muted">Unregistered Telegram users and their 2-hour guest keys. Linked users automatically move into normal panel ownership.</p></div></section>'
+            .takeFlash()
+            .'<div class="grid">'
+            .'<div class="card third metric"><div class="eyebrow">UNREGISTERED TG</div><div class="stat">'.count($guests).'</div></div>'
+            .'<div class="card third metric"><div class="eyebrow">LINKED TG</div><div class="stat">'.$linkedCount.'</div></div>'
+            .'<div class="card third metric"><div class="eyebrow">GUEST KEYS</div><div class="stat">'.$guestKeyTotal.'</div></div>'
+            .'<div class="card"><div class="toolbar"><h3>Unregistered Telegram Users</h3><span class="tag">Owner view</span></div>'
+            .'<div class="table-wrap"><table class="compact-table tg-table">'
+            .'<thead><tr><th>Name</th><th>Chat ID</th><th>First Seen</th><th>Last Seen</th><th>Next Free 2H</th><th>Guest Keys</th></tr></thead>'
+            .'<tbody>'.$guestRows.'</tbody></table></div></div>'
+            .'</div>';
+
+        View::page('TG Users', $body, $user);
+        exit;
+    }
+
+    if ($path === '/telegram-users/key-action' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+
+        $keyId = (int)($_POST['key_id'] ?? 0);
+        $action = input('action');
+
+        try {
+            if ($action === 'reset') {
+                KeyManager::resetDevices($user, $keyId);
+            } elseif (in_array($action, ['disable','enable','delete'], true)) {
+                KeyManager::action($user, $keyId, $action);
+            } else {
+                throw new RuntimeException('Invalid Telegram key action.');
+            }
+
+            flash('ok', 'Telegram guest key updated.');
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+
+        redirectTo('/telegram-users');
+    }
+
     if ($path === '/users' && $method === 'GET') {
         Auth::requireRole($user, 'admin');
 
@@ -990,11 +1209,11 @@ try {
 
         if ($user['role'] === 'owner') {
             $rows = $pdo->query(
-                'SELECT id,name,username,role,balance,status,created_at FROM users ORDER BY id DESC LIMIT 1000'
+                'SELECT id,name,username,role,balance,telegram_chat_id,status,created_at FROM users ORDER BY id DESC LIMIT 1000'
             )->fetchAll();
         } else {
             $q = $pdo->prepare(
-                "SELECT id,name,username,role,balance,status,created_at
+                "SELECT id,name,username,role,balance,telegram_chat_id,status,created_at
                  FROM users
                  WHERE role<>'owner'
                  ORDER BY id DESC
@@ -1027,11 +1246,20 @@ try {
                     .'</form>'
                 : '<span class="muted">—</span>';
 
+            $telegramCell = $row['telegram_chat_id']
+                ? (
+                    $user['role'] === 'owner'
+                        ? '<span class="key">'.View::e($row['telegram_chat_id']).'</span>'
+                        : '<span class="status-chip status-active">LINKED</span>'
+                )
+                : '<span class="muted">—</span>';
+
             $trs .= '<tr>'
                 .'<td>'.(int)$row['id'].'</td>'
                 .'<td><strong>'.View::e($row['name'] ?: $row['username']).'</strong><br><span class="muted">@'.View::e($row['username']).'</span></td>'
                 .'<td><span class="tag">'.View::e($row['role']).'</span></td>'
                 .'<td>'.View::e($rowBalance).'</td>'
+                .'<td>'.$telegramCell.'</td>'
                 .'<td>'.View::e($row['status']).'</td>'
                 .'<td>'.$adjust.'</td>'
                 .'</tr>';
@@ -1081,7 +1309,7 @@ try {
             .'<tbody>'.$inviteRows.'</tbody></table></div></div>'
             .'<div class="card"><div class="toolbar"><h3>Users</h3><span class="tag">'.count($rows).' visible</span></div>'
             .'<div class="table-wrap"><table class="compact-table">'
-            .'<thead><tr><th>ID</th><th>Name / User</th><th>Role</th><th>Balance</th><th>Status</th><th>Adjust</th></tr></thead>'
+            .'<thead><tr><th>ID</th><th>Name / User</th><th>Role</th><th>Balance</th><th>Telegram</th><th>Status</th><th>Adjust</th></tr></thead>'
             .'<tbody>'.$trs.'</tbody></table></div></div>'
             .'</div>';
 

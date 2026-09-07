@@ -15,6 +15,7 @@ final class View
         if ($user) {
             $nav = '<nav><a href="/dashboard">Dashboard</a><a href="/keys">Keys</a>'
                 . (in_array($user['role'], ['owner','admin'], true) ? '<a href="/users">Users & Referrals</a>' : '')
+                . ($user['role'] === 'owner' ? '<a href="/telegram-users">TG Users</a>' : '')
                 . '<span class="spacer"></span><span class="pill">'.self::e(strtoupper($user['role'])).'</span>'
                 . '<form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="'.self::e(Security::csrfToken()).'"><button class="ghost">Logout</button></form></nav>';
         }
