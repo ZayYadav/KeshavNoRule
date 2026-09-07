@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define KESHAV_INTEGRITY_TAG "KeshavIntegrity"
+#define TEAMDARK_INTEGRITY_TAG "TeamDarkIntegrity"
 
 namespace {
 
@@ -333,7 +333,7 @@ static bool verifyProcessMaps(
 
 } // namespace
 
-namespace keshav_integrity {
+namespace teamdark_integrity {
 
 bool verify_server_loader(
         JNIEnv *env,
@@ -446,4 +446,4 @@ bool run(JNIEnv *env, jobject context) {
     return true;
 }
 
-} // namespace keshav_integrity
+} // namespace teamdark_integrity
