@@ -1,0 +1,104 @@
+name: TeamDark Loader migration
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout TeamDarkLoader
+        uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+          fetch-depth: 0
+
+      - name: Rebrand loader source while preserving panel and libbgmi
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LIBBGMI_BEFORE="$(git grep -n -F 'libbgmi.so' -- ':!.github/**' || true)"
+          PANEL_BEFORE="$(git grep -n -F 'jaduloader.parallaxserver.online' -- ':!.github/**' || true)"
+          ACTKEY_BEFORE="$(git grep -n -F 'KESHAVFRIEND' -- ':!.github/**' || true)"
+
+          python3 <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          replacements = [
+              ("KESHAVXOWNERCore", "TeamDarkCore"),
+              ("KESHAVXOWNER", "TeamDark"),
+              ("KeshavOwner", "TeamDark"),
+              ("KeshavLoader", "TeamDarkLoader"),
+              ("KeshavNoRule", "TeamDarkLoader"),
+              ("JADU LOADER", "TeamDark Loader"),
+              ("JADU-LOADER", "TeamDark-Loader"),
+          ]
+          skip_prefixes = (".github/", "app/libs/")
+          text_ext = {
+              ".gradle", ".kts", ".properties", ".xml", ".java", ".kt",
+              ".cpp", ".cc", ".c", ".h", ".hpp", ".mk", ".md", ".txt",
+              ".json", ".pro", ".rules"
+          }
+
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          for old in sorted(tracked, key=lambda s: s.count("/"), reverse=True):
+              if old.startswith(skip_prefixes) or old.endswith("libbgmi.so"):
+                  continue
+              new = old
+              for src, dst in replacements:
+                  new = new.replace(src, dst)
+              if new != old:
+                  Path(new).parent.mkdir(parents=True, exist_ok=True)
+                  subprocess.run(["git", "mv", old, new], check=True)
+
+          tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
+          for name in tracked:
+              if name.startswith(skip_prefixes) or name.endswith("libbgmi.so"):
+                  continue
+              p = Path(name)
+              if p.suffix.lower() not in text_ext:
+                  continue
+              try:
+                  data = p.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              updated = data
+              for src, dst in replacements:
+                  updated = updated.replace(src, dst)
+              if updated != data:
+                  p.write_text(updated, encoding="utf-8")
+          PY
+
+          LIBBGMI_AFTER="$(git grep -n -F 'libbgmi.so' -- ':!.github/**' || true)"
+          PANEL_AFTER="$(git grep -n -F 'jaduloader.parallaxserver.online' -- ':!.github/**' || true)"
+          ACTKEY_AFTER="$(git grep -n -F 'KESHAVFRIEND' -- ':!.github/**' || true)"
+          test "$LIBBGMI_AFTER" = "$LIBBGMI_BEFORE"
+          test "$PANEL_AFTER" = "$PANEL_BEFORE"
+          test "$ACTKEY_AFTER" = "$ACTKEY_BEFORE"
+
+          if git grep -n -E 'KeshavOwner|KeshavLoader|KESHAVXOWNERCore|JADU LOADER|JADU-LOADER' --               'app/**' ':!app/libs/**'; then
+            echo 'Old loader branding remains in active app source.' >&2
+            exit 1
+          fi
+
+          git config user.name "TeamDark Branch Bot"
+          git config user.email "106445997+ZayYadav@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --name-only | grep -q '^\.github/'; then
+            echo 'Root workflow mutation detected; aborting.' >&2
+            exit 1
+          fi
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Rebrand loader source as TeamDark"
+            git push origin HEAD:TeamDarkLoader
+          fi
