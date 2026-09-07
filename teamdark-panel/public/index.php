@@ -110,8 +110,9 @@ function validUsername(string $username): bool
 function validName(string $name): bool
 {
     $name = trim($name);
-    return mb_strlen($name) >= 2
-        && mb_strlen($name) <= 80
+    $bytes = strlen($name);
+    return $bytes >= 2
+        && $bytes <= 240
         && !preg_match('/[\x00-\x1F\x7F]/u', $name);
 }
 
