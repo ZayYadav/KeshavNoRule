@@ -31,6 +31,15 @@ EXPIRED="$(jq -r .expired "$FIXTURE")"
 RACE_ACT="$(jq -r .race_activation "$FIXTURE")"
 RACE_DEV="$(jq -r .race_devices "$FIXTURE")"
 
+# Response headers and HTTP compatibility.
+HTTP_CODE="$(curl -sS -D /tmp/teamdark-connect.headers -o /tmp/teamdark-connect.body -w '%{http_code}' -X POST "$BASE_URL/connect" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "game=PUBG")"
+[[ "$HTTP_CODE" == "200" ]] || fail "protocol failure must stay HTTP 200"
+grep -i '^Content-Type: application/json; charset=utf-8' /tmp/teamdark-connect.headers >/dev/null \
+  || fail "missing JSON content type"
+grep -i '^Cache-Control: no-store, no-cache, must-revalidate, max-age=0' /tmp/teamdark-connect.headers >/dev/null \
+  || fail "missing no-store cache control"
+assert_false_reason "$(cat /tmp/teamdark-connect.body)" "Missing Parameters"
+
 # 1. Missing game
 R="$(post_form --data-urlencode "user_key=$TIMED" --data-urlencode "serial=S1")"
 assert_false_reason "$R" "Missing Parameters"
