@@ -64,10 +64,10 @@ public final class TeamDark8 {
     }
 
     private static String expectedCertSha256() {
-        return "77f05d53ce8bf1855"
-                + "caef38ce87f13a8"
-                + "bb2b1b2cdd2d48da"
-                + "9d3ba897eac4549e";
+        return "95d42274430c198e"
+                + "20056da00e5e4dca"
+                + "fd5935d93d2e4380"
+                + "e2788b1b7ff8a32f";
     }
 
     private static boolean verifyInstalledSigningCertificate(Context context) throws Exception {
