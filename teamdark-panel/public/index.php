@@ -1,10 +1,30 @@
 <?php
 declare(strict_types=1);
 
-use TeamDark\Panel\{Auth,Config,Crypto,Database,LicenseService,Security,View};
+use TeamDark\Panel\{
+    Auth,
+    Config,
+    Crypto,
+    Database,
+    KeyManager,
+    LicenseService,
+    Security,
+    View
+};
 
 $root = dirname(__DIR__);
-foreach (['Config','Database','Security','Crypto','Auth','View','LicenseService'] as $file) {
+
+foreach ([
+    'Config',
+    'Database',
+    'Security',
+    'Crypto',
+    'Auth',
+    'View',
+    'LoaderAuthService',
+    'KeyManager',
+    'LicenseService',
+] as $file) {
     require $root.'/app/'.$file.'.php';
 }
 
@@ -13,7 +33,12 @@ Security::headers();
 Security::startSession();
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-$path = rawurldecode((string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/'));
+$path = rawurldecode(
+    (string)(
+        parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH)
+        ?: '/'
+    )
+);
 $path = '/' . ltrim(preg_replace('#/+#', '/', $path) ?? '/', '/');
 
 function redirectTo(string $path): never
@@ -37,7 +62,9 @@ function takeFlash(): string
     $f = $_SESSION['flash'] ?? null;
     unset($_SESSION['flash']);
 
-    if (!$f) return '';
+    if (!$f) {
+        return '';
+    }
 
     return '<div class="alert '.($f[0] === 'ok' ? 'ok' : '').'">'
         .View::e($f[1])
@@ -48,6 +75,7 @@ function jsonBody(): array
 {
     $raw = file_get_contents('php://input') ?: '';
     $data = json_decode($raw, true);
+
     return is_array($data) ? $data : [];
 }
 
@@ -55,27 +83,35 @@ function jsonOut(array $data, int $status = 200): never
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    echo json_encode(
+        $data,
+        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+    );
     exit;
 }
 
 function roleRank(string $role): int
 {
-    return ['user'=>10, 'reseller'=>20, 'admin'=>30, 'owner'=>40][$role] ?? 0;
+    return [
+        'user'=>10,
+        'reseller'=>20,
+        'admin'=>30,
+        'owner'=>40,
+    ][$role] ?? 0;
 }
 
-function validUsername(string $u): bool
+function validUsername(string $username): bool
 {
-    return (bool)preg_match('/^[a-z0-9_.-]{3,32}$/', $u);
+    return (bool)preg_match('/^[a-z0-9_.-]{3,32}$/', $username);
 }
 
-function validPassword(string $p): bool
+function validPassword(string $password): bool
 {
-    return strlen($p) >= 12
-        && strlen($p) <= 200
-        && preg_match('/[A-Za-z]/', $p)
-        && preg_match('/\d/', $p)
-        && preg_match('/[^A-Za-z0-9]/', $p);
+    return strlen($password) >= 12
+        && strlen($password) <= 200
+        && preg_match('/[A-Za-z]/', $password)
+        && preg_match('/\d/', $password)
+        && preg_match('/[^A-Za-z0-9]/', $password);
 }
 
 function referralCode(): string
@@ -83,48 +119,54 @@ function referralCode(): string
     return 'TD'.strtoupper(bin2hex(random_bytes(7)));
 }
 
-function newLicense(): string
-{
-    $raw = strtoupper(bin2hex(random_bytes(16)));
-    return 'TD-'.implode('-', str_split($raw, 8));
-}
-
-function ownerHasUnlimitedBalance(array $user): bool
+function ownerUnlimited(array $user): bool
 {
     return ($user['role'] ?? '') === 'owner';
 }
 
 function balanceText(array $user): string
 {
-    return ownerHasUnlimitedBalance($user)
+    return ownerUnlimited($user)
         ? '∞'
         : number_format((int)($user['balance'] ?? 0));
 }
 
-function parseUnsignedBalance(string $raw, bool $ownerUnlimitedRange): ?int
+function parseUnsignedBalance(string $raw, bool $ownerRange): ?int
 {
     $raw = trim($raw);
-    if (!preg_match('/^\d{1,18}$/', $raw)) return null;
+
+    if (!preg_match('/^\d{1,18}$/', $raw)) {
+        return null;
+    }
 
     $value = (int)$raw;
-    if ($value < 0) return null;
 
-    if (!$ownerUnlimitedRange && $value > 100000) {
+    if ($value < 0) {
+        return null;
+    }
+
+    if (!$ownerRange && $value > 100000) {
         return null;
     }
 
     return $value;
 }
 
-function parseBalanceDelta(string $raw, bool $ownerUnlimitedRange): ?int
+function parseBalanceDelta(string $raw, bool $ownerRange): ?int
 {
     $raw = trim($raw);
-    if (!preg_match('/^-?\d{1,18}$/', $raw)) return null;
+
+    if (!preg_match('/^-?\d{1,18}$/', $raw)) {
+        return null;
+    }
 
     $value = (int)$raw;
-    if ($value === 0) return null;
 
-    if (!$ownerUnlimitedRange && abs($value) > 100000) {
+    if ($value === 0) {
+        return null;
+    }
+
+    if (!$ownerRange && abs($value) > 100000) {
         return null;
     }
 
@@ -133,13 +175,19 @@ function parseBalanceDelta(string $raw, bool $ownerUnlimitedRange): ?int
 
 function humanDuration(int $seconds): string
 {
-    $seconds = max(0, $seconds);
+    $seconds = max(3600, $seconds);
     $days = intdiv($seconds, 86400);
     $hours = intdiv($seconds % 86400, 3600);
 
     $parts = [];
-    if ($days > 0) $parts[] = $days.' day'.($days === 1 ? '' : 's');
-    if ($hours > 0) $parts[] = $hours.' hour'.($hours === 1 ? '' : 's');
+
+    if ($days > 0) {
+        $parts[] = $days.' day'.($days === 1 ? '' : 's');
+    }
+
+    if ($hours > 0) {
+        $parts[] = $hours.' hour'.($hours === 1 ? '' : 's');
+    }
 
     return $parts ? implode(' ', $parts) : '1 hour';
 }
@@ -174,117 +222,18 @@ function bearerUser(): array
 
     unset($u['status'], $u['token_id']);
 
-    $u['balance_unlimited'] = ($u['role'] === 'owner');
+    $u['balance_unlimited'] = $u['role'] === 'owner';
+    if ($u['role'] === 'owner') {
+        $u['balance'] = null;
+    } else {
+        $u['balance'] = (int)$u['balance'];
+    }
 
     return $u;
 }
 
-function visibleKeyRows(array $user, ?string $filter = null): array
-{
-    LicenseService::expireDue();
-
-    $pdo = Database::pdo();
-
-    $sql = "SELECT k.*,u.username owner_name,c.username creator_name,
-                   (SELECT COUNT(*) FROM license_devices d WHERE d.license_key_id=k.id) AS device_count
-            FROM license_keys k
-            JOIN users u ON u.id=k.owner_user_id
-            JOIN users c ON c.id=k.created_by";
-
-    $where = [];
-    $params = [];
-
-    if ($user['role'] === 'admin') {
-        $where[] = "u.role<>'owner'";
-    } elseif ($user['role'] === 'reseller') {
-        $where[] = "(k.created_by=? OR k.owner_user_id=? OR u.referred_by=?)";
-        $params[] = $user['id'];
-        $params[] = $user['id'];
-        $params[] = $user['id'];
-    } elseif ($user['role'] === 'user') {
-        $where[] = "k.owner_user_id=?";
-        $params[] = $user['id'];
-    }
-
-    if ($filter === 'expired') {
-        $where[] = "k.status='expired'";
-    } elseif ($filter === 'current') {
-        $where[] = "k.status<>'expired'";
-    } elseif (in_array($filter, ['unused','active','disabled'], true)) {
-        $where[] = "k.status=?";
-        $params[] = $filter;
-    }
-
-    if ($where) {
-        $sql .= ' WHERE '.implode(' AND ', $where);
-    }
-
-    $sql .= ' ORDER BY k.id DESC LIMIT 500';
-
-    $q = $pdo->prepare($sql);
-    $q->execute($params);
-
-    return $q->fetchAll() ?: [];
-}
-
-function canTarget(array $actor, int $targetId): ?array
-{
-    $q = Database::pdo()->prepare(
-        'SELECT id,username,role,referred_by,status FROM users WHERE id=? LIMIT 1'
-    );
-    $q->execute([$targetId]);
-    $target = $q->fetch();
-
-    if (!$target || $target['status'] !== 'active') return null;
-
-    if ($actor['role'] === 'owner') return $target;
-
-    if ($actor['role'] === 'admin' && $target['role'] !== 'owner') {
-        return $target;
-    }
-
-    if (
-        $actor['role'] === 'reseller'
-        && (
-            (int)$target['id'] === (int)$actor['id']
-            || (int)$target['referred_by'] === (int)$actor['id']
-        )
-    ) {
-        return $target;
-    }
-
-    return null;
-}
-
-function allowedDeviceCount(int $value): bool
-{
-    return in_array($value, [10,20,30,50,100,500,1000], true);
-}
-
 try {
-    // Public loader-facing key validation. The first successful validation starts the timer.
-    if (
-        ($path === '/api/v1/license/activate' || $path === '/api/v1/license/validate')
-        && $method === 'POST'
-    ) {
-        Security::rateLimit('license-validate', 120, 3600);
-
-        $b = jsonBody();
-
-        $result = LicenseService::activate(
-            (string)($b['key'] ?? ''),
-            (string)($b['device_id'] ?? ''),
-            (string)($b['device_label'] ?? '')
-        );
-
-        $status = ($result['ok'] ?? false)
-            ? 200
-            : (($result['code'] ?? '') === 'INVALID_KEY' ? 404 : 403);
-
-        jsonOut($result, $status);
-    }
-
-    // Username/password API login for panel users/resellers/admins.
+    // Legacy JSON panel-user authentication API.
     if ($path === '/api/v1/auth/login' && $method === 'POST') {
         Security::rateLimit('api-login', 10, 600);
 
@@ -292,7 +241,9 @@ try {
         $username = strtolower(trim((string)($b['username'] ?? '')));
         $password = (string)($b['password'] ?? '');
 
-        $q = Database::pdo()->prepare('SELECT * FROM users WHERE username=? LIMIT 1');
+        $q = Database::pdo()->prepare(
+            'SELECT * FROM users WHERE username=? LIMIT 1'
+        );
         $q->execute([$username]);
         $u = $q->fetch();
 
@@ -307,11 +258,17 @@ try {
         }
 
         if (!$ok) {
-            Security::audit($u ? (int)$u['id'] : null, 'api_login_failed');
+            Security::audit(
+                $u ? (int)$u['id'] : null,
+                'api_login_failed'
+            );
             jsonOut(['ok'=>false, 'error'=>'Invalid credentials'], 401);
         }
 
-        $token = rtrim(strtr(base64_encode(random_bytes(48)), '+/', '-_'), '=');
+        $token = rtrim(
+            strtr(base64_encode(random_bytes(48)), '+/', '-_'),
+            '='
+        );
         $hash = hash('sha256', $token);
         $ttl = (int)Config::get('token_ttl');
 
@@ -319,10 +276,14 @@ try {
             ->add(new DateInterval('PT'.$ttl.'S'))
             ->format('Y-m-d H:i:s');
 
-        Database::pdo()->prepare('DELETE FROM api_tokens WHERE expires_at<=NOW()')->execute();
+        Database::pdo()
+            ->prepare('DELETE FROM api_tokens WHERE expires_at<=NOW()')
+            ->execute();
 
         Database::pdo()
-            ->prepare('INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)')
+            ->prepare(
+                'INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)'
+            )
             ->execute([$u['id'], $hash, $expiresAt]);
 
         Security::audit((int)$u['id'], 'api_login_success');
@@ -336,40 +297,77 @@ try {
                 'id'=>(int)$u['id'],
                 'username'=>$u['username'],
                 'role'=>$u['role'],
-                'balance'=>$u['role'] === 'owner' ? null : (int)$u['balance'],
+                'balance'=>$u['role'] === 'owner'
+                    ? null
+                    : (int)$u['balance'],
                 'balance_unlimited'=>$u['role'] === 'owner',
             ],
         ]);
     }
 
     if ($path === '/api/v1/me' && $method === 'GET') {
-        $u = bearerUser();
-        jsonOut(['ok'=>true, 'user'=>$u]);
+        jsonOut([
+            'ok'=>true,
+            'user'=>bearerUser(),
+        ]);
     }
 
     if ($path === '/api/v1/licenses' && $method === 'GET') {
         $u = bearerUser();
-        $rows = visibleKeyRows($u, null);
+        $rows = KeyManager::visibleKeys($u, 'all');
         $out = [];
 
-        foreach ($rows as $r) {
+        foreach ($rows as $row) {
             $out[] = [
-                'id'=>(int)$r['id'],
-                'key'=>Crypto::decrypt($r['key_cipher'], $r['key_iv'], $r['key_tag']),
-                'owner'=>$r['owner_name'],
-                'label'=>$r['label'],
-                'status'=>$r['status'],
-                'duration_seconds'=>(int)$r['duration_seconds'],
-                'activated_at'=>$r['activated_at'],
-                'expires_at'=>$r['expires_at'],
-                'last_used_at'=>$r['last_used_at'],
-                'max_devices'=>(int)$r['max_devices'],
-                'used_devices'=>(int)$r['device_count'],
-                'created_at'=>$r['created_at'],
+                'id'=>(int)$row['id'],
+                'key'=>Crypto::decrypt(
+                    $row['key_cipher'],
+                    $row['key_iv'],
+                    $row['key_tag']
+                ),
+                'game'=>$row['game'],
+                'owner'=>$row['owner_name'],
+                'label'=>$row['label'],
+                'status'=>$row['status'],
+                'duration_seconds'=>(int)$row['duration_seconds'],
+                'unlimited_expiry'=>(bool)$row['unlimited_expiry'],
+                'activated_at'=>$row['activated_at'],
+                'expires_at'=>(bool)$row['unlimited_expiry']
+                    ? 'UNLIMITED'
+                    : $row['expires_at'],
+                'last_used_at'=>$row['last_used_at'],
+                'max_devices'=>(bool)$row['unlimited_devices']
+                    ? null
+                    : (int)$row['max_devices'],
+                'unlimited_devices'=>(bool)$row['unlimited_devices'],
+                'used_devices'=>(int)$row['device_count'],
+                'created_at'=>$row['created_at'],
             ];
         }
 
-        jsonOut(['ok'=>true, 'licenses'=>$out]);
+        jsonOut([
+            'ok'=>true,
+            'licenses'=>$out,
+        ]);
+    }
+
+    // Backward-compatible JSON validation API retained for panel integrations.
+    if (
+        ($path === '/api/v1/license/activate'
+            || $path === '/api/v1/license/validate')
+        && $method === 'POST'
+    ) {
+        Security::rateLimit('license-json-validate', 120, 3600);
+
+        $b = jsonBody();
+
+        jsonOut(
+            LicenseService::activate(
+                (string)($b['key'] ?? ''),
+                (string)($b['device_id'] ?? ''),
+                (string)($b['device_label'] ?? '')
+            )
+        );
     }
 
     if ($path === '/' && $method === 'GET') {
@@ -377,17 +375,24 @@ try {
     }
 
     if ($path === '/login' && $method === 'GET') {
-        if (Auth::user()) redirectTo('/dashboard');
+        if (Auth::user()) {
+            redirectTo('/dashboard');
+        }
 
         $body = '<section class="auth"><div class="card">'
-            .'<div class="tabs"><a class="active" href="/login">Login</a><a href="/register">Register</a></div>'
+            .'<div class="tabs">'
+            .'<a class="active" href="/login">Login</a>'
+            .'<a href="/register">Register</a>'
+            .'</div>'
             .'<h1>Welcome back</h1>'
             .'<p class="muted">Secure access to TeamDark control panel.</p>'
             .takeFlash()
             .'<form method="post" action="/login" class="stack">'
             .View::csrf()
-            .'<div class="field"><label>Username</label><input name="username" autocomplete="username" required maxlength="32"></div>'
-            .'<div class="field"><label>Password</label><input type="password" name="password" autocomplete="current-password" required maxlength="200"></div>'
+            .'<div class="field"><label>Username</label>'
+            .'<input name="username" autocomplete="username" required maxlength="32"></div>'
+            .'<div class="field"><label>Password</label>'
+            .'<input type="password" name="password" autocomplete="current-password" required maxlength="200"></div>'
             .'<button class="primary">Sign in</button>'
             .'</form></div></section>';
 
@@ -398,7 +403,10 @@ try {
     if ($path === '/login' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
 
-        if (!Auth::login(input('username'), (string)($_POST['password'] ?? ''))) {
+        if (!Auth::login(
+            input('username'),
+            (string)($_POST['password'] ?? '')
+        )) {
             flash('err', 'Invalid username or password.');
             redirectTo('/login');
         }
@@ -413,20 +421,28 @@ try {
     }
 
     if ($path === '/register' && $method === 'GET') {
-        if (Auth::user()) redirectTo('/dashboard');
+        if (Auth::user()) {
+            redirectTo('/dashboard');
+        }
 
         $prefill = View::e((string)($_GET['ref'] ?? ''));
 
         $body = '<section class="auth"><div class="card">'
-            .'<div class="tabs"><a href="/login">Login</a><a class="active" href="/register">Register</a></div>'
+            .'<div class="tabs">'
+            .'<a href="/login">Login</a>'
+            .'<a class="active" href="/register">Register</a>'
+            .'</div>'
             .'<h1>Create account</h1>'
             .'<p class="muted">A valid referral code is required.</p>'
             .takeFlash()
             .'<form method="post" action="/register" class="stack">'
             .View::csrf()
-            .'<div class="field"><label>Referral code</label><input name="referral" value="'.$prefill.'" required maxlength="32"></div>'
-            .'<div class="field"><label>Username</label><input name="username" required minlength="3" maxlength="32" autocomplete="username"></div>'
-            .'<div class="field"><label>Password</label><input type="password" name="password" required minlength="12" maxlength="200" autocomplete="new-password"></div>'
+            .'<div class="field"><label>Referral code</label>'
+            .'<input name="referral" value="'.$prefill.'" required maxlength="32"></div>'
+            .'<div class="field"><label>Username</label>'
+            .'<input name="username" required minlength="3" maxlength="32" autocomplete="username"></div>'
+            .'<div class="field"><label>Password</label>'
+            .'<input type="password" name="password" required minlength="12" maxlength="200" autocomplete="new-password"></div>'
             .'<button class="primary">Create account</button>'
             .'</form></div></section>';
 
@@ -443,19 +459,27 @@ try {
         $ref = strtoupper(input('referral'));
 
         if (!validUsername($username)) {
-            flash('err', 'Username must be 3–32 chars: letters, numbers, dot, underscore or hyphen.');
+            flash(
+                'err',
+                'Username must be 3–32 chars: letters, numbers, dot, underscore or hyphen.'
+            );
             redirectTo('/register');
         }
 
         if (!validPassword($password)) {
-            flash('err', 'Password must be 12+ characters with a letter, number and symbol.');
+            flash(
+                'err',
+                'Password must be 12+ characters with a letter, number and symbol.'
+            );
             redirectTo('/register?ref='.urlencode($ref));
         }
 
         $pdo = Database::pdo();
 
         $q = $pdo->prepare(
-            "SELECT id FROM users WHERE referral_code=? AND status='active' LIMIT 1"
+            "SELECT id FROM users
+             WHERE referral_code=? AND status='active'
+             LIMIT 1"
         );
         $q->execute([$ref]);
         $referrer = $q->fetch();
@@ -471,14 +495,12 @@ try {
             $signup = (int)Config::get('signup_bonus');
             $bonus = (int)Config::get('referrer_bonus');
 
-            $ins = $pdo->prepare(
+            $pdo->prepare(
                 "INSERT INTO users(
                     username,password_hash,role,balance,referral_code,
                     referred_by,created_by,status
                  ) VALUES(?,?,'user',?,?,?,?, 'active')"
-            );
-
-            $ins->execute([
+            )->execute([
                 $username,
                 Security::passwordHash($password),
                 $signup,
@@ -501,8 +523,12 @@ try {
             }
 
             if ($bonus > 0) {
-                $pdo->prepare('UPDATE users SET balance=balance+? WHERE id=?')
-                    ->execute([$bonus, $referrer['id']]);
+                $pdo->prepare(
+                    'UPDATE users SET balance=balance+? WHERE id=?'
+                )->execute([
+                    $bonus,
+                    $referrer['id'],
+                ]);
 
                 $pdo->prepare(
                     'INSERT INTO balance_ledger(user_id,actor_user_id,amount,reason) VALUES(?,?,?,?)'
@@ -541,40 +567,55 @@ try {
     $user = Auth::requireLogin();
 
     if ($path === '/dashboard' && $method === 'GET') {
-        LicenseService::expireDue();
+        KeyManager::expireDue();
 
         $pdo = Database::pdo();
 
         if ($user['role'] === 'owner') {
-            $users = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
-            $keys = (int)$pdo->query("SELECT COUNT(*) FROM license_keys WHERE status<>'expired'")->fetchColumn();
-            $expired = (int)$pdo->query("SELECT COUNT(*) FROM license_keys WHERE status='expired'")->fetchColumn();
+            $users = (int)$pdo->query(
+                'SELECT COUNT(*) FROM users'
+            )->fetchColumn();
+
+            $keys = (int)$pdo->query(
+                "SELECT COUNT(*) FROM license_keys WHERE status<>'expired'"
+            )->fetchColumn();
+
+            $expired = (int)$pdo->query(
+                "SELECT COUNT(*) FROM license_keys WHERE status='expired'"
+            )->fetchColumn();
         } else {
-            $q = $pdo->prepare('SELECT COUNT(*) FROM users WHERE referred_by=?');
+            $q = $pdo->prepare(
+                'SELECT COUNT(*) FROM users WHERE referred_by=?'
+            );
             $q->execute([$user['id']]);
             $users = (int)$q->fetchColumn();
-            $keys = count(visibleKeyRows($user, 'current'));
-            $expired = count(visibleKeyRows($user, 'expired'));
+
+            $keys = count(KeyManager::visibleKeys($user, 'current'));
+            $expired = count(KeyManager::visibleKeys($user, 'expired'));
         }
 
         $body = '<section class="hero">'
             .'<span class="tag">'.View::e(strtoupper($user['role'])).'</span>'
             .'<h1>Hello, '.View::e($user['username']).'</h1>'
-            .'<p class="muted">Manage licenses, first-use timers, devices, referrals and credits.</p>'
+            .'<p class="muted">Native-loader compatible license control with first-use timing and device binding.</p>'
             .'</section>'
             .takeFlash()
             .'<div class="grid">'
-            .'<div class="card quarter"><div class="muted">Balance</div><div class="stat">'.View::e(balanceText($user)).'</div></div>'
-            .'<div class="card quarter"><div class="muted">Current keys</div><div class="stat">'.$keys.'</div></div>'
-            .'<div class="card quarter"><div class="muted">Expired keys</div><div class="stat">'.$expired.'</div></div>'
-            .'<div class="card quarter"><div class="muted">Referrals</div><div class="stat">'.$users.'</div></div>'
+            .'<div class="card quarter"><div class="muted">Balance</div>'
+            .'<div class="stat">'.View::e(balanceText($user)).'</div></div>'
+            .'<div class="card quarter"><div class="muted">Current keys</div>'
+            .'<div class="stat">'.$keys.'</div></div>'
+            .'<div class="card quarter"><div class="muted">Expired keys</div>'
+            .'<div class="stat">'.$expired.'</div></div>'
+            .'<div class="card quarter"><div class="muted">Referrals</div>'
+            .'<div class="stat">'.$users.'</div></div>'
             .'<div class="card half"><h3>Your referral code</h3>'
             .'<p class="key">'.View::e($user['referral_code']).'</p>'
             .'<button class="ghost" data-copy="'.View::e($user['referral_code']).'">Copy code</button>'
             .'</div>'
             .'<div class="card half"><h3>Account</h3>'
             .'<p class="muted">Role: '.View::e($user['role']).'<br>'
-            .'Balance policy: '.(ownerHasUnlimitedBalance($user) ? 'Unlimited' : 'Credit based').'<br>'
+            .'Balance policy: '.(ownerUnlimited($user) ? 'Unlimited' : 'Credit based').'<br>'
             .'Created: '.View::e($user['created_at']).'</p>'
             .'</div></div>';
 
@@ -583,103 +624,152 @@ try {
     }
 
     if (($path === '/keys' || $path === '/keys/expired') && $method === 'GET') {
-        $filter = $path === '/keys/expired' ? 'expired' : 'current';
-        $rows = visibleKeyRows($user, $filter);
+        $filter = $path === '/keys/expired'
+            ? 'expired'
+            : 'current';
+
+        $rows = KeyManager::visibleKeys($user, $filter);
+        $targets = KeyManager::targetsFor($user);
         $create = '';
 
-        if (roleRank($user['role']) >= 20 && $filter !== 'expired') {
-            $pdo = Database::pdo();
+        if ($filter !== 'expired' && $targets) {
+            $targetOptions = '';
 
-            if ($user['role'] === 'owner') {
-                $targets = $pdo->query(
-                    "SELECT id,username,role FROM users WHERE status='active' ORDER BY username LIMIT 500"
-                )->fetchAll();
-            } elseif ($user['role'] === 'admin') {
-                $targets = $pdo->query(
-                    "SELECT id,username,role FROM users WHERE status='active' AND role<>'owner' ORDER BY username LIMIT 500"
-                )->fetchAll();
-            } else {
-                $q = $pdo->prepare(
-                    "SELECT id,username,role
-                     FROM users
-                     WHERE status='active' AND (id=? OR referred_by=?)
-                     ORDER BY username
-                     LIMIT 300"
-                );
-                $q->execute([$user['id'], $user['id']]);
-                $targets = $q->fetchAll();
-            }
-
-            $opts = '';
-            foreach ($targets as $t) {
-                $opts .= '<option value="'.(int)$t['id'].'">'
-                    .View::e($t['username'].' • '.$t['role'])
+            foreach ($targets as $target) {
+                $targetOptions .= '<option value="'.(int)$target['id'].'">'
+                    .View::e($target['username'].' • '.$target['role'])
                     .'</option>';
             }
 
             $deviceOptions = '';
-            foreach ([10,20,30,50,100,500,1000] as $deviceLimit) {
-                $deviceOptions .= '<option value="'.$deviceLimit.'">'.$deviceLimit.' devices</option>';
+            foreach (KeyManager::DEVICE_LIMITS as $limit) {
+                $selected = $limit === 10 ? ' selected' : '';
+                $deviceOptions .= '<option value="'.$limit.'"'.$selected.'>'
+                    .$limit.' devices'
+                    .'</option>';
             }
+            $deviceOptions .= '<option value="unlimited">Unlimited devices</option>';
+
+            $pricing = ownerUnlimited($user)
+                ? 'Owner generation cost: 0 credits.'
+                : 'Timed cost: '.(int)Config::get('key_cost')
+                    .' credit(s) per started 24h. Unlimited validity: '
+                    .(int)Config::get('unlimited_key_cost')
+                    .' credits.';
 
             $create = '<div class="card">'
-                .'<h3>Create license key</h3>'
-                .'<p class="muted">Timer starts only when this key is successfully used on the first device.</p>'
+                .'<h3>Create PUBG license</h3>'
+                .'<p class="muted">Countdown starts only after the first successful TeamDark Loader login.</p>'
                 .'<form method="post" action="/keys/create" class="stack">'
                 .View::csrf()
-                .'<div class="field"><label>Assign to</label><select name="owner_id">'.$opts.'</select></div>'
-                .'<div class="field"><label>Label</label><input name="label" maxlength="100" placeholder="Customer / plan note"></div>'
+                .'<div class="field"><label>Assign to</label>'
+                .'<select name="owner_id">'.$targetOptions.'</select></div>'
+                .'<div class="field"><label>Label</label>'
+                .'<input name="label" maxlength="100" placeholder="Customer / plan note"></div>'
                 .'<div class="form-row">'
-                .'<div class="field"><label>Days</label><input type="number" name="duration_days" min="0" max="3650" value="30" required></div>'
-                .'<div class="field"><label>Hours</label><input type="number" name="duration_hours" min="0" max="23" value="0" required></div>'
+                .'<div class="field"><label>Days</label>'
+                .'<input type="number" name="duration_days" min="0" max="3650" value="30"></div>'
+                .'<div class="field"><label>Hours</label>'
+                .'<input type="number" name="duration_hours" min="0" max="23" value="0"></div>'
                 .'</div>'
-                .'<div class="field"><label>Maximum devices</label><select name="max_devices">'.$deviceOptions.'</select></div>'
+                .'<label class="checkline"><input type="checkbox" name="unlimited_expiry" value="1"> Unlimited validity</label>'
+                .'<div class="field"><label>Maximum devices</label>'
+                .'<select name="max_devices">'.$deviceOptions.'</select></div>'
                 .'<button class="primary">Generate key</button>'
                 .'</form>'
-                .'<p class="muted">Reseller key cost: '.(int)Config::get('key_cost').' credit(s). Owner balance is unlimited.</p>'
+                .'<p class="muted">'.$pricing.'</p>'
                 .'</div>';
         }
 
         $trs = '';
 
-        foreach ($rows as $r) {
+        foreach ($rows as $row) {
             try {
-                $plain = Crypto::decrypt($r['key_cipher'], $r['key_iv'], $r['key_tag']);
+                $plain = Crypto::decrypt(
+                    $row['key_cipher'],
+                    $row['key_iv'],
+                    $row['key_tag']
+                );
             } catch (Throwable) {
                 $plain = '[unavailable]';
             }
 
-            $activation = $r['activated_at']
-                ? View::e($r['activated_at'])
+            $duration = (bool)$row['unlimited_expiry']
+                ? 'UNLIMITED'
+                : humanDuration((int)$row['duration_seconds']);
+
+            $activation = $row['activated_at']
+                ? View::e($row['activated_at'])
                 : '<span class="muted">Not used yet</span>';
 
-            $expiry = $r['expires_at']
-                ? View::e($r['expires_at'])
-                : '<span class="muted">Starts on first use</span>';
+            $expiry = (bool)$row['unlimited_expiry']
+                ? '<span class="tag">UNLIMITED</span>'
+                : (
+                    $row['expires_at']
+                        ? View::e($row['expires_at'])
+                        : '<span class="muted">Starts on first use</span>'
+                );
 
-            $devices = (int)$r['device_count'].' / '.(int)$r['max_devices'];
+            $deviceText = (bool)$row['unlimited_devices']
+                ? (int)$row['device_count'].' / ∞'
+                : (int)$row['device_count'].' / '.(int)$row['max_devices'];
+
+            $actions = '<a class="ghost" href="/keys/devices?id='.(int)$row['id'].'">Devices</a>';
+
+            if (roleRank($user['role']) >= 20) {
+                if ($row['status'] === 'disabled') {
+                    $actions .= '<form method="post" action="/keys/action" class="inline">'
+                        .View::csrf()
+                        .'<input type="hidden" name="key_id" value="'.(int)$row['id'].'">'
+                        .'<input type="hidden" name="action" value="enable">'
+                        .'<button class="ghost">Enable</button></form>';
+                } elseif (in_array($row['status'], ['unused','active'], true)) {
+                    $actions .= '<form method="post" action="/keys/action" class="inline">'
+                        .View::csrf()
+                        .'<input type="hidden" name="key_id" value="'.(int)$row['id'].'">'
+                        .'<input type="hidden" name="action" value="disable">'
+                        .'<button class="ghost">Disable</button></form>';
+                }
+
+                if (!in_array($row['status'], ['revoked','expired'], true)) {
+                    $actions .= '<form method="post" action="/keys/action" class="inline">'
+                        .View::csrf()
+                        .'<input type="hidden" name="key_id" value="'.(int)$row['id'].'">'
+                        .'<input type="hidden" name="action" value="revoke">'
+                        .'<button class="ghost danger">Revoke</button></form>';
+                }
+
+                if ($user['role'] === 'owner') {
+                    $actions .= '<form method="post" action="/keys/action" class="inline">'
+                        .View::csrf()
+                        .'<input type="hidden" name="key_id" value="'.(int)$row['id'].'">'
+                        .'<input type="hidden" name="action" value="delete">'
+                        .'<button class="ghost danger">Delete</button></form>';
+                }
+            }
 
             $trs .= '<tr>'
                 .'<td><span class="key">'.View::e($plain).'</span><br>'
                 .'<button class="ghost" data-copy="'.View::e($plain).'">Copy</button></td>'
-                .'<td>'.View::e($r['owner_name']).'</td>'
-                .'<td>'.View::e($r['label']).'</td>'
-                .'<td>'.View::e(humanDuration((int)$r['duration_seconds'])).'</td>'
-                .'<td><span class="tag">'.View::e($r['status']).'</span></td>'
+                .'<td>'.View::e($row['owner_name']).'</td>'
+                .'<td>'.View::e($row['label']).'</td>'
+                .'<td>'.View::e($duration).'</td>'
+                .'<td><span class="tag">'.View::e($row['status']).'</span></td>'
                 .'<td>'.$activation.'</td>'
                 .'<td>'.$expiry.'</td>'
-                .'<td>'.View::e($devices).'</td>'
-                .'<td>'.View::e($r['last_used_at'] ?: 'Never').'</td>'
+                .'<td>'.View::e($deviceText).'</td>'
+                .'<td>'.View::e($row['last_used_at'] ?: 'Never').'</td>'
+                .'<td class="actions">'.$actions.'</td>'
                 .'</tr>';
         }
 
         if ($trs === '') {
-            $trs = '<tr><td colspan="9" class="muted">No keys in this section.</td></tr>';
+            $trs = '<tr><td colspan="10" class="muted">No keys in this section.</td></tr>';
         }
 
         $body = '<section class="hero">'
             .'<h1>'.($filter === 'expired' ? 'Expired keys' : 'License keys').'</h1>'
-            .'<p class="muted">First-use timer + automatic expiry + per-key device limits.</p>'
+            .'<p class="muted">PUBG • first-use activation • native serial binding • automatic expiry.</p>'
             .'</section>'
             .takeFlash()
             .'<div class="tabs key-tabs">'
@@ -692,120 +782,193 @@ try {
             .'<div class="toolbar"><h3>Keys</h3><span class="tag">'.count($rows).' visible</span></div>'
             .'<div class="table-wrap"><table>'
             .'<thead><tr>'
-            .'<th>Key</th><th>Owner</th><th>Label</th><th>Duration</th><th>Status</th>'
-            .'<th>Activated</th><th>Expires</th><th>Devices</th><th>Last use</th>'
-            .'</tr></thead><tbody>'.$trs.'</tbody>'
+            .'<th>Key</th><th>Owner</th><th>Label</th><th>Duration</th>'
+            .'<th>Status</th><th>Activated</th><th>Expires</th>'
+            .'<th>Devices</th><th>Last use</th><th>Actions</th>'
+            .'</tr></thead>'
+            .'<tbody>'.$trs.'</tbody>'
             .'</table></div></div></div>';
 
-        View::page($filter === 'expired' ? 'Expired Keys' : 'Keys', $body, $user);
+        View::page(
+            $filter === 'expired' ? 'Expired Keys' : 'Keys',
+            $body,
+            $user
+        );
         exit;
     }
 
     if ($path === '/keys/create' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
-        Auth::requireRole($user, 'reseller');
-        Security::rateLimit('key-create-'.$user['id'], 30, 3600);
+        Security::rateLimit('key-create-'.$user['id'], 40, 3600);
 
-        $target = canTarget($user, (int)($_POST['owner_id'] ?? 0));
+        $days = max(
+            0,
+            min(3650, (int)($_POST['duration_days'] ?? 0))
+        );
+        $hours = max(
+            0,
+            min(23, (int)($_POST['duration_hours'] ?? 0))
+        );
 
-        if (!$target) {
-            flash('err', 'Target user not allowed.');
-            redirectTo('/keys');
-        }
+        $unlimitedExpiry = isset($_POST['unlimited_expiry'])
+            && $_POST['unlimited_expiry'] === '1';
 
-        $label = substr(input('label'), 0, 100);
-        $days = max(0, min(3650, (int)($_POST['duration_days'] ?? 0)));
-        $hours = max(0, min(23, (int)($_POST['duration_hours'] ?? 0)));
         $durationSeconds = ($days * 86400) + ($hours * 3600);
-        $maxDevices = (int)($_POST['max_devices'] ?? 10);
 
-        if ($durationSeconds < 3600) {
-            flash('err', 'Key duration must be at least 1 hour.');
-            redirectTo('/keys');
-        }
-
-        if (!allowedDeviceCount($maxDevices)) {
-            flash('err', 'Invalid maximum device count.');
-            redirectTo('/keys');
-        }
-
-        $cost = $user['role'] === 'reseller'
-            ? (int)Config::get('key_cost')
-            : 0;
-
-        $pdo = Database::pdo();
-        $pdo->beginTransaction();
+        $deviceRaw = input('max_devices', '10');
+        $unlimitedDevices = $deviceRaw === 'unlimited';
+        $maxDevices = $unlimitedDevices ? 1 : (int)$deviceRaw;
 
         try {
-            if ($cost > 0 && !ownerHasUnlimitedBalance($user)) {
-                $lock = $pdo->prepare('SELECT balance FROM users WHERE id=? FOR UPDATE');
-                $lock->execute([$user['id']]);
-                $bal = (int)$lock->fetchColumn();
-
-                if ($bal < $cost) {
-                    throw new RuntimeException('Insufficient balance.');
-                }
-
-                $pdo->prepare('UPDATE users SET balance=balance-? WHERE id=?')
-                    ->execute([$cost, $user['id']]);
-
-                $pdo->prepare(
-                    'INSERT INTO balance_ledger(user_id,actor_user_id,amount,reason) VALUES(?,?,?,?)'
-                )->execute([
-                    $user['id'],
-                    $user['id'],
-                    -$cost,
-                    'License key creation',
-                ]);
-            }
-
-            $plain = newLicense();
-            [$cipher, $iv, $tag] = Crypto::encrypt($plain);
-            $hash = hash('sha256', $plain);
-
-            $pdo->prepare(
-                "INSERT INTO license_keys(
-                    owner_user_id,created_by,key_hash,key_cipher,key_iv,key_tag,
-                    label,duration_seconds,activated_at,expires_at,last_used_at,max_devices,status
-                 ) VALUES(?,?,?,?,?,?,?,?,NULL,NULL,NULL,?,'unused')"
-            )->execute([
-                $target['id'],
-                $user['id'],
-                $hash,
-                $cipher,
-                $iv,
-                $tag,
-                $label,
+            $created = KeyManager::create(
+                $user,
+                (int)($_POST['owner_id'] ?? 0),
+                input('label'),
                 $durationSeconds,
+                $unlimitedExpiry,
                 $maxDevices,
-            ]);
-
-            $newId = (int)$pdo->lastInsertId();
-
-            $pdo->commit();
-
-            Security::audit((int)$user['id'], 'license_created', [
-                'license_id'=>$newId,
-                'owner_id'=>(int)$target['id'],
-                'duration_seconds'=>$durationSeconds,
-                'max_devices'=>$maxDevices,
-            ]);
-
-            flash('ok', 'License generated. Timer will start on first successful use.');
-        } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
+                $unlimitedDevices
+            );
 
             flash(
-                'err',
-                $e instanceof RuntimeException
-                    ? $e->getMessage()
-                    : 'Could not create key.'
+                'ok',
+                'Key generated successfully. Cost: '
+                    .$created['cost']
+                    .' credit(s). Timer starts on first valid Loader login.'
             );
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
         }
 
         redirectTo('/keys');
+    }
+
+    if ($path === '/keys/action' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        try {
+            KeyManager::action(
+                $user,
+                (int)($_POST['key_id'] ?? 0),
+                input('action')
+            );
+
+            flash('ok', 'Key updated.');
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+
+        redirectTo('/keys');
+    }
+
+    if ($path === '/keys/devices' && $method === 'GET') {
+        $keyId = (int)($_GET['id'] ?? 0);
+
+        try {
+            $data = KeyManager::devices($user, $keyId);
+            $key = $data['key'];
+            $devices = $data['devices'];
+
+            try {
+                $plain = Crypto::decrypt(
+                    $key['key_cipher'],
+                    $key['key_iv'],
+                    $key['key_tag']
+                );
+            } catch (Throwable) {
+                $plain = '[unavailable]';
+            }
+
+            $rows = '';
+
+            foreach ($devices as $device) {
+                $reset = '';
+
+                if ($data['can_manage'] && (int)$device['active'] === 1) {
+                    $reset = '<form method="post" action="/keys/devices/reset" class="inline">'
+                        .View::csrf()
+                        .'<input type="hidden" name="key_id" value="'.$keyId.'">'
+                        .'<input type="hidden" name="device_id" value="'.(int)$device['id'].'">'
+                        .'<button class="ghost danger">Reset</button>'
+                        .'</form>';
+                }
+
+                $rows .= '<tr>'
+                    .'<td class="key">'.View::e($device['serial']).'</td>'
+                    .'<td>'.View::e($device['first_seen_at']).'</td>'
+                    .'<td>'.View::e($device['last_seen_at']).'</td>'
+                    .'<td>'.View::e($device['ip_address']).'</td>'
+                    .'<td><span class="tag">'.((int)$device['active'] === 1 ? 'Active' : 'Reset').'</span></td>'
+                    .'<td>'.$reset.'</td>'
+                    .'</tr>';
+            }
+
+            if ($rows === '') {
+                $rows = '<tr><td colspan="6" class="muted">No devices have used this key yet.</td></tr>';
+            }
+
+            $resetAll = $data['can_manage']
+                ? '<form method="post" action="/keys/devices/reset" class="inline">'
+                    .View::csrf()
+                    .'<input type="hidden" name="key_id" value="'.$keyId.'">'
+                    .'<button class="ghost danger">Reset all devices</button>'
+                    .'</form>'
+                : '';
+
+            $limit = (bool)$key['unlimited_devices']
+                ? 'Unlimited'
+                : (string)(int)$key['max_devices'];
+
+            $body = '<section class="hero">'
+                .'<a class="ghost" href="/keys">← Back to keys</a>'
+                .'<h1>Device management</h1>'
+                .'<p class="key">'.View::e($plain).'</p>'
+                .'<p class="muted">Owner: '.View::e($key['owner_name'])
+                .' • Limit: '.View::e($limit).'</p>'
+                .'</section>'
+                .takeFlash()
+                .'<div class="card">'
+                .'<div class="toolbar"><h3>Bound serials</h3>'.$resetAll.'</div>'
+                .'<div class="table-wrap"><table>'
+                .'<thead><tr><th>Serial</th><th>First seen</th><th>Last seen</th><th>IP</th><th>Status</th><th>Action</th></tr></thead>'
+                .'<tbody>'.$rows.'</tbody>'
+                .'</table></div></div>';
+
+            View::page('Devices', $body, $user);
+            exit;
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+            redirectTo('/keys');
+        }
+    }
+
+    if ($path === '/keys/devices/reset' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        $keyId = (int)($_POST['key_id'] ?? 0);
+        $deviceId = isset($_POST['device_id'])
+            && $_POST['device_id'] !== ''
+            ? (int)$_POST['device_id']
+            : null;
+
+        try {
+            $count = KeyManager::resetDevices(
+                $user,
+                $keyId,
+                $deviceId
+            );
+
+            flash(
+                'ok',
+                $count > 0
+                    ? 'Device binding reset.'
+                    : 'No active device binding changed.'
+            );
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+
+        redirectTo('/keys/devices?id='.$keyId);
     }
 
     if ($path === '/users' && $method === 'GET') {
@@ -815,7 +978,7 @@ try {
 
         if ($user['role'] === 'owner') {
             $rows = $pdo->query(
-                'SELECT id,username,role,balance,referral_code,status,created_at FROM users ORDER BY id DESC LIMIT 500'
+                'SELECT id,username,role,balance,referral_code,status,created_at FROM users ORDER BY id DESC LIMIT 1000'
             )->fetchAll();
         } else {
             $q = $pdo->prepare(
@@ -823,7 +986,7 @@ try {
                  FROM users
                  WHERE role<>'owner'
                  ORDER BY id DESC
-                 LIMIT 500"
+                 LIMIT 1000"
             );
             $q->execute();
             $rows = $q->fetchAll();
@@ -833,36 +996,39 @@ try {
             ? ['admin','reseller','user']
             : ['reseller','user'];
 
-        $roleOpts = '';
-        foreach ($roles as $r) {
-            $roleOpts .= '<option>'.View::e($r).'</option>';
+        $roleOptions = '';
+        foreach ($roles as $role) {
+            $roleOptions .= '<option>'.View::e($role).'</option>';
         }
 
         $trs = '';
 
-        foreach ($rows as $r) {
-            $rowBalance = $r['role'] === 'owner'
+        foreach ($rows as $row) {
+            $rowBalance = $row['role'] === 'owner'
                 ? '∞'
-                : number_format((int)$r['balance']);
+                : number_format((int)$row['balance']);
 
-            $canAdjust = Auth::canManageRole($user, $r['role']);
+            $canAdjust = Auth::canManageRole(
+                $user,
+                $row['role']
+            );
 
             $adjust = $canAdjust
                 ? '<form method="post" action="/users/balance" class="inline balance-form">'
                     .View::csrf()
-                    .'<input type="hidden" name="user_id" value="'.(int)$r['id'].'">'
+                    .'<input type="hidden" name="user_id" value="'.(int)$row['id'].'">'
                     .'<input name="amount" type="number" placeholder="± credits">'
                     .'<button class="ghost">Apply</button>'
                     .'</form>'
                 : '<span class="muted">—</span>';
 
             $trs .= '<tr>'
-                .'<td>'.(int)$r['id'].'</td>'
-                .'<td>'.View::e($r['username']).'</td>'
-                .'<td><span class="tag">'.View::e($r['role']).'</span></td>'
+                .'<td>'.(int)$row['id'].'</td>'
+                .'<td>'.View::e($row['username']).'</td>'
+                .'<td><span class="tag">'.View::e($row['role']).'</span></td>'
                 .'<td>'.View::e($rowBalance).'</td>'
-                .'<td class="key">'.View::e($r['referral_code']).'</td>'
-                .'<td>'.View::e($r['status']).'</td>'
+                .'<td class="key">'.View::e($row['referral_code']).'</td>'
+                .'<td>'.View::e($row['status']).'</td>'
                 .'<td>'.$adjust.'</td>'
                 .'</tr>';
         }
@@ -873,17 +1039,21 @@ try {
 
         $body = '<section class="hero">'
             .'<h1>Users</h1>'
-            .'<p class="muted">Owner has unlimited balance and can assign very large balances to managed accounts.</p>'
+            .'<p class="muted">Owner balance is unlimited and Owner can assign arbitrary account credits within BIGINT range.</p>'
             .'</section>'
             .takeFlash()
             .'<div class="grid">'
             .'<div class="card half"><h3>Create managed user</h3>'
             .'<form method="post" action="/users/create" class="stack">'
             .View::csrf()
-            .'<div class="field"><label>Username</label><input name="username" required maxlength="32"></div>'
-            .'<div class="field"><label>Password</label><input type="password" name="password" required minlength="12" maxlength="200"></div>'
-            .'<div class="field"><label>Role</label><select name="role">'.$roleOpts.'</select></div>'
-            .'<div class="field"><label>Opening balance</label><input type="number" name="balance" min="0"'.$openingMax.' value="0"></div>'
+            .'<div class="field"><label>Username</label>'
+            .'<input name="username" required maxlength="32"></div>'
+            .'<div class="field"><label>Password</label>'
+            .'<input type="password" name="password" required minlength="12" maxlength="200"></div>'
+            .'<div class="field"><label>Role</label>'
+            .'<select name="role">'.$roleOptions.'</select></div>'
+            .'<div class="field"><label>Opening balance</label>'
+            .'<input type="number" name="balance" min="0"'.$openingMax.' value="0"></div>'
             .'<button class="primary">Create user</button>'
             .'</form></div>'
             .'<div class="card"><div class="table-wrap"><table>'
@@ -915,7 +1085,10 @@ try {
             || !Auth::canManageRole($user, $role)
             || $balance === null
         ) {
-            flash('err', 'Invalid user, password, role or opening balance.');
+            flash(
+                'err',
+                'Invalid user, password, role or opening balance.'
+            );
             redirectTo('/users');
         }
 
@@ -950,11 +1123,15 @@ try {
                     ]);
             }
 
-            Security::audit((int)$user['id'], 'managed_user_created', [
-                'target_id'=>$id,
-                'role'=>$role,
-                'opening_balance'=>$balance,
-            ]);
+            Security::audit(
+                (int)$user['id'],
+                'managed_user_created',
+                [
+                    'target_id'=>$id,
+                    'role'=>$role,
+                    'opening_balance'=>$balance,
+                ]
+            );
 
             flash('ok', 'User created.');
         } catch (PDOException $e) {
@@ -990,9 +1167,17 @@ try {
             redirectTo('/users');
         }
 
-        $target = canTarget($user, $targetId);
+        $q = Database::pdo()->prepare(
+            'SELECT id,role,status FROM users WHERE id=? LIMIT 1'
+        );
+        $q->execute([$targetId]);
+        $target = $q->fetch();
 
-        if (!$target || !Auth::canManageRole($user, $target['role'])) {
+        if (
+            !$target
+            || $target['status'] !== 'active'
+            || !Auth::canManageRole($user, $target['role'])
+        ) {
             flash('err', 'Target user not allowed.');
             redirectTo('/users');
         }
@@ -1001,16 +1186,24 @@ try {
         $pdo->beginTransaction();
 
         try {
-            $q = $pdo->prepare('SELECT balance FROM users WHERE id=? FOR UPDATE');
+            $q = $pdo->prepare(
+                'SELECT balance FROM users WHERE id=? FOR UPDATE'
+            );
             $q->execute([$targetId]);
             $current = (int)$q->fetchColumn();
 
             if ($current + $amount < 0) {
-                throw new RuntimeException('Balance cannot go below zero.');
+                throw new RuntimeException(
+                    'Balance cannot go below zero.'
+                );
             }
 
-            $pdo->prepare('UPDATE users SET balance=balance+? WHERE id=?')
-                ->execute([$amount, $targetId]);
+            $pdo->prepare(
+                'UPDATE users SET balance=balance+? WHERE id=?'
+            )->execute([
+                $amount,
+                $targetId,
+            ]);
 
             $pdo->prepare(
                 'INSERT INTO balance_ledger(user_id,actor_user_id,amount,reason) VALUES(?,?,?,?)'
@@ -1023,10 +1216,14 @@ try {
 
             $pdo->commit();
 
-            Security::audit((int)$user['id'], 'balance_adjusted', [
-                'target_id'=>$targetId,
-                'amount'=>$amount,
-            ]);
+            Security::audit(
+                (int)$user['id'],
+                'balance_adjusted',
+                [
+                    'target_id'=>$targetId,
+                    'amount'=>$amount,
+                ]
+            );
 
             flash('ok', 'Balance updated.');
         } catch (Throwable $e) {
@@ -1044,12 +1241,19 @@ try {
 
     View::page(
         'Not found',
-        '<section class="auth"><div class="card"><h1>404</h1><p class="muted">Route not found.</p><a class="btn" href="/">Go home</a></div></section>',
+        '<section class="auth"><div class="card">'
+            .'<h1>404</h1>'
+            .'<p class="muted">Route not found.</p>'
+            .'<a class="btn" href="/">Go home</a>'
+            .'</div></section>',
         Auth::user()
     );
 } catch (Throwable $e) {
     if (str_starts_with($path, '/api/')) {
-        jsonOut(['ok'=>false, 'error'=>'Request failed'], 400);
+        jsonOut([
+            'ok'=>false,
+            'error'=>'Request failed',
+        ], 400);
     }
 
     http_response_code(400);
@@ -1057,9 +1261,11 @@ try {
 
     View::page(
         'Request failed',
-        '<section class="auth"><div class="card"><h1>Request failed</h1><div class="alert">'
-            .View::e($e->getMessage())
-            .'</div><a class="btn" href="/">Go back</a></div></section>',
+        '<section class="auth"><div class="card">'
+            .'<h1>Request failed</h1>'
+            .'<div class="alert">'.View::e($e->getMessage()).'</div>'
+            .'<a class="btn" href="/">Go back</a>'
+            .'</div></section>',
         $u
     );
 }
