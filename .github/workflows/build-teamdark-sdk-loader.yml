@@ -168,8 +168,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          KEYSTORE='app/TeamDark-release.jks'
-          test -s "$KEYSTORE" || { echo 'Missing app/TeamDark-release.jks' >&2; exit 1; }
+          KEYSTORE='app/TeamDarkParallax.jks'
+          test -s "$KEYSTORE" || { echo 'Missing app/TeamDarkParallax.jks' >&2; exit 1; }
           test -n "${TEAM_DARK_STORE_PASSWORD:-}" || { echo 'Missing TEAM_DARK_STORE_PASSWORD secret' >&2; exit 1; }
           test -n "${TEAM_DARK_KEY_PASSWORD:-}" || { echo 'Missing TEAM_DARK_KEY_PASSWORD secret' >&2; exit 1; }
 
