@@ -16,7 +16,7 @@ final class KeyManager
             return max(0, (int)Config::get('unlimited_key_cost', 100));
         }
 
-        $days = max(1, (int)ceil(max(3600, $durationSeconds) / 86400));
+        $days = max(1, (int)ceil(max(86400, $durationSeconds) / 86400));
         return $days * max(0, (int)Config::get('key_cost', 1));
     }
 
@@ -118,15 +118,15 @@ final class KeyManager
 
     public static function create(
         array $actor,
-        int $targetUserId,
         string $label,
         int $durationSeconds,
         bool $unlimitedExpiry,
         int $maxDevices,
-        bool $unlimitedDevices
+        bool $unlimitedDevices,
+        string $customKey = ''
     ): array {
-        if (!$unlimitedExpiry && $durationSeconds < 3600) {
-            throw new RuntimeException('Key duration must be at least 1 hour.');
+        if (!$unlimitedExpiry && $durationSeconds < 86400) {
+            throw new RuntimeException('Key duration must be at least 1 day.');
         }
 
         if (!$unlimitedDevices && !in_array($maxDevices, self::DEVICE_LIMITS, true)) {
@@ -137,11 +137,6 @@ final class KeyManager
         $pdo->beginTransaction();
 
         try {
-            $target = self::targetFor($pdo, $actor, $targetUserId);
-            if (!$target) {
-                throw new RuntimeException('Target user not allowed.');
-            }
-
             $cost = $actor['role'] === 'owner'
                 ? 0
                 : self::price($durationSeconds, $unlimitedExpiry);
@@ -176,7 +171,7 @@ final class KeyManager
                 }
             }
 
-            $plain = self::newLicense();
+            $plain = self::licenseValue($pdo, $customKey);
             [$cipher, $iv, $tag] = Crypto::encrypt($plain);
 
             $pdo->prepare(
@@ -187,14 +182,14 @@ final class KeyManager
                     max_devices,unlimited_devices,status
                  ) VALUES(?,?,?,?,?,?,?,'PUBG',?,?,NULL,NULL,NULL,?,?,'unused')"
             )->execute([
-                $target['id'],
+                $actor['id'],
                 $actor['id'],
                 hash('sha256', $plain),
                 $cipher,
                 $iv,
                 $tag,
-                substr($label, 0, 100),
-                $unlimitedExpiry ? 0 : max(3600, $durationSeconds),
+                substr(trim($label), 0, 100),
+                $unlimitedExpiry ? 0 : max(86400, $durationSeconds),
                 $unlimitedExpiry ? 1 : 0,
                 $unlimitedDevices ? 1 : max(1, $maxDevices),
                 $unlimitedDevices ? 1 : 0,
@@ -206,8 +201,9 @@ final class KeyManager
             try {
                 Security::audit((int)$actor['id'], 'license_created', [
                     'license_id'=>$id,
-                    'owner_id'=>(int)$target['id'],
+                    'owner_id'=>(int)$actor['id'],
                     'cost'=>$cost,
+                    'custom'=>$customKey !== '',
                     'unlimited_expiry'=>$unlimitedExpiry,
                     'unlimited_devices'=>$unlimitedDevices,
                 ]);
@@ -229,10 +225,6 @@ final class KeyManager
 
     public static function action(array $actor, int $keyId, string $action): void
     {
-        if (roleRankForManager($actor['role']) < 20) {
-            throw new RuntimeException('Forbidden.');
-        }
-
         self::expireDue();
 
         $pdo = Database::pdo();
@@ -246,8 +238,10 @@ final class KeyManager
             }
 
             if ($action === 'delete') {
-                if ($actor['role'] !== 'owner') {
-                    throw new RuntimeException('Only Owner can delete keys.');
+                $isSelfOwned = (int)$key['owner_user_id'] === (int)$actor['id'];
+
+                if ($actor['role'] !== 'owner' && !$isSelfOwned) {
+                    throw new RuntimeException('You can delete only your own keys.');
                 }
 
                 $pdo->prepare('DELETE FROM license_keys WHERE id=?')
@@ -331,7 +325,7 @@ final class KeyManager
         return [
             'key'=>$key,
             'devices'=>$q->fetchAll() ?: [],
-            'can_manage'=>roleRankForManager($actor['role']) >= 20,
+            'can_manage'=>true,
         ];
     }
 
@@ -340,10 +334,6 @@ final class KeyManager
         int $keyId,
         ?int $deviceId = null
     ): int {
-        if (roleRankForManager($actor['role']) < 20) {
-            throw new RuntimeException('Forbidden.');
-        }
-
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
@@ -500,8 +490,52 @@ final class KeyManager
 
     private static function newLicense(): string
     {
-        $raw = strtoupper(bin2hex(random_bytes(16)));
-        return 'TD-'.implode('-', str_split($raw, 8));
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $token = '';
+
+        for ($i = 0; $i < 9; $i++) {
+            $token .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+
+        return 'Team-Dark-'.$token;
+    }
+
+    private static function licenseValue(\PDO $pdo, string $customKey): string
+    {
+        $customKey = trim($customKey);
+
+        if ($customKey !== '') {
+            if (
+                strlen($customKey) < 6
+                || strlen($customKey) > 80
+                || !preg_match('/^[A-Za-z0-9._-]+$/', $customKey)
+            ) {
+                throw new RuntimeException(
+                    'Custom key must be 6–80 characters using letters, numbers, dot, dash or underscore.'
+                );
+            }
+
+            $q = $pdo->prepare('SELECT id FROM license_keys WHERE key_hash=? LIMIT 1');
+            $q->execute([hash('sha256', $customKey)]);
+
+            if ($q->fetch()) {
+                throw new RuntimeException('Custom key already exists.');
+            }
+
+            return $customKey;
+        }
+
+        for ($attempt = 0; $attempt < 8; $attempt++) {
+            $plain = self::newLicense();
+            $q = $pdo->prepare('SELECT id FROM license_keys WHERE key_hash=? LIMIT 1');
+            $q->execute([hash('sha256', $plain)]);
+
+            if (!$q->fetch()) {
+                return $plain;
+            }
+        }
+
+        throw new RuntimeException('Could not generate a unique key. Try again.');
     }
 }
 
