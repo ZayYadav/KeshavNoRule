@@ -20,6 +20,11 @@ public final class KeshavOwner9 {
 
     private static final AtomicBoolean SHOWING = new AtomicBoolean(false);
 
+    // Full integrity verification opens/scans the APK, hashes the trusted loader
+    // and crosses into native code. Do not run that disk/CPU-heavy work every
+    // few seconds; onCreate still performs an immediate full verification.
+    private static final long RUNTIME_GUARD_INTERVAL_MS = 30_000L;
+
     private KeshavOwner9() {}
 
     public static void showIntegrityFailure(Activity activity, String detail) {
@@ -90,7 +95,7 @@ public final class KeshavOwner9 {
                 }
 
                 try {
-                    handler.postDelayed(this, 3000L);
+                    handler.postDelayed(this, RUNTIME_GUARD_INTERVAL_MS);
                 } catch (Throwable ignored) {
                     // Do not crash if the Activity is already shutting down.
                 }
@@ -98,7 +103,7 @@ public final class KeshavOwner9 {
         };
 
         try {
-            handler.postDelayed(guard, 3000L);
+            handler.postDelayed(guard, RUNTIME_GUARD_INTERVAL_MS);
         } catch (Throwable ignored) {}
         return guard;
     }
