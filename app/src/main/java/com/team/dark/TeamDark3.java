@@ -67,13 +67,13 @@ public class TeamDark3 extends AppCompatActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
             TeamDark9.showIntegrityFailure(this,
-                    "Debugger or runtime instrumentation was detected.");
+                    "MY SON TRY YOUR BEST PARALLAX ALWAYS FUCK YOUR MOM.");
             return;
         }
 
         if (!TeamDark8.verify(this)) {
             TeamDark9.showIntegrityFailure(this,
-                    "APK signature, package, native library, or loader integrity validation failed.");
+                    "MY SON TRY YOUR BEST PARALLAX ALWAYS FUCK YOUR MOM.");
             return;
         }
 
@@ -88,7 +88,7 @@ public class TeamDark3 extends AppCompatActivity {
         if (!nativeIntegrityOk) {
             TeamDark9.showIntegrityFailure(
                     this,
-                    "Native runtime validation rejected the dashboard session.");
+                    "MY SON TRY YOUR BEST PARALLAX ALWAYS FUCK YOUR MOM.");
             return;
         }
 
@@ -192,7 +192,7 @@ public class TeamDark3 extends AppCompatActivity {
         }
 
         if (!BlackBoxCore.get().isInstalled(PKG_BGMI, USER_ID)) {
-            Toast.makeText(this, "Installing BGMI in Virtual Space...", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Installing BGMI ...", Toast.LENGTH_SHORT).show();
             InstallResult res = BlackBoxCore.get().installPackageAsUser(PKG_BGMI, USER_ID);
             if (res.success) {
                 forceAutoCopyObb();
@@ -218,7 +218,7 @@ public class TeamDark3 extends AppCompatActivity {
             return;
         }
 
-        Toast.makeText(this, "OBB Copying... Please wait", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Please wait..", Toast.LENGTH_SHORT).show();
         AtomicBoolean isFinished = new AtomicBoolean(false);
 
         timerHandler.postDelayed(() -> {
@@ -253,7 +253,7 @@ public class TeamDark3 extends AppCompatActivity {
                 if (!isFinished.get()) {
                     isFinished.set(true);
                     runOnUiThread(() -> {
-                        Toast.makeText(TeamDark3.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(TeamDark3.this, "Launching...", Toast.LENGTH_SHORT).show();
                         launchGame();
                     });
                 }
