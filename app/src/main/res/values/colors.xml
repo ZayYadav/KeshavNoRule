@@ -1,48 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorAccent">#00F0FF</color>
-    <color name="primary">#00F0FF</color>
-    <color name="error">#FF3366</color>   
+    <color name="colorAccent">#8B5CF6</color>
+    <color name="primary">#8B5CF6</color>
+    <color name="error">#FB7185</color>
     <color name="black">#000000</color>
-    <color name="secondary">#7928CA</color>
-    <color name="primaryText">#FFFFFF</color>
+    <color name="secondary">#22D3EE</color>
+    <color name="primaryText">#F8FAFC</color>
     <color name="hintText">#64748B</color>
-    <color name="buttonPrimary">#00F0FF</color>
+    <color name="buttonPrimary">#8B5CF6</color>
     <color name="white">#FFFFFF</color>
-    <color name="background">#070A12</color>
-    <color name="secodary2">#0F1626</color>
-    <color name="button">#00F0FF</color>
-    <color name="background2">#0A0F1D</color>
-    <color name="crbgdm">#00F0FF</color>
+    <color name="background">#06080D</color>
+    <color name="secodary2">#111827</color>
+    <color name="button">#8B5CF6</color>
+    <color name="background2">#0B1220</color>
+    <color name="crbgdm">#22D3EE</color>
     <color name="darker_gray">#475569</color>
-    
-    <!-- Multi-Color Vibrant Mix Palette -->
-    <color name="cyber_black">#070814</color>
-    <color name="cyber_card_bg">#E60F1328</color>
-    <color name="cyber_card_inner">#181E3B</color>
-    <color name="cyber_cyan">#00F0FF</color>
-    <color name="cyber_cyan_dark">#0072FF</color>
-    <color name="cyber_purple">#9D4EDD</color>
-    <color name="cyber_violet">#7928CA</color>
-    <color name="cyber_pink">#FF007F</color>
-    <color name="cyber_magenta">#FF00A0</color>
-    <color name="cyber_orange">#FF5E00</color>
-    <color name="cyber_amber">#FFB703</color>
-    <color name="cyber_emerald">#00FF87</color>
-    <color name="cyber_stroke">#4DFF007F</color>
-    <color name="cyber_stroke_cyan">#4D00F0FF</color>
-    <color name="cyber_stroke_subtle">#26FFFFFF</color>
-    <color name="text_muted">#94A3B8</color>
-    <color name="text_dark">#050711</color>
-    <color name="status_live">#00FF87</color>
 
-    <!-- Legacy Compatibility Colors -->
-    <color name="button_cyan">#00F0FF</color>
+    <!-- TeamDark modern palette -->
+    <color name="cyber_black">#06080D</color>
+    <color name="cyber_card_bg">#E6111724</color>
+    <color name="cyber_card_inner">#171E2E</color>
+    <color name="cyber_cyan">#67E8F9</color>
+    <color name="cyber_cyan_dark">#0891B2</color>
+    <color name="cyber_purple">#A78BFA</color>
+    <color name="cyber_violet">#8B5CF6</color>
+    <color name="cyber_pink">#F472B6</color>
+    <color name="cyber_magenta">#E879F9</color>
+    <color name="cyber_orange">#FB923C</color>
+    <color name="cyber_amber">#FBBF24</color>
+    <color name="cyber_emerald">#34D399</color>
+    <color name="cyber_stroke">#4D8B5CF6</color>
+    <color name="cyber_stroke_cyan">#4D67E8F9</color>
+    <color name="cyber_stroke_subtle">#24FFFFFF</color>
+    <color name="text_muted">#94A3B8</color>
+    <color name="text_dark">#05070B</color>
+    <color name="status_live">#34D399</color>
+
+    <color name="button_cyan">#67E8F9</color>
     <color name="button_gray">#475569</color>
-    <color name="card_background">#161F33</color>
-    <color name="yellow_light">#FFEB3B</color>
-    <color name="yellow_dark">#FFD600</color>
-    <color name="package_red">#FF3366</color>
-    <color name="text_primary">#FFFFFF</color>
+    <color name="card_background">#111827</color>
+    <color name="yellow_light">#FDE68A</color>
+    <color name="yellow_dark">#F59E0B</color>
+    <color name="package_red">#FB7185</color>
+    <color name="text_primary">#F8FAFC</color>
     <color name="text_secondary">#94A3B8</color>
 </resources>
