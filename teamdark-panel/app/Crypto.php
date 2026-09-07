@@ -23,6 +23,11 @@ final class Crypto
         return [base64_encode($cipher), base64_encode($iv), base64_encode($tag)];
     }
 
+    public static function fingerprint(string $value): string
+    {
+        return hash_hmac('sha256', $value, self::key());
+    }
+
     public static function decrypt(string $cipherB64, string $ivB64, string $tagB64): string
     {
         $plain = openssl_decrypt(
