@@ -1,0 +1,127 @@
+name: TeamDark unsigned signing handoff
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/teamdark-unsigned-handoff.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-unsigned:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      SDK_CHECKOUT_DIR: _teamdark_sdk
+      SDK_PROJECT_DIR: _teamdark_sdk/TeamDarkSDK/BLACK-OPNE
+      SDK_MODULE: TeamDarkCore
+      SDK_MODULE_DIR: RIYAZ-VIP
+      SDK_NDK_VERSION: 27.2.12479018
+      APP_NDK_VERSION: 24.0.8215888
+      APP_CMAKE_VERSION: 3.22.1
+      # Only satisfies the local Gradle release-request guard.
+      # Release signingConfig is removed in this runner before build,
+      # so these placeholders are never used to sign.
+      TEAM_DARK_STORE_PASSWORD: unsigned-ci-placeholder
+      TEAM_DARK_KEY_PASSWORD: unsigned-ci-placeholder
+      TEAM_DARK_KEY_ALIAS: TeamDarkParallax
+
+    steps:
+      - name: Checkout TeamDarkLoader
+        uses: actions/checkout@v4
+
+      - name: Checkout TeamDarkSDK
+        uses: actions/checkout@v4
+        with:
+          repository: ZayYadav/ParallaxSDK
+          ref: TeamDarkSDK
+          path: ${{ env.SDK_CHECKOUT_DIR }}
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-34" \
+            "platforms;android-36" \
+            "build-tools;34.0.0" \
+            "ndk;${SDK_NDK_VERSION}" \
+            "ndk;${APP_NDK_VERSION}" \
+            "cmake;${APP_CMAKE_VERSION}"
+
+      - name: Configure Gradle
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > "${SDK_PROJECT_DIR}/local.properties"
+          chmod +x ./gradlew "${SDK_PROJECT_DIR}/gradlew"
+
+      - name: Build fresh TeamDarkCore AAR
+        working-directory: ${{ env.SDK_PROJECT_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :TeamDarkCore:assembleRelease --no-daemon --stacktrace
+
+      - name: Install fresh TeamDarkCore AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="${SDK_PROJECT_DIR}/${SDK_MODULE_DIR}/build/outputs/aar/${SDK_MODULE}-release.aar"
+          test -s "$SRC"
+          rm -f app/libs/*.aar
+          mkdir -p app/libs
+          cp "$SRC" app/libs/TeamDarkCore-release.aar
+
+      - name: Make this runner release build unsigned
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path("app/build.gradle")
+          s = p.read_text()
+          old = "            signingConfig signingConfigs.release\n"
+          if old not in s:
+              raise SystemExit("release signingConfig line not found")
+          s = s.replace(old, "", 1)
+          p.write_text(s)
+
+      - name: Build unsigned TeamDark release
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew clean :app:assembleRelease --no-daemon --stacktrace
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' | head -n1)"
+          test -s "$APK"
+          mkdir -p handoff
+          cp "$APK" handoff/TeamDarkLoader-unsigned-release.apk
+          cp app/TeamDarkParallax.jks handoff/TeamDarkParallax.jks
+          cp "$ANDROID_HOME/build-tools/34.0.0/lib/apksigner.jar" handoff/apksigner.jar
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging "$APK" \
+            | grep -q "package: name='com.team.dark'"
+          unzip -Z1 "$APK" | grep -q 'lib/arm64-v8a/libTeamDarkCore.so'
+          unzip -Z1 "$APK" | grep -q 'lib/arm64-v8a/libTeamDarkLoader.so'
+          sha256sum handoff/* > handoff/SHA256SUMS.txt
+
+      - name: Upload local signing handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: TeamDark-local-signing-handoff
+          path: handoff/
+          if-no-files-found: error
+          retention-days: 1
