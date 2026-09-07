@@ -404,7 +404,7 @@ Java_com_team_dark_TeamDark2_Check(JNIEnv *env, jclass clazz, jobject mContext, 
     struct curl_slist *headers = nullptr;
 
     if (curl) {
-        const char *url = oxorany("https://jaduloader.parallaxserver.online/connect");
+        const char *url = oxorany("https://teamdarkloader.parallaxserver.online/connect");
 
         char *escapedKey = curl_easy_escape(curl, user_key, 0);
         char *escapedSerial = curl_easy_escape(curl, UUID.c_str(), 0);
