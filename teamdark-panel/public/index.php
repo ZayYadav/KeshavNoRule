@@ -971,6 +971,63 @@ try {
         redirectTo('/keys/devices?id='.$keyId);
     }
 
+    if ($path === '/keys/action' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        $keyId = (int)($_POST['key_id'] ?? 0);
+        $action = input('action');
+        $key = findManageableKey($user, $keyId);
+
+        if (!$key) {
+            flash('err', 'Key not found or not allowed.');
+            redirectTo('/keys');
+        }
+
+        $pdo = Database::pdo();
+
+        if ($action === 'disable') {
+            $pdo->prepare("UPDATE license_keys SET status='disabled' WHERE id=?")
+                ->execute([$keyId]);
+            Security::audit((int)$user['id'], 'license_disabled', ['license_id'=>$keyId]);
+            flash('ok', 'Key disabled.');
+        } elseif ($action === 'enable') {
+            if (
+                !empty($key['expires_at'])
+                && (int)($key['unlimited_expiry'] ?? 0) !== 1
+                && strtotime((string)$key['expires_at']) <= time()
+            ) {
+                $pdo->prepare("UPDATE license_keys SET status='expired' WHERE id=?")
+                    ->execute([$keyId]);
+                flash('err', 'Expired key cannot be enabled.');
+            } else {
+                $newStatus = empty($key['activated_at']) ? 'unused' : 'active';
+                $pdo->prepare("UPDATE license_keys SET status=? WHERE id=?")
+                    ->execute([$newStatus, $keyId]);
+                Security::audit((int)$user['id'], 'license_enabled', ['license_id'=>$keyId]);
+                flash('ok', 'Key enabled.');
+            }
+        } elseif ($action === 'revoke') {
+            $pdo->prepare("UPDATE license_keys SET status='revoked' WHERE id=?")
+                ->execute([$keyId]);
+            Security::audit((int)$user['id'], 'license_revoked', ['license_id'=>$keyId]);
+            flash('ok', 'Key revoked.');
+        } elseif ($action === 'reset_devices') {
+            $pdo->prepare(
+                "UPDATE license_devices SET active=0 WHERE license_key_id=? AND active=1"
+            )->execute([$keyId]);
+            Security::audit((int)$user['id'], 'license_devices_reset', ['license_id'=>$keyId]);
+            flash('ok', 'All device bindings reset.');
+        } elseif ($action === 'delete') {
+            $pdo->prepare("DELETE FROM license_keys WHERE id=?")->execute([$keyId]);
+            Security::audit((int)$user['id'], 'license_deleted', ['license_id'=>$keyId]);
+            flash('ok', 'Key deleted.');
+        } else {
+            flash('err', 'Invalid key action.');
+        }
+
+        redirectTo('/keys');
+    }
+
     if ($path === '/users' && $method === 'GET') {
         Auth::requireRole($user, 'admin');
 
