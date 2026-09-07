@@ -4,46 +4,32 @@
         <shape android:shape="rectangle">
             <gradient
                 android:angle="270"
-                android:startColor="#0D081E"
-                android:centerColor="#070814"
-                android:endColor="#020308"
+                android:startColor="#0B1020"
+                android:centerColor="#080B12"
+                android:endColor="#05070B"
                 android:type="linear" />
         </shape>
     </item>
-    <!-- Top-Right Magenta/Violet Glow -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="440dp"
+                android:centerX="92%"
+                android:centerY="6%"
+                android:startColor="#248B5CF6"
+                android:endColor="#008B5CF6" />
+        </shape>
+    </item>
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:type="radial"
                 android:gradientRadius="420dp"
-                android:centerX="85%"
-                android:centerY="12%"
-                android:startColor="#33FF007F"
-                android:endColor="#00000000" />
-        </shape>
-    </item>
-    <!-- Bottom-Left Electric Cyan Glow -->
-    <item>
-        <shape android:shape="rectangle">
-            <gradient
-                android:type="radial"
-                android:gradientRadius="420dp"
-                android:centerX="15%"
-                android:centerY="88%"
-                android:startColor="#3300F0FF"
-                android:endColor="#00000000" />
-        </shape>
-    </item>
-    <!-- Center Purple Nebula -->
-    <item>
-        <shape android:shape="rectangle">
-            <gradient
-                android:type="radial"
-                android:gradientRadius="300dp"
-                android:centerX="50%"
-                android:centerY="50%"
-                android:startColor="#1A7928CA"
-                android:endColor="#00000000" />
+                android:centerX="5%"
+                android:centerY="92%"
+                android:startColor="#1F22D3EE"
+                android:endColor="#0022D3EE" />
         </shape>
     </item>
 </layer-list>
