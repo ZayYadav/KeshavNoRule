@@ -39,7 +39,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo_mysql, openssl, json
+          extensions: pdo_mysql, openssl, json, curl
           coverage: none
 
       - name: Install test utilities
@@ -101,6 +101,9 @@ jobs:
           KEY_COST="1"
           UNLIMITED_KEY_COST="100"
           TEAMDARK_AUTH_SECRET="$TEAMDARK_AUTH_SECRET"
+          TELEGRAM_BOT_TOKEN="123456:TEST_TOKEN_FOR_CONTRACT_ONLY"
+          TELEGRAM_WEBHOOK_SECRET="Contract_Webhook_Secret_123456789"
+          TELEGRAM_OWNER_CHAT_ID="7000000099"
           API_TOKEN_TTL="86400"
           EOF
 
@@ -111,22 +114,76 @@ jobs:
           mysql -h127.0.0.1 -uroot -proot teamdark_test < teamdark-panel/database/schema.sql
           php teamdark-panel/tests/seed_native_auth.php > /tmp/teamdark-fixture.json
           jq -e 'type=="object"' /tmp/teamdark-fixture.json >/dev/null
+          php teamdark-panel/tests/telegram_contract.php
 
-      - name: Verify existing-database migration on MySQL 8
+      - name: Verify single SQL install and upgrade contract
         shell: bash
         run: |
           set -euo pipefail
 
+          test "$(find teamdark-panel -type f -name '*.sql' | wc -l)" -eq 1
+          test -f teamdark-panel/database/schema.sql
+
           mysql -h127.0.0.1 -uroot -proot -e "DROP DATABASE IF EXISTS teamdark_migration; CREATE DATABASE teamdark_migration CHARACTER SET utf8mb4;"
-          mysql -h127.0.0.1 -uroot -proot teamdark_migration < teamdark-panel/tests/pre_native_schema.sql
-          mysql -h127.0.0.1 -uroot -proot teamdark_migration < teamdark-panel/database/migrate_native_connect.sql
 
-          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'game';" | grep -F 'game' >/dev/null
-          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'unlimited_expiry';" | grep -F 'unlimited_expiry' >/dev/null
-          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'unlimited_devices';" | grep -F 'unlimited_devices' >/dev/null
+          mysql -h127.0.0.1 -uroot -proot teamdark_migration <<'SQL'
+          CREATE TABLE users (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(64) NOT NULL UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            role ENUM('owner','admin','reseller','user') NOT NULL DEFAULT 'user',
+            balance INT UNSIGNED NOT NULL DEFAULT 0,
+            referral_code VARCHAR(32) NOT NULL UNIQUE,
+            referred_by BIGINT UNSIGNED NULL,
+            created_by BIGINT UNSIGNED NULL,
+            status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+            last_login_at DATETIME NULL,
+            last_login_ip VARCHAR(45) NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+          CREATE TABLE license_keys (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            owner_user_id BIGINT UNSIGNED NOT NULL,
+            created_by BIGINT UNSIGNED NOT NULL,
+            key_hash CHAR(64) NOT NULL UNIQUE,
+            key_cipher TEXT NOT NULL,
+            key_iv VARCHAR(64) NOT NULL,
+            key_tag VARCHAR(64) NOT NULL,
+            label VARCHAR(100) NOT NULL DEFAULT '',
+            expires_at DATETIME NULL,
+            status ENUM('active','disabled','expired') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+          CREATE TABLE license_devices (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            license_key_id BIGINT UNSIGNED NOT NULL,
+            device_hash CHAR(64) NOT NULL,
+            device_label VARCHAR(120) NOT NULL DEFAULT '',
+            first_seen_at DATETIME NOT NULL,
+            last_seen_at DATETIME NOT NULL
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+          CREATE TABLE balance_ledger (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NOT NULL,
+            actor_user_id BIGINT UNSIGNED NULL,
+            amount INT NOT NULL,
+            reason VARCHAR(160) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          SQL
+
+          mysql -h127.0.0.1 -uroot -proot teamdark_migration < teamdark-panel/database/schema.sql
+
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_chat_id';" | grep -F 'telegram_chat_id' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'key_source';" | grep -F 'key_source' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'telegram_user_id';" | grep -F 'telegram_user_id' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_devices LIKE 'serial';" | grep -F 'serial' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'telegram_users';" | grep -F 'telegram_users' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW INDEX FROM license_devices WHERE Key_name='uq_key_serial';" | grep -F 'uq_key_serial' >/dev/null
-
       - name: Start isolated PHP endpoint
         shell: bash
         run: |

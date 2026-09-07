@@ -1,79 +1,63 @@
 # TeamDark PHP Panel
 
-Standalone PHP 8.2+ / MySQL control panel. It is intentionally isolated from the Android loader source.
+Standalone PHP 8.2+ / MySQL TeamDark control panel with native Loader authentication and Telegram Bot webhook support.
 
-## Features
+## Main features
 - Owner / Admin / Reseller / User hierarchy.
-- Owner balance is treated as unlimited (∞) in panel logic.
-- Owner can assign very large balances to managed users. Database balance uses BIGINT UNSIGNED.
-- Referral registration with configurable signup/referrer credit bonuses.
-- Balance ledger and server-side role checks.
-- License keys are random and AES-256-GCM encrypted at rest.
-- First successful key validation starts the license timer.
-- Generated keys have configurable days + hours.
-- Automatic expiry moves keys into the Expired section.
-- Per-key maximum device choices: 10, 20, 30, 50, 100, 500, 1000.
-- Device identifiers are never stored raw; a keyed HMAC fingerprint is stored.
-- JSON API username/password login returns a short-lived bearer token; API tokens are stored hashed.
-- PDO native prepared statements, CSRF protection, strict sessions, rate limiting, audit log, CSP/HSTS/security headers.
+- One-time referral registration. Owner can create Admin / Reseller / User referrals; Admin can create User referrals.
+- Self-owned key generation with optional custom key and automatic `Team-Dark-XXXXXXXXX` format.
+- First successful Loader login starts the license timer.
+- Per-key block/unblock, device reset and delete controls.
+- Telegram account linking with Chat ID + 15-minute one-time verification code.
+- Telegram Bot owner menu with inline buttons for stats, panel users, TG guests, keys, referrals, balance changes and user enable/disable.
+- Registered linked users can view account/keys and generate 1/7/30-day keys from the bot using normal panel balance rules.
+- Unregistered Telegram users can generate one free 2-hour, 1-device key every 7 days.
+- Owner-only `/telegram-users` page shows unregistered TG name, Chat ID, Telegram username, first/last seen, next free-key time and guest keys.
+- When a TG guest later links a panel account, the TG record is linked and previous guest keys automatically move under that panel account.
+- Webhook secret verification, update replay protection, per-chat rate limits, CSRF protection, prepared statements and audit logging.
 
-## Fresh install
-1. Use PHP 8.2+.
-2. Set web document root to teamdark-panel/public when possible.
-3. Copy .env.example to .env and set database credentials.
-4. Generate APP_KEY with: php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
-5. Import database/schema.sql.
-6. Create first owner with bin/create-owner.php.
-7. Force HTTPS.
+## One SQL file only
 
-## Upgrade an existing database
-Before uploading/running the upgraded PHP files, import database/migrate_key_lifecycle.sql once.
+Use only:
 
-It upgrades:
-- users.balance -> BIGINT
-- balance_ledger.amount -> BIGINT
-- license status -> unused / active / disabled / expired
-- duration_seconds
-- activated_at
-- expires_at
-- last_used_at
-- max_devices
-- new license_devices table
+`database/schema.sql`
 
-## License lifecycle
-When a key is generated: status=unused, activated_at=NULL, expires_at=NULL.
-On the first successful API validation, activated_at is set, expires_at is calculated from duration, status becomes active, and the first device is bound.
-After expires_at, API returns KEY_EXPIRED and the panel moves the key into /keys/expired.
+It is the single fresh-install + existing-database upgrade SQL. Back up MySQL first, then run this same file whenever deploying this build.
 
-## API
-- POST /api/v1/auth/login
-- GET /api/v1/me with Authorization: Bearer <token>
-- GET /api/v1/licenses with Authorization: Bearer <token>
-- POST /api/v1/license/validate
-- POST /api/v1/license/activate (alias)
+Old separate migration SQL files are intentionally removed.
 
-Loader validation JSON:
-{"key":"TD-...","device_id":"stable-device-id-from-loader","device_label":"Nothing A001"}
+## Fresh install / upgrade
+1. Use PHP 8.2+ with PDO MySQL, OpenSSL, JSON and cURL.
+2. Copy `.env.example` to `.env`.
+3. Configure database and `APP_KEY`.
+4. Import `database/schema.sql`.
+5. Create the first owner with `bin/create-owner.php` if this is a fresh database.
+6. Configure Telegram values in `.env`.
+7. Run `php bin/set_telegram_webhook.php`.
+8. Force HTTPS.
 
-Successful license response includes activated_at, expires_at, duration_seconds, max_devices, used_devices, remaining_devices and server_time.
-Failure codes: INVALID_KEY, INVALID_DEVICE, KEY_DISABLED, KEY_EXPIRED, DEVICE_LIMIT.
+## Telegram .env
+- `TELEGRAM_BOT_TOKEN`: token received from BotFather.
+- `TELEGRAM_WEBHOOK_SECRET`: random webhook secret.
+- `TELEGRAM_OWNER_CHAT_ID`: private Telegram Chat ID that receives Owner controls.
 
-## Important loader integration
-The panel alone cannot know that a player entered a key inside the Android loader.
-For first-use timing and device binding to start from Android key entry, the loader login flow must call POST /api/v1/license/validate with the entered key and a stable device identifier.
-Until that wiring is added, panel generation/management works, but Android key entry will not start the timer.
+The webhook URL is `/telegram/webhook`.
 
-## Production notes
-- Keep .env outside public document root when hosting allows it.
-- Use a dedicated least-privilege DB user.
-- Back up MySQL before running migrations.
-- Rotate APP_KEY only with a migration plan because license ciphertext/device fingerprints depend on it.
-- Set PHP display_errors=Off; log errors server-side.
-- Keep PHP/MySQL/web server patched and force HTTPS.
+Do not expose the bot token or webhook secret in HTML, JavaScript, screenshots or public logs.
 
-## Automatic expiry cron
-For true background expiry on cPanel, add a Cron Job every minute or every 5 minutes:
+## Secure Telegram linking
+A panel user enters a private Telegram Chat ID on Dashboard. The panel creates a 15-minute `TDLINK-XXXXXXXX` code. The same Telegram account must send:
 
-php /home/YOUR_CPANEL_USER/teamdarkloader.parallaxserver.online/bin/expire-keys.php
+`/link TDLINK-XXXXXXXX`
 
-The web/API paths also check expiry, so a key is never accepted after its expiry even if cron is delayed.
+Only then is the account linked. Merely typing another person's Chat ID cannot link that Telegram account.
+
+## Native Loader endpoint
+The current native Loader contract remains `POST /connect` with form fields `game`, `user_key`, and `serial`. The existing token and device-binding contract is unchanged.
+
+## Automated tests
+- TeamDark Panel PHP Lint
+- TeamDark Native Auth Contract
+- Native 19-case Loader integration suite
+- Telegram guest-key/link contract
+- Single-SQL upgrade contract

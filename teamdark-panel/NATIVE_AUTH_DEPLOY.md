@@ -81,9 +81,9 @@ Do not put this value in panel HTML, JavaScript or API responses.
 
 ## Existing database upgrade
 
-Back up the database first, then run once:
+Back up the database first, then run the single install/upgrade SQL:
 
-`database/migrate_native_connect.sql`
+`database/schema.sql`
 
 It adds/aligns:
 
@@ -261,7 +261,17 @@ It uses isolated MySQL + PHP and verifies:
 - `app/LicenseService.php`
 - `public/index.php`
 - `database/schema.sql`
-- `database/migrate_native_connect.sql`
+- `database/schema.sql`
 - `.htaccess`
 - `public/.htaccess`
 - `.env.example`
+
+## Telegram integration
+
+Telegram webhook endpoint:
+
+`POST /telegram/webhook`
+
+The server verifies Telegram's webhook secret header before parsing updates. Telegram guest keys use the same native `/connect` Loader authentication path, so the Android loader does not need Telegram-specific authentication code.
+
+Only `database/schema.sql` is kept as the panel SQL source of truth.
