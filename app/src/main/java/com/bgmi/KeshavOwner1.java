@@ -1,7 +1,10 @@
 package com.bgmi;
 
+import android.app.ActivityManager;
 import android.app.Application;
 import android.content.Context;
+import android.os.Build;
+import android.os.Process;
 import android.util.Log;
 
 import com.bgmi.utils.KeshavOwner5;
@@ -12,6 +15,7 @@ import org.lsposed.lsparanoid.Obfuscate;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import top.niunaijun.blackbox.BlackBoxCore;
@@ -155,10 +159,50 @@ public class KeshavOwner1 extends Application {
         }
     }
 
+    private boolean isHostMainProcess() {
+        String processName = null;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                processName = Application.getProcessName();
+            } else {
+                ActivityManager manager =
+                        (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+                if (manager != null) {
+                    List<ActivityManager.RunningAppProcessInfo> processes =
+                            manager.getRunningAppProcesses();
+                    if (processes != null) {
+                        int pid = Process.myPid();
+                        for (ActivityManager.RunningAppProcessInfo info : processes) {
+                            if (info != null && info.pid == pid) {
+                                processName = info.processName;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+
+        if (processName == null || processName.trim().isEmpty()) {
+            // Fail safe for OEMs that do not expose the process list: the normal
+            // app process is the only one expected to have the package name.
+            processName = getPackageName();
+        }
+        return getPackageName().equals(processName);
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
         BlackBoxCore.get().doCreate();
+
+        // SDK activation belongs to the loader host process only. Proxy/game
+        // processes must not restart/cancel the activation session mid-game.
+        if (!isHostMainProcess()) {
+            return;
+        }
+
         try {
             String sdkKey = getSdkKey();
             if (sdkKey != null && !sdkKey.trim().isEmpty()) {
