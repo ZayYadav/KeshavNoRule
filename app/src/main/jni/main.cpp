@@ -30,22 +30,22 @@ bool bValid = false;
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_bgmi_TeamDark3_exdate(JNIEnv *env, jclass clazz) {
+Java_com_team_dark_TeamDark3_exdate(JNIEnv *env, jclass clazz) {
     return env->NewStringUTF(exdate.c_str());
 }
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_bgmi_TeamDark3_ZENINOP(JNIEnv *env, jobject activityObject) {
+Java_com_team_dark_TeamDark3_ZENINOP(JNIEnv *env, jobject activityObject) {
     return env->NewStringUTF(ZENINOP);
 }
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_bgmi_TeamDark2_GetKey(JNIEnv *env, jobject thiz) {
+Java_com_team_dark_TeamDark2_GetKey(JNIEnv *env, jobject thiz) {
     return env->NewStringUTF(oxorany("https://t.me/")); // Link Channel
 }
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_bgmi_utils_TeamDark5_Version(JNIEnv *env, jclass clazz) {
+Java_com_team_dark_utils_TeamDark5_Version(JNIEnv *env, jclass clazz) {
     // return URL to version file
     const char *versionUrl = (oxorany("https://github.com/k4414597-creator/jaduloader/releases/download/Jadu/version.txt"));
     return env->NewStringUTF(versionUrl);
@@ -53,7 +53,7 @@ Java_com_bgmi_utils_TeamDark5_Version(JNIEnv *env, jclass clazz) {
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_bgmi_utils_TeamDark5_Link(JNIEnv *env, jclass clazz) {
+Java_com_team_dark_utils_TeamDark5_Link(JNIEnv *env, jclass clazz) {
     
     const char *downloadUrl = (oxorany("https://github.com/k4414597-creator/jaduloader/releases/download/Jadu/V4.zip")); //Last Mai Apka Zip Name
     return env->NewStringUTF(downloadUrl);
@@ -61,14 +61,14 @@ Java_com_bgmi_utils_TeamDark5_Link(JNIEnv *env, jclass clazz) {
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_bgmi_TeamDark1_getSdkKey(JNIEnv *env, jclass clazz) {
-    return env->NewStringUTF(oxorany("KESHAVFRIEND"));//sdk key
+Java_com_team_dark_TeamDark1_getSdkKey(JNIEnv *env, jclass clazz) {
+    return env->NewStringUTF(oxorany("SDK-8FB9E9C2AF9126A7C74250E5"));//sdk key
 }
 
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_bgmi_TeamDark2_nativeCustomIntegrity(
+Java_com_team_dark_TeamDark2_nativeCustomIntegrity(
         JNIEnv *env,
         jclass,
         jobject context) {
@@ -77,7 +77,7 @@ Java_com_bgmi_TeamDark2_nativeCustomIntegrity(
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_bgmi_TeamDark2_nativeVerifyServerLoader(
+Java_com_team_dark_TeamDark2_nativeVerifyServerLoader(
         JNIEnv *env,
         jclass,
         jobject context,
@@ -103,7 +103,7 @@ Java_com_bgmi_TeamDark2_nativeVerifyServerLoader(
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_bgmi_TeamDark2_nativeVerifySignature(
+Java_com_team_dark_TeamDark2_nativeVerifySignature(
         JNIEnv *env,
         jobject,
         jobject context) {
@@ -218,7 +218,7 @@ Java_com_bgmi_TeamDark2_nativeVerifySignature(
     if (sigArray == nullptr) return JNI_FALSE;
 
     const char *expected = oxorany(
-            "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e");
+            "95d42274430c198e20056da00e5e4dcafd5935d93d2e4380e2788b1b7ff8a32f");
 
     const jsize sigCount = env->GetArrayLength(sigArray);
 
@@ -366,7 +366,7 @@ std::string CalcSHA256(std::string s) {
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_com_bgmi_TeamDark2_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring mUserKey) {
+Java_com_team_dark_TeamDark2_Check(JNIEnv *env, jclass clazz, jobject mContext, jstring mUserKey) {
     // Always reset auth state for every login attempt. Otherwise a previous
     // successful login could incorrectly keep bValid=true after a later failure.
     bValid = false;
