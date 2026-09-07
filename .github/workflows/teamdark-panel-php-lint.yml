@@ -1,0 +1,33 @@
+name: TeamDark Panel PHP Lint
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - 'teamdark-panel/**'
+      - '.github/workflows/teamdark-panel-php-lint.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-lint:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, openssl, json
+          coverage: none
+
+      - name: Lint all TeamDark panel PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          find teamdark-panel -type f -name '*.php' -print0             | sort -z             | xargs -0 -n1 php -l
