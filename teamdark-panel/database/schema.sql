@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
   username VARCHAR(64) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   role ENUM('owner','admin','reseller','user') NOT NULL DEFAULT 'user',
-  balance INT UNSIGNED NOT NULL DEFAULT 0,
+  balance BIGINT UNSIGNED NOT NULL DEFAULT 0,
   referral_code VARCHAR(32) NOT NULL UNIQUE,
   referred_by BIGINT UNSIGNED NULL,
   created_by BIGINT UNSIGNED NULL,
@@ -26,19 +26,38 @@ CREATE TABLE IF NOT EXISTS license_keys (
   key_iv VARCHAR(64) NOT NULL,
   key_tag VARCHAR(64) NOT NULL,
   label VARCHAR(100) NOT NULL DEFAULT '',
+  duration_seconds BIGINT UNSIGNED NOT NULL DEFAULT 86400,
+  activated_at DATETIME NULL,
   expires_at DATETIME NULL,
-  status ENUM('active','disabled','expired') NOT NULL DEFAULT 'active',
+  last_used_at DATETIME NULL,
+  max_devices INT UNSIGNED NOT NULL DEFAULT 10,
+  status ENUM('unused','active','disabled','expired') NOT NULL DEFAULT 'unused',
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_key_owner FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_key_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
-  INDEX idx_keys_owner(owner_user_id), INDEX idx_keys_creator(created_by), INDEX idx_keys_status(status)
+  INDEX idx_keys_owner(owner_user_id),
+  INDEX idx_keys_creator(created_by),
+  INDEX idx_keys_status(status),
+  INDEX idx_keys_expiry(expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS license_devices (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  license_key_id BIGINT UNSIGNED NOT NULL,
+  device_hash CHAR(64) NOT NULL,
+  device_label VARCHAR(120) NOT NULL DEFAULT '',
+  first_seen_at DATETIME NOT NULL,
+  last_seen_at DATETIME NOT NULL,
+  CONSTRAINT fk_device_key FOREIGN KEY (license_key_id) REFERENCES license_keys(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_key_device(license_key_id, device_hash),
+  INDEX idx_device_last_seen(last_seen_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS balance_ledger (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
   actor_user_id BIGINT UNSIGNED NULL,
-  amount INT NOT NULL,
+  amount BIGINT NOT NULL,
   reason VARCHAR(160) NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_balance_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
