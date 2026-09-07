@@ -51,7 +51,10 @@ final class Config
             'session_name' => $get('SESSION_NAME', 'TDSESSID'),
             'referrer_bonus' => max(0, (int)$get('REFERRER_BONUS', '5')),
             'signup_bonus' => max(0, (int)$get('SIGNUP_BONUS', '2')),
+            // KEY_COST is treated as the price per started 24-hour period.
             'key_cost' => max(0, (int)$get('KEY_COST', '1')),
+            'unlimited_key_cost' => max(0, (int)$get('UNLIMITED_KEY_COST', '100')),
+            'teamdark_auth_secret' => $get('TEAMDARK_AUTH_SECRET', ''),
             'token_ttl' => max(300, (int)$get('API_TOKEN_TTL', '86400')),
         ];
 
