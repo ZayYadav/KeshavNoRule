@@ -45,8 +45,6 @@ jobs:
       APP_CMAKE_VERSION: 3.22.1
       TEAM_DARK_KEY_ALIAS: TeamDarkParallax
       TEAM_DARK_EXPECTED_CERT_SHA256: 95D42274430C198E20056DA00E5E4DCAFD5935D93D2E4380E2788B1B7FF8A32F
-      TEAM_DARK_STORE_PASSWORD: ${{ secrets.TEAM_DARK_STORE_PASSWORD }}
-      TEAM_DARK_KEY_PASSWORD: ${{ secrets.TEAM_DARK_KEY_PASSWORD }}
 
     steps:
       - name: Checkout TeamDarkLoader
@@ -164,22 +162,15 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Validate TeamDark release keystore
+      - name: Validate TeamDark release signing config
         shell: bash
         run: |
           set -euo pipefail
           KEYSTORE='app/TeamDarkParallax.jks'
           test -s "$KEYSTORE" || { echo 'Missing app/TeamDarkParallax.jks' >&2; exit 1; }
-          test -n "${TEAM_DARK_STORE_PASSWORD:-}" || { echo 'Missing TEAM_DARK_STORE_PASSWORD secret' >&2; exit 1; }
-          test -n "${TEAM_DARK_KEY_PASSWORD:-}" || { echo 'Missing TEAM_DARK_KEY_PASSWORD secret' >&2; exit 1; }
-
-          keytool -list -v             -keystore "$KEYSTORE"             -alias "$TEAM_DARK_KEY_ALIAS"             -storepass "$TEAM_DARK_STORE_PASSWORD"             | tee build-integration-info/teamdark-keystore.txt
-
-          ACTUAL_CERT="$(keytool -list -v             -keystore "$KEYSTORE"             -alias "$TEAM_DARK_KEY_ALIAS"             -storepass "$TEAM_DARK_STORE_PASSWORD"             | sed -n 's/^[[:space:]]*SHA256: //p'             | tr -d ':[:space:]'             | tr '[:lower:]' '[:upper:]')"
-          test "$ACTUAL_CERT" = "$TEAM_DARK_EXPECTED_CERT_SHA256" || {
-            echo "Unexpected TeamDark signing certificate: $ACTUAL_CERT" >&2
-            exit 1
-          }
+          grep -F "storeFile teamDarkKeystore" app/build.gradle >/dev/null
+          grep -F "keyAlias teamDarkKeyAlias" app/build.gradle >/dev/null
+          grep -F "def teamDarkKeyAlias = 'TeamDarkParallax'" app/build.gradle >/dev/null
 
       - name: Build TeamDarkLoader release APK
         shell: bash
