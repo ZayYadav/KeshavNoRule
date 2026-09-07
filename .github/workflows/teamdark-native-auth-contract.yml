@@ -1,0 +1,145 @@
+name: TeamDark Native Auth Contract
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - 'teamdark-panel/**'
+      - 'app/src/main/jni/main.cpp'
+      - '.github/workflows/teamdark-native-auth-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-auth-contract:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: teamdark_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_mysql, openssl, json
+          coverage: none
+
+      - name: Install test utilities
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y default-mysql-client jq curl
+
+      - name: Verify native client contract and load exact secret
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -F 'https://teamdarkloader.parallaxserver.online/connect' app/src/main/jni/main.cpp >/dev/null
+          grep -F 'Content-Type: application/x-www-form-urlencoded' app/src/main/jni/main.cpp >/dev/null
+          grep -F 'std::string postData = "game=PUBG&user_key=";' app/src/main/jni/main.cpp >/dev/null
+          grep -F 'postData += "&serial=";' app/src/main/jni/main.cpp >/dev/null
+          grep -F 'result["status"].is_boolean()' app/src/main/jni/main.cpp >/dev/null
+          grep -F 'data["token"].is_string()' app/src/main/jni/main.cpp >/dev/null
+          grep -F 'data["rng"].is_number_integer()' app/src/main/jni/main.cpp >/dev/null
+          grep -F 'rng < now - 60 || rng > now + 60' app/src/main/jni/main.cpp >/dev/null
+
+          SECRET="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path('app/src/main/jni/main.cpp').read_text(encoding='utf-8')
+          match = re.search(r'auth\s*\+=\s*oxorany\("([^"]+)"\);', text)
+          if not match:
+              raise SystemExit('native auth secret not found')
+          print(match.group(1))
+          PY
+          )"
+
+          test -n "$SECRET"
+          echo "::add-mask::$SECRET"
+          echo "TEAMDARK_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
+
+      - name: Configure isolated TeamDark test panel
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_KEY="$(php -r 'echo base64_encode(random_bytes(32));')"
+          echo "::add-mask::$APP_KEY"
+
+          cat > teamdark-panel/.env <<EOF
+          APP_NAME="TeamDark Contract Test"
+          APP_URL="http://127.0.0.1:8080"
+          APP_KEY="$APP_KEY"
+          DB_HOST="127.0.0.1"
+          DB_PORT="3306"
+          DB_NAME="teamdark_test"
+          DB_USER="root"
+          DB_PASS="root"
+          SESSION_NAME="TDTESTSESSID"
+          REFERRER_BONUS="5"
+          SIGNUP_BONUS="2"
+          KEY_COST="1"
+          UNLIMITED_KEY_COST="100"
+          TEAMDARK_AUTH_SECRET="$TEAMDARK_AUTH_SECRET"
+          API_TOKEN_TTL="86400"
+          EOF
+
+      - name: Import schema and seed contract fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql -h127.0.0.1 -uroot -proot teamdark_test < teamdark-panel/database/schema.sql
+          php teamdark-panel/tests/seed_native_auth.php > /tmp/teamdark-fixture.json
+          jq -e 'type=="object"' /tmp/teamdark-fixture.json >/dev/null
+
+      - name: Start isolated PHP endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup php -S 127.0.0.1:8080 teamdark-panel/tests/router.php >/tmp/teamdark-php.log 2>&1 &
+          echo $! >/tmp/teamdark-php.pid
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/connect >/tmp/connect-ready.json 2>/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat /tmp/teamdark-php.log >&2 || true
+          exit 1
+
+      - name: Run 19-case native auth integration suite
+        shell: bash
+        env:
+          FIXTURE: /tmp/teamdark-fixture.json
+          BASE_URL: http://127.0.0.1:8080
+        run: |
+          set -euo pipefail
+          bash teamdark-panel/tests/native_auth_integration.sh
+
+      - name: Show PHP server log on failure
+        if: failure()
+        shell: bash
+        run: |
+          cat /tmp/teamdark-php.log 2>/dev/null || true
