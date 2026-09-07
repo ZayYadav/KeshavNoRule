@@ -37,7 +37,7 @@
                     android:paddingTop="7dp"
                     android:paddingEnd="13dp"
                     android:paddingBottom="7dp"
-                    android:text="TEAM DARK  •  PRIVATE ACCESS"
+                    android:text="TEAM DARK  •"
                     android:textColor="@color/cyber_emerald"
                     android:textSize="10sp"
                     android:textStyle="bold" />
@@ -84,7 +84,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:gravity="center"
-                        android:text="Secure launcher • Fast verification • Clean session"
+                        android:text="AntiBan • Safe server • Twitter + Facebook Login"
                         android:textColor="@color/text_muted"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -245,7 +245,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="NATIVE AUTH"
+                            android:text="~PARALLAX"
                             android:textColor="@color/cyber_emerald"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -255,7 +255,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="SIGNED BUILD"
+                            android:text="~DARK DEVEL"
                             android:textColor="@color/cyber_purple"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -265,7 +265,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="SECURE UI"
+                            android:text="~GONE CHACHA"
                             android:textColor="@color/cyber_cyan"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -284,7 +284,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="TEAM DARK SECURITY CORE"
+                    android:text="TEAM DARK "
                     android:textColor="@color/text_muted"
                     android:textSize="10sp"
                     android:textStyle="bold" />
