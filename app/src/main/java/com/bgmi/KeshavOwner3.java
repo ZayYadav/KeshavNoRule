@@ -40,6 +40,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class KeshavOwner3 extends AppCompatActivity {
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
     private Runnable securityGuard;
+    private ObjectAnimator titleAnimator;
+    private ObjectAnimator startPulseAnimator;
 
     static {
         try {
@@ -103,8 +105,6 @@ public class KeshavOwner3 extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
-
         tvExpires = findViewById(R.id.tvExpires);
         tvDays = findViewById(R.id.tvDays);
         tvHours = findViewById(R.id.tvHours);
@@ -117,15 +117,15 @@ public class KeshavOwner3 extends AppCompatActivity {
         // Animate Title
         View tvMainTitle = findViewById(R.id.tvMainTitle);
         if (tvMainTitle != null) {
-            ObjectAnimator titleAnim = ObjectAnimator.ofPropertyValuesHolder(
+            titleAnimator = ObjectAnimator.ofPropertyValuesHolder(
                     tvMainTitle,
                     PropertyValuesHolder.ofFloat("scaleX", 1.0f, 1.03f),
                     PropertyValuesHolder.ofFloat("scaleY", 1.0f, 1.03f)
             );
-            titleAnim.setDuration(1500);
-            titleAnim.setRepeatCount(ObjectAnimator.INFINITE);
-            titleAnim.setRepeatMode(ObjectAnimator.REVERSE);
-            titleAnim.start();
+            titleAnimator.setDuration(1500);
+            titleAnimator.setRepeatCount(ObjectAnimator.INFINITE);
+            titleAnimator.setRepeatMode(ObjectAnimator.REVERSE);
+            titleAnimator.start();
         }
 
         // Start Button Setup
@@ -134,15 +134,15 @@ public class KeshavOwner3 extends AppCompatActivity {
 
         if (btnStartContainer != null) {
             // Pulse animation on start button
-            ObjectAnimator pulseAnim = ObjectAnimator.ofPropertyValuesHolder(
+            startPulseAnimator = ObjectAnimator.ofPropertyValuesHolder(
                     btnStartContainer,
                     PropertyValuesHolder.ofFloat("scaleX", 1.0f, 1.025f),
                     PropertyValuesHolder.ofFloat("scaleY", 1.0f, 1.025f)
             );
-            pulseAnim.setDuration(1200);
-            pulseAnim.setRepeatCount(ObjectAnimator.INFINITE);
-            pulseAnim.setRepeatMode(ObjectAnimator.REVERSE);
-            pulseAnim.start();
+            startPulseAnimator.setDuration(1200);
+            startPulseAnimator.setRepeatCount(ObjectAnimator.INFINITE);
+            startPulseAnimator.setRepeatMode(ObjectAnimator.REVERSE);
+            startPulseAnimator.start();
         }
 
         if (btnStart != null) {
@@ -152,7 +152,43 @@ public class KeshavOwner3 extends AppCompatActivity {
             });
         }
 
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // The dashboard is allowed to do periodic UI/security work only while it
+        // is actually foreground. As soon as BGMI takes over, onPause() removes
+        // every scheduled callback so the loader cannot steal game-frame time.
+        securityHandler.removeCallbacksAndMessages(null);
+        timerHandler.removeCallbacksAndMessages(null);
+        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
         doCountTimerAccount();
+
+        try {
+            if (titleAnimator != null && !titleAnimator.isStarted()) {
+                titleAnimator.start();
+            }
+            if (startPulseAnimator != null && !startPulseAnimator.isStarted()) {
+                startPulseAnimator.start();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        try {
+            securityHandler.removeCallbacksAndMessages(null);
+            timerHandler.removeCallbacksAndMessages(null);
+            securityGuard = null;
+
+            if (titleAnimator != null) titleAnimator.cancel();
+            if (startPulseAnimator != null) startPulseAnimator.cancel();
+        } catch (Throwable ignored) {
+        }
+        super.onPause();
     }
 
     private void animateEntrance() {
@@ -332,6 +368,10 @@ public class KeshavOwner3 extends AppCompatActivity {
     protected void onDestroy() {
         try {
             securityHandler.removeCallbacksAndMessages(null);
+            timerHandler.removeCallbacksAndMessages(null);
+            securityGuard = null;
+            if (titleAnimator != null) titleAnimator.cancel();
+            if (startPulseAnimator != null) startPulseAnimator.cancel();
         } catch (Throwable ignored) {}
         super.onDestroy();
     }
