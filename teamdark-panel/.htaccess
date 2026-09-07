@@ -1,6 +1,23 @@
 Options -Indexes
-<FilesMatch "^(\.env|\.env\..*|composer\.(json|lock)|README\.md)$">
-  Require all denied
-</FilesMatch>
+
 RewriteEngine On
-RewriteRule ^(app|database|bin|storage)(/|$) - [F,L]
+
+# Never expose private application/configuration paths.
+RewriteRule ^(?:app|database|bin|storage)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:\.env(?:\..*)?|composer\.(?:json|lock)|README\.md)$ - [F,L,NC]
+
+# Serve static public assets when the hosting document root is teamdark-panel/.
+RewriteRule ^assets/(.*)$ public/assets/$1 [L,NC]
+
+# Let requests that are already inside /public continue normally.
+RewriteRule ^public(?:/|$) - [L]
+
+# Shared-hosting fallback: route the subdomain root through public/index.php.
+RewriteRule ^$ public/index.php [QSA,L]
+RewriteRule ^.*$ public/index.php [QSA,L]
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "no-referrer"
+</IfModule>
