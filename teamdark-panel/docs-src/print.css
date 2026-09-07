@@ -1,0 +1,171 @@
+@page {
+  size: A4;
+  margin: 14mm 13mm 17mm 13mm;
+  @bottom-center {
+    content: "TEAM DARK • Full Configuration Hindi Guide";
+    font-family: "Noto Sans Devanagari", "Noto Sans", sans-serif;
+    font-size: 7.5pt;
+    color: #64748b;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-size: 7.5pt;
+    color: #64748b;
+  }
+}
+
+html {
+  font-family: "Noto Sans Devanagari", "Noto Sans", sans-serif;
+  font-size: 9.4pt;
+  line-height: 1.48;
+  color: #172033;
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+}
+
+body > p:first-child,
+body > p:nth-child(2),
+body > p:nth-child(3) {
+  text-align: center;
+  margin: 0.15rem 0;
+}
+
+body > p:first-child strong {
+  font-size: 26pt;
+  letter-spacing: 0.08em;
+  color: #071b35;
+}
+
+body > p:nth-child(2) strong {
+  font-size: 14pt;
+  color: #0f5a84;
+}
+
+body > p:nth-child(3) strong {
+  font-size: 16pt;
+  color: #392d79;
+}
+
+h1, h2, h3 {
+  font-weight: 800;
+  color: #0b2748;
+  break-after: avoid;
+}
+
+h1 {
+  margin: 1.25rem 0 0.6rem;
+  padding-bottom: 0.28rem;
+  font-size: 17pt;
+  border-bottom: 2px solid #2aa7c9;
+}
+
+h2 {
+  margin: 1rem 0 0.45rem;
+  font-size: 13pt;
+  color: #243b73;
+}
+
+h3 {
+  margin: 0.85rem 0 0.35rem;
+  font-size: 11pt;
+  color: #334155;
+}
+
+p {
+  margin: 0.42rem 0;
+}
+
+ul, ol {
+  margin: 0.35rem 0 0.65rem 1.25rem;
+  padding: 0;
+}
+
+li {
+  margin: 0.22rem 0;
+}
+
+table {
+  width: 100%;
+  margin: 0.65rem 0 0.9rem;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+  break-inside: auto;
+}
+
+thead {
+  display: table-header-group;
+}
+
+tr {
+  break-inside: avoid;
+}
+
+th, td {
+  padding: 6px 7px;
+  border: 1px solid #cbd5e1;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+th {
+  background: #eaf4f8;
+  color: #0f3557;
+  font-weight: 700;
+}
+
+table:not(:has(tbody tr)) th {
+  background: #f4f8fb;
+}
+
+code, pre {
+  font-family: "Noto Sans Mono", "DejaVu Sans Mono", monospace;
+}
+
+code {
+  color: #8b1e5b;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  margin: 0.65rem 0;
+  padding: 9px 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 8pt;
+  line-height: 1.42;
+}
+
+blockquote {
+  margin: 0.7rem 0;
+  padding: 8px 11px;
+  border-left: 4px solid #14b8a6;
+  background: #f0fdfa;
+}
+
+a {
+  color: #075985;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #cbd5e1;
+  margin: 1rem 0;
+}
+
+strong {
+  font-weight: 800;
+}
+
+@media print {
+  a {
+    color: #075985;
+  }
+}
