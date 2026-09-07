@@ -1,6 +1,6 @@
 -- TeamDark native /connect compatibility migration.
 -- Back up the database before running this file.
--- Designed for the existing TeamDark panel schema.
+-- Compatible with MySQL 8 and MariaDB-style cPanel databases.
 
 ALTER TABLE users
   MODIFY balance BIGINT UNSIGNED NOT NULL DEFAULT 0;
@@ -8,29 +8,122 @@ ALTER TABLE users
 ALTER TABLE balance_ledger
   MODIFY amount BIGINT NOT NULL;
 
--- If the earlier lifecycle migration has not been applied yet, add its fields.
-ALTER TABLE license_keys
-  ADD COLUMN IF NOT EXISTS duration_seconds BIGINT UNSIGNED NOT NULL DEFAULT 86400 AFTER label,
-  ADD COLUMN IF NOT EXISTS activated_at DATETIME NULL AFTER duration_seconds,
-  ADD COLUMN IF NOT EXISTS last_used_at DATETIME NULL AFTER expires_at,
-  ADD COLUMN IF NOT EXISTS max_devices INT UNSIGNED NOT NULL DEFAULT 10 AFTER last_used_at;
+DELIMITER $$
 
--- Native loader fields.
-ALTER TABLE license_keys
-  ADD COLUMN IF NOT EXISTS game VARCHAR(16) NOT NULL DEFAULT 'PUBG' AFTER label,
-  ADD COLUMN IF NOT EXISTS unlimited_expiry TINYINT(1) NOT NULL DEFAULT 0 AFTER duration_seconds,
-  ADD COLUMN IF NOT EXISTS unlimited_devices TINYINT(1) NOT NULL DEFAULT 0 AFTER max_devices,
-  MODIFY status ENUM('unused','active','expired','disabled','revoked') NOT NULL DEFAULT 'unused';
+DROP PROCEDURE IF EXISTS td_add_column $$
+CREATE PROCEDURE td_add_column(
+    IN p_table VARCHAR(64),
+    IN p_column VARCHAR(64),
+    IN p_definition TEXT
+)
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = DATABASE()
+          AND table_name = p_table
+          AND column_name = p_column
+    ) THEN
+        SET @td_sql = CONCAT(
+            'ALTER TABLE ',
+            p_table,
+            ' ADD COLUMN ',
+            p_definition
+        );
+        PREPARE td_stmt FROM @td_sql;
+        EXECUTE td_stmt;
+        DEALLOCATE PREPARE td_stmt;
+    END IF;
+END $$
 
--- Preserve remaining lifetime for old pre-first-use records.
+DROP PROCEDURE IF EXISTS td_add_index $$
+CREATE PROCEDURE td_add_index(
+    IN p_table VARCHAR(64),
+    IN p_index VARCHAR(64),
+    IN p_definition TEXT
+)
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.statistics
+        WHERE table_schema = DATABASE()
+          AND table_name = p_table
+          AND index_name = p_index
+    ) THEN
+        SET @td_sql = CONCAT(
+            'ALTER TABLE ',
+            p_table,
+            ' ADD ',
+            p_definition
+        );
+        PREPARE td_stmt FROM @td_sql;
+        EXECUTE td_stmt;
+        DEALLOCATE PREPARE td_stmt;
+    END IF;
+END $$
+
+DELIMITER ;
+
+CALL td_add_column(
+  'license_keys',
+  'duration_seconds',
+  'duration_seconds BIGINT UNSIGNED NOT NULL DEFAULT 86400 AFTER label'
+);
+
+CALL td_add_column(
+  'license_keys',
+  'activated_at',
+  'activated_at DATETIME NULL AFTER duration_seconds'
+);
+
+CALL td_add_column(
+  'license_keys',
+  'last_used_at',
+  'last_used_at DATETIME NULL AFTER expires_at'
+);
+
+CALL td_add_column(
+  'license_keys',
+  'max_devices',
+  'max_devices INT UNSIGNED NOT NULL DEFAULT 10 AFTER last_used_at'
+);
+
+CALL td_add_column(
+  'license_keys',
+  'game',
+  'game VARCHAR(16) NOT NULL DEFAULT ''PUBG'' AFTER label'
+);
+
+CALL td_add_column(
+  'license_keys',
+  'unlimited_expiry',
+  'unlimited_expiry TINYINT(1) NOT NULL DEFAULT 0 AFTER duration_seconds'
+);
+
+CALL td_add_column(
+  'license_keys',
+  'unlimited_devices',
+  'unlimited_devices TINYINT(1) NOT NULL DEFAULT 0 AFTER max_devices'
+);
+
+ALTER TABLE license_keys
+  MODIFY status ENUM('unused','active','expired','disabled','revoked')
+  NOT NULL DEFAULT 'unused';
+
 UPDATE license_keys
-SET duration_seconds = GREATEST(TIMESTAMPDIFF(SECOND, NOW(), expires_at), 3600)
+SET game='PUBG'
+WHERE game IS NULL OR game='';
+
+UPDATE license_keys
+SET duration_seconds = GREATEST(
+        TIMESTAMPDIFF(SECOND, NOW(), expires_at),
+        3600
+    )
 WHERE expires_at IS NOT NULL
   AND activated_at IS NULL
   AND unlimited_expiry = 0
   AND expires_at > NOW();
 
--- Old keys that were generated but never activated become unused.
 UPDATE license_keys
 SET expires_at = NULL,
     status = 'unused'
@@ -38,7 +131,6 @@ WHERE activated_at IS NULL
   AND status = 'active'
   AND unlimited_expiry = 0;
 
--- Create the device table if it did not exist.
 CREATE TABLE IF NOT EXISTS license_devices (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   license_key_id BIGINT UNSIGNED NOT NULL,
@@ -49,18 +141,33 @@ CREATE TABLE IF NOT EXISTS license_devices (
   last_seen_at DATETIME NOT NULL,
   ip_address VARCHAR(45) NOT NULL DEFAULT '',
   active TINYINT(1) NOT NULL DEFAULT 1,
-  CONSTRAINT fk_device_key FOREIGN KEY (license_key_id) REFERENCES license_keys(id) ON DELETE CASCADE,
+  CONSTRAINT fk_device_key
+    FOREIGN KEY (license_key_id)
+    REFERENCES license_keys(id)
+    ON DELETE CASCADE,
   INDEX idx_device_last_seen(last_seen_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
 
--- Upgrade an older license_devices table in place.
-ALTER TABLE license_devices
-  ADD COLUMN IF NOT EXISTS serial VARCHAR(255) NULL AFTER device_hash,
-  ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45) NOT NULL DEFAULT '' AFTER last_seen_at,
-  ADD COLUMN IF NOT EXISTS active TINYINT(1) NOT NULL DEFAULT 1 AFTER ip_address;
+CALL td_add_column(
+  'license_devices',
+  'serial',
+  'serial VARCHAR(255) NULL AFTER device_hash'
+);
 
--- Old fingerprint-only rows cannot be mapped back to the loader serial.
--- Keep them for audit/history but do not let them consume active slots.
+CALL td_add_column(
+  'license_devices',
+  'ip_address',
+  'ip_address VARCHAR(45) NOT NULL DEFAULT '''' AFTER last_seen_at'
+);
+
+CALL td_add_column(
+  'license_devices',
+  'active',
+  'active TINYINT(1) NOT NULL DEFAULT 1 AFTER ip_address'
+);
+
 UPDATE license_devices
 SET serial = CONCAT('legacy:', id, ':', device_hash),
     active = 0
@@ -69,41 +176,17 @@ WHERE serial IS NULL OR serial = '';
 ALTER TABLE license_devices
   MODIFY serial VARCHAR(255) NOT NULL;
 
--- Add unique (key, serial) only if it does not already exist.
-SET @idx_exists := (
-  SELECT COUNT(*)
-  FROM information_schema.statistics
-  WHERE table_schema = DATABASE()
-    AND table_name = 'license_devices'
-    AND index_name = 'uq_key_serial'
+CALL td_add_index(
+  'license_devices',
+  'uq_key_serial',
+  'UNIQUE KEY uq_key_serial (license_key_id, serial)'
 );
 
-SET @idx_sql := IF(
-  @idx_exists = 0,
-  'ALTER TABLE license_devices ADD UNIQUE KEY uq_key_serial (license_key_id, serial)',
-  'SELECT 1'
+CALL td_add_index(
+  'license_devices',
+  'idx_device_active',
+  'INDEX idx_device_active (license_key_id, active)'
 );
 
-PREPARE td_stmt FROM @idx_sql;
-EXECUTE td_stmt;
-DEALLOCATE PREPARE td_stmt;
-
-SET @idx_active_exists := (
-  SELECT COUNT(*)
-  FROM information_schema.statistics
-  WHERE table_schema = DATABASE()
-    AND table_name = 'license_devices'
-    AND index_name = 'idx_device_active'
-);
-
-SET @idx_active_sql := IF(
-  @idx_active_exists = 0,
-  'ALTER TABLE license_devices ADD INDEX idx_device_active (license_key_id, active)',
-  'SELECT 1'
-);
-
-PREPARE td_stmt2 FROM @idx_active_sql;
-EXECUTE td_stmt2;
-DEALLOCATE PREPARE td_stmt2;
-
-UPDATE license_keys SET game='PUBG' WHERE game IS NULL OR game='';
+DROP PROCEDURE IF EXISTS td_add_column;
+DROP PROCEDURE IF EXISTS td_add_index;
