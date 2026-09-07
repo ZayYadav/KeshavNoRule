@@ -12,7 +12,7 @@ final class Auth
         Security::startSession();
         $id = (int)($_SESSION['uid'] ?? 0);
         if ($id <= 0) return null;
-        $q = Database::pdo()->prepare('SELECT id,name,username,role,balance,status,created_at FROM users WHERE id=? LIMIT 1');
+        $q = Database::pdo()->prepare('SELECT id,name,username,role,balance,telegram_chat_id,status,created_at FROM users WHERE id=? LIMIT 1');
         $q->execute([$id]);
         $u = $q->fetch();
         if (!$u || $u['status'] !== 'active') return null;

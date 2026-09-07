@@ -2,6 +2,6 @@
   "name": "teamdark/panel",
   "description": "Standalone TeamDark PHP control panel",
   "type": "project",
-  "require": {"php": ">=8.2", "ext-pdo": "*", "ext-openssl": "*", "ext-json": "*"},
+  "require": {"php": ">=8.2", "ext-pdo": "*", "ext-openssl": "*", "ext-json": "*", "ext-curl": "*"},
   "autoload": {"psr-4": {"TeamDark\\Panel\\": "app/"}}
 }

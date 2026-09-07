@@ -80,7 +80,9 @@ final class KeyManager
                 JOIN users u ON u.id=k.owner_user_id
                 JOIN users c ON c.id=k.created_by";
 
-        $where = [];
+        $where = [
+            "(k.key_source<>'telegram_guest' OR k.telegram_user_id IS NULL OR EXISTS (SELECT 1 FROM telegram_users tgvis WHERE tgvis.id=k.telegram_user_id AND tgvis.linked_user_id IS NOT NULL))"
+        ];
         $params = [];
 
         if ($actor['role'] === 'admin') {
@@ -214,6 +216,107 @@ final class KeyManager
                 'id'=>$id,
                 'key'=>$plain,
                 'cost'=>$cost,
+            ];
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+
+    public static function createTelegramGuestKey(
+        array $ownerActor,
+        int $telegramUserId
+    ): array {
+        if (($ownerActor['role'] ?? '') !== 'owner') {
+            throw new RuntimeException('Owner authority is required.');
+        }
+
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+
+        try {
+            $q = $pdo->prepare(
+                "SELECT id,chat_id,linked_user_id,guest_last_key_at,guest_key_count
+                 FROM telegram_users
+                 WHERE id=?
+                 LIMIT 1
+                 FOR UPDATE"
+            );
+            $q->execute([$telegramUserId]);
+            $tg = $q->fetch();
+
+            if (!$tg) {
+                throw new RuntimeException('Telegram user not found.');
+            }
+
+            if (!empty($tg['linked_user_id'])) {
+                throw new RuntimeException(
+                    'This Telegram account is linked to a panel account. Use normal panel key rules.'
+                );
+            }
+
+            $last = $tg['guest_last_key_at']
+                ? strtotime((string)$tg['guest_last_key_at'])
+                : false;
+            $nextTs = $last ? $last + 604800 : 0;
+
+            if ($last && $nextTs > time()) {
+                throw new RuntimeException(
+                    'Free 2-hour key already used. Next key: '
+                    .date('Y-m-d H:i:s', $nextTs)
+                );
+            }
+
+            $plain = self::licenseValue($pdo, '');
+            [$cipher, $iv, $tag] = Crypto::encrypt($plain);
+
+            $pdo->prepare(
+                "INSERT INTO license_keys(
+                    owner_user_id,created_by,key_hash,key_cipher,key_iv,key_tag,
+                    label,game,duration_seconds,unlimited_expiry,
+                    activated_at,expires_at,last_used_at,
+                    max_devices,unlimited_devices,status,key_source,telegram_user_id
+                 ) VALUES(?,?,?,?,?,?,?,'PUBG',7200,0,NULL,NULL,NULL,1,0,'unused','telegram_guest',?)"
+            )->execute([
+                $ownerActor['id'],
+                $ownerActor['id'],
+                hash('sha256', $plain),
+                $cipher,
+                $iv,
+                $tag,
+                'Telegram guest 2H',
+                $telegramUserId,
+            ]);
+
+            $keyId = (int)$pdo->lastInsertId();
+
+            $pdo->prepare(
+                "UPDATE telegram_users
+                 SET guest_last_key_at=NOW(),
+                     guest_key_count=guest_key_count+1,
+                     last_seen_at=NOW()
+                 WHERE id=?"
+            )->execute([$telegramUserId]);
+
+            $pdo->commit();
+
+            try {
+                Security::audit((int)$ownerActor['id'], 'telegram_guest_key_created', [
+                    'license_id'=>$keyId,
+                    'telegram_user_id'=>$telegramUserId,
+                    'duration_seconds'=>7200,
+                ]);
+            } catch (Throwable) {
+            }
+
+            return [
+                'id'=>$keyId,
+                'key'=>$plain,
+                'duration_seconds'=>7200,
+                'next_eligible_at'=>date('Y-m-d H:i:s', time() + 604800),
             ];
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {

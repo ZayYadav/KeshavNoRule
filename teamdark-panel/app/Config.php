@@ -55,6 +55,9 @@ final class Config
             'key_cost' => max(0, (int)$get('KEY_COST', '1')),
             'unlimited_key_cost' => max(0, (int)$get('UNLIMITED_KEY_COST', '100')),
             'teamdark_auth_secret' => $get('TEAMDARK_AUTH_SECRET', ''),
+            'telegram_bot_token' => $get('TELEGRAM_BOT_TOKEN', ''),
+            'telegram_webhook_secret' => $get('TELEGRAM_WEBHOOK_SECRET', ''),
+            'telegram_owner_chat_id' => trim($get('TELEGRAM_OWNER_CHAT_ID', '')),
             'token_ttl' => max(300, (int)$get('API_TOKEN_TTL', '86400')),
         ];
 
