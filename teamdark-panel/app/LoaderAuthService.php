@@ -199,9 +199,10 @@ final class LoaderAuthService
                         $ipAddress,
                         $existingDevice['id'],
                     ]);
-                } else try {
-                    $pdo->prepare(
-                        "INSERT INTO license_devices(
+                } else {
+                    try {
+                        $pdo->prepare(
+                            "INSERT INTO license_devices(
                             license_key_id,device_hash,serial,device_label,
                             first_seen_at,last_seen_at,ip_address,active
                          ) VALUES(?,?,?,?,?,?,?,1)"
