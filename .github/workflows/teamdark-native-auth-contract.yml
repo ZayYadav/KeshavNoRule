@@ -112,6 +112,51 @@ jobs:
           php teamdark-panel/tests/seed_native_auth.php > /tmp/teamdark-fixture.json
           jq -e 'type=="object"' /tmp/teamdark-fixture.json >/dev/null
 
+      - name: Verify existing-database migration on MySQL 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql -h127.0.0.1 -uroot -proot -e "CREATE DATABASE teamdark_migration CHARACTER SET utf8mb4"
+          mysql -h127.0.0.1 -uroot -proot teamdark_migration < teamdark-panel/tests/pre_native_schema.sql
+          mysql -h127.0.0.1 -uroot -proot teamdark_migration < teamdark-panel/database/migrate_native_connect.sql
+
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'game'" | grep -F       - name: Start isolated PHP endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup php -S 127.0.0.1:8080 teamdark-panel/tests/router.php >/tmp/teamdark-php.log 2>&1 &
+          echo $! >/tmp/teamdark-php.pid
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/connect >/tmp/connect-ready.json 2>/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat /tmp/teamdark-php.log >&2 || true
+          exit 1
+
+      - name: Run 19-case native auth integration suite
+        shell: bash
+        env:
+          FIXTURE: /tmp/teamdark-fixture.json
+          BASE_URL: http://127.0.0.1:8080
+        run: |
+          set -euo pipefail
+          bash teamdark-panel/tests/native_auth_integration.sh
+
+      - name: Show PHP server log on failure
+        if: failure()
+        shell: bash
+        run: |
+          cat /tmp/teamdark-php.log 2>/dev/null || true
+game\tvarchar(16)' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'unlimited_expiry'" | grep -F 'unlimited_expiry' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'unlimited_devices'" | grep -F 'unlimited_devices' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_devices LIKE 'serial'" | grep -F 'serial' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW INDEX FROM license_devices WHERE Key_name='uq_key_serial'" | grep -F 'uq_key_serial' >/dev/null
+
       - name: Start isolated PHP endpoint
         shell: bash
         run: |
