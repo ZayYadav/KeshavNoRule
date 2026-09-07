@@ -16,11 +16,11 @@ import org.lsposed.lsparanoid.Obfuscate;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Obfuscate
-public final class KeshavOwner9 {
+public final class TeamDark9 {
 
     private static final AtomicBoolean SHOWING = new AtomicBoolean(false);
 
-    private KeshavOwner9() {}
+    private TeamDark9() {}
 
     public static void showIntegrityFailure(Activity activity, String detail) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
@@ -76,9 +76,9 @@ public final class KeshavOwner9 {
 
                 boolean ok = false;
                 try {
-                    ok = KeshavOwner8.verify(activity)
-                            && KeshavOwner2.nativeVerifySignature(activity)
-                            && KeshavOwner2.nativeCustomIntegrity(activity);
+                    ok = TeamDark8.verify(activity)
+                            && TeamDark2.nativeVerifySignature(activity)
+                            && TeamDark2.nativeCustomIntegrity(activity);
                 } catch (Throwable ignored) {
                     ok = false;
                 }

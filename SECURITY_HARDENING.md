@@ -1,16 +1,16 @@
-# KeshavOwner Security Hardening
+# TeamDark Security Hardening
 
 Branch: `keshavowner-security-ui-v1`
 
 ## Class map
 
-- `KeshavOwner1` — Application / BlackBox bootstrap
-- `KeshavOwner2` — Login / license activity
-- `KeshavOwner3` — Main dashboard / launcher activity
-- `KeshavOwner4` — App/OBB manager
-- `KeshavOwner5` — Secure downloader / extractor
-- `KeshavOwner6` — AES-GCM Keystore-backed preferences
-- `KeshavOwner7` — UI sound/touch manager
+- `TeamDark1` — Application / BlackBox bootstrap
+- `TeamDark2` — Login / license activity
+- `TeamDark3` — Main dashboard / launcher activity
+- `TeamDark4` — App/OBB manager
+- `TeamDark5` — Secure downloader / extractor
+- `TeamDark6` — AES-GCM Keystore-backed preferences
+- `TeamDark7` — UI sound/touch manager
 
 ## Custom integrity
 
@@ -28,7 +28,7 @@ must return `true` to allow the login activity to continue.
 
 - R8 full mode + resource shrinking
 - LSParanoid string obfuscation on app-owned Java classes
-- Java class renaming to KeshavOwner1..7
+- Java class renaming to TeamDark1..7
 - Release screenshot / screen-record protection
 - Debugger gate on login and dashboard
 - APK signing-certificate verification before login
@@ -48,14 +48,14 @@ must return `true` to allow the login activity to continue.
 No client-side Android application can be made literally unextractable or permanently uncrackable. The goal here is layered hardening while keeping the existing panel/API flow compatible.
 
 
-## KESHAVXOWNER SDK runtime compatibility
+## TeamDark SDK runtime compatibility
 
 The host integrity guard recognizes the SDK's legitimate native load flow:
 
-- Packaged AAR core: `libKESHAVXOWNERCore.so`
-- SDK runtime artifact: `noBackupFilesDir/native/KESHAVXOWNER.so`
+- Packaged AAR core: `libTeamDarkCore.so`
+- SDK runtime artifact: `noBackupFilesDir/native/TeamDark.so`
 - SDK-staged optional artifacts: `libpubgm.so` and `libkorea.so` may exist in the same private SDK directory
-- Only `KESHAVXOWNER.so` is allowed to map into the host process from that SDK directory
+- Only `TeamDark.so` is allowed to map into the host process from that SDK directory
 - Unknown sibling `.so` files are rejected
 - SDK artifacts must be regular owner-owned ELF files with no group/world permissions
 - The host server loader remains separately restricted to `files/loader/libbgmi.so` with encrypted Java binding plus native SHA-256 verification

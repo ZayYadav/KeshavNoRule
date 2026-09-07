@@ -20,8 +20,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.bgmi.utils.KeshavOwner4;
-import com.bgmi.utils.KeshavOwner7;
+import com.bgmi.utils.TeamDark4;
+import com.bgmi.utils.TeamDark7;
 import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
 
@@ -37,13 +37,13 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Obfuscate
-public class KeshavOwner3 extends AppCompatActivity {
+public class TeamDark3 extends AppCompatActivity {
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
     private Runnable securityGuard;
 
     static {
         try {
-            System.loadLibrary("KeshavLoader");
+            System.loadLibrary("TeamDarkLoader");
         } catch (Throwable ignored) {}
     }
 
@@ -66,27 +66,27 @@ public class KeshavOwner3 extends AppCompatActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
-            KeshavOwner9.showIntegrityFailure(this,
+            TeamDark9.showIntegrityFailure(this,
                     "Debugger or runtime instrumentation was detected.");
             return;
         }
 
-        if (!KeshavOwner8.verify(this)) {
-            KeshavOwner9.showIntegrityFailure(this,
+        if (!TeamDark8.verify(this)) {
+            TeamDark9.showIntegrityFailure(this,
                     "APK signature, package, native library, or loader integrity validation failed.");
             return;
         }
 
         boolean nativeIntegrityOk = false;
         try {
-            nativeIntegrityOk = KeshavOwner2.nativeVerifySignature(this)
-                    && KeshavOwner2.nativeCustomIntegrity(this);
+            nativeIntegrityOk = TeamDark2.nativeVerifySignature(this)
+                    && TeamDark2.nativeCustomIntegrity(this);
         } catch (Throwable ignored) {
             nativeIntegrityOk = false;
         }
 
         if (!nativeIntegrityOk) {
-            KeshavOwner9.showIntegrityFailure(
+            TeamDark9.showIntegrityFailure(
                     this,
                     "Native runtime validation rejected the dashboard session.");
             return;
@@ -103,7 +103,7 @@ public class KeshavOwner3 extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
+        securityGuard = TeamDark9.installRuntimeGuard(this, securityHandler);
 
         tvExpires = findViewById(R.id.tvExpires);
         tvDays = findViewById(R.id.tvDays);
@@ -146,8 +146,8 @@ public class KeshavOwner3 extends AppCompatActivity {
         }
 
         if (btnStart != null) {
-            KeshavOwner7.applyTouchBounce(btnStart, () -> {
-                KeshavOwner7.getInstance().playLaunch();
+            TeamDark7.applyTouchBounce(btnStart, () -> {
+                TeamDark7.getInstance().playLaunch();
                 handleStart();
             });
         }
@@ -186,7 +186,7 @@ public class KeshavOwner3 extends AppCompatActivity {
 
     private void handleStart() {
         if (BlackBoxCore.get() == null) {
-            KeshavOwner7.getInstance().playError();
+            TeamDark7.getInstance().playError();
             Toast.makeText(this, "Core is null!", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -197,7 +197,7 @@ public class KeshavOwner3 extends AppCompatActivity {
             if (res.success) {
                 forceAutoCopyObb();
             } else {
-                KeshavOwner7.getInstance().playError();
+                TeamDark7.getInstance().playError();
                 Toast.makeText(this, "Install Failed: " + res.msg, Toast.LENGTH_SHORT).show();
             }
         } else {
@@ -224,7 +224,7 @@ public class KeshavOwner3 extends AppCompatActivity {
         timerHandler.postDelayed(() -> {
             if (!isFinished.get()) {
                 isFinished.set(true);
-                Toast.makeText(KeshavOwner3.this, "Copy Timeout! Check manually.", Toast.LENGTH_LONG).show();
+                Toast.makeText(TeamDark3.this, "Copy Timeout! Check manually.", Toast.LENGTH_LONG).show();
             }
         }, 60000);
 
@@ -235,8 +235,8 @@ public class KeshavOwner3 extends AppCompatActivity {
                     if (!isFinished.get()) {
                         isFinished.set(true);
                         runOnUiThread(() -> {
-                            KeshavOwner7.getInstance().playError();
-                            Toast.makeText(KeshavOwner3.this, "Source OBB missing!", Toast.LENGTH_LONG).show();
+                            TeamDark7.getInstance().playError();
+                            Toast.makeText(TeamDark3.this, "Source OBB missing!", Toast.LENGTH_LONG).show();
                         });
                     }
                     return;
@@ -253,7 +253,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                 if (!isFinished.get()) {
                     isFinished.set(true);
                     runOnUiThread(() -> {
-                        Toast.makeText(KeshavOwner3.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(TeamDark3.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
                         launchGame();
                     });
                 }
@@ -261,8 +261,8 @@ public class KeshavOwner3 extends AppCompatActivity {
                 if (!isFinished.get()) {
                     isFinished.set(true);
                     runOnUiThread(() -> {
-                        KeshavOwner7.getInstance().playError();
-                        Toast.makeText(KeshavOwner3.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        TeamDark7.getInstance().playError();
+                        Toast.makeText(TeamDark3.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     });
                 }
             }
@@ -273,7 +273,7 @@ public class KeshavOwner3 extends AppCompatActivity {
         try {
             BlackBoxCore.get().launchApk(PKG_BGMI, USER_ID);
         } catch (Exception e) {
-            KeshavOwner7.getInstance().playError();
+            TeamDark7.getInstance().playError();
             Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
@@ -285,7 +285,7 @@ public class KeshavOwner3 extends AppCompatActivity {
             return;
         }
         this.doubleBackExit = true;
-        KeshavOwner7.getInstance().playClick();
+        TeamDark7.getInstance().playClick();
         Toast.makeText(this, "Press BACK again to exit", Toast.LENGTH_SHORT).show();
         timerHandler.postDelayed(() -> doubleBackExit = false, 2000);
     }
@@ -317,7 +317,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                             timerHandler.postDelayed(this, 1000);
                         } else {
                             if (tvExpires != null) tvExpires.setText("Expired");
-                            Toast.makeText(KeshavOwner3.this, "Subscription Expired!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(TeamDark3.this, "Subscription Expired!", Toast.LENGTH_SHORT).show();
                             finish();
                         }
                     }

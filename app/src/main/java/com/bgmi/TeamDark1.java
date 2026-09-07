@@ -4,7 +4,7 @@ import android.app.Application;
 import android.content.Context;
 import android.util.Log;
 
-import com.bgmi.utils.KeshavOwner5;
+import com.bgmi.utils.TeamDark5;
 
 import net_62v.external.MetaActivationManager;
 
@@ -19,11 +19,11 @@ import top.niunaijun.blackbox.app.configuration.AppLifecycleCallback;
 import top.niunaijun.blackbox.app.configuration.ClientConfiguration;
 
 @Obfuscate
-public class KeshavOwner1 extends Application {
+public class TeamDark1 extends Application {
 
     static {
         try {
-            System.loadLibrary("KeshavLoader");
+            System.loadLibrary("TeamDarkLoader");
         } catch (Throwable ignored) {
             // Login activity performs a fail-closed native readiness check.
         }
@@ -31,7 +31,7 @@ public class KeshavOwner1 extends Application {
 
     public static native String getSdkKey();
 
-    private static final String TAG = "KeshavOwner1";
+    private static final String TAG = "TeamDark1";
     private static final String PKG_BGMI = "com.pubg.imobile";
     private static final AtomicBoolean CALLBACK_REGISTERED = new AtomicBoolean(false);
     private static final AtomicBoolean SERVER_LOADER_LOADING = new AtomicBoolean(false);
@@ -105,7 +105,7 @@ public class KeshavOwner1 extends Application {
         }
 
         try {
-            File loader = KeshavOwner5.trustedLoaderFile(hostContext);
+            File loader = TeamDark5.trustedLoaderFile(hostContext);
             if (!isUsableSharedObject(loader)) {
                 Log.e(TAG, "Trusted server loader is missing or invalid at " + stage);
                 return;

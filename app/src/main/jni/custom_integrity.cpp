@@ -27,12 +27,12 @@ static std::string baseName(const std::string &path) {
 }
 
 static bool isAllowedPackagedLibName(const std::string &name) {
-    return name == std::string(oxorany("libKeshavLoader.so"))
-        || name == std::string(oxorany("libKESHAVXOWNERCore.so"));
+    return name == std::string(oxorany("libTeamDarkLoader.so"))
+        || name == std::string(oxorany("libTeamDarkCore.so"));
 }
 
 static bool isAllowedSdkStoredArtifact(const std::string &name) {
-    return name == std::string(oxorany("KESHAVXOWNER.so"))
+    return name == std::string(oxorany("TeamDark.so"))
         || name == std::string(oxorany("libpubgm.so"))
         || name == std::string(oxorany("libkorea.so"));
 }
@@ -147,8 +147,8 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
             break;
         }
 
-        if (name == std::string(oxorany("libKeshavLoader.so"))) foundLoader = true;
-        if (name == std::string(oxorany("libKESHAVXOWNERCore.so"))) foundCore = true;
+        if (name == std::string(oxorany("libTeamDarkLoader.so"))) foundLoader = true;
+        if (name == std::string(oxorany("libTeamDarkCore.so"))) foundCore = true;
     }
 
     closedir(dir);
@@ -271,7 +271,7 @@ static bool verifyProcessMaps(
     const std::string trustedSdkRuntime =
             noBackupDir
             + std::string(oxorany("/native/"))
-            + std::string(oxorany("KESHAVXOWNER.so"));
+            + std::string(oxorany("TeamDark.so"));
 
     std::ifstream maps(std::string(oxorany("/proc/self/maps")));
     if (!maps.is_open()) return false;
@@ -307,7 +307,7 @@ static bool verifyProcessMaps(
             continue;
         }
 
-        // KESHAVXOWNER AAR explicitly loads only this SDK runtime artifact.
+        // TeamDark AAR explicitly loads only this SDK runtime artifact.
         if (mappedPath == trustedSdkRuntime) {
             continue;
         }
@@ -432,9 +432,9 @@ bool run(JNIEnv *env, jobject context) {
      * Put your private integrity code below.
      *
      * Built-in checks above enforce:
-     * - libKeshavLoader + KESHAVXOWNERCore packaged allowlist
+     * - libTeamDarkLoader + TeamDarkCore packaged allowlist
      * - exact encrypted-bound files/loader/libbgmi.so exception
-     * - exact KESHAVXOWNER SDK no_backup/native runtime compatibility
+     * - exact TeamDark SDK no_backup/native runtime compatibility
      * - owner-only/ELF checks for SDK-staged native artifacts
      * - rejection of other app-private/external/temp mapped .so files
      *

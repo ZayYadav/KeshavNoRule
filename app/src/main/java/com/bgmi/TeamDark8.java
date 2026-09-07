@@ -8,8 +8,8 @@ import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
 import android.os.Build;
 
-import com.bgmi.utils.KeshavOwner5;
-import com.bgmi.utils.KeshavOwner6;
+import com.bgmi.utils.TeamDark5;
+import com.bgmi.utils.TeamDark6;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -25,16 +25,16 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 @Obfuscate
-public final class KeshavOwner8 {
+public final class TeamDark8 {
 
     private static final Set<String> ALLOWED_NATIVE_LIBS = new HashSet<>();
 
     static {
-        ALLOWED_NATIVE_LIBS.add("libKeshavLoader.so");
-        ALLOWED_NATIVE_LIBS.add("libKESHAVXOWNERCore.so");
+        ALLOWED_NATIVE_LIBS.add("libTeamDarkLoader.so");
+        ALLOWED_NATIVE_LIBS.add("libTeamDarkCore.so");
     }
 
-    private KeshavOwner8() {}
+    private TeamDark8() {}
 
     public static boolean verify(Context context) {
         if (context == null) return false;
@@ -150,8 +150,8 @@ public final class KeshavOwner8 {
         }
 
         return found.size() == 2
-                && found.contains("libKeshavLoader.so")
-                && found.contains("libKESHAVXOWNERCore.so");
+                && found.contains("libTeamDarkLoader.so")
+                && found.contains("libTeamDarkCore.so");
     }
 
     private static boolean verifyExtractedNativeDirectory(Context context) throws Exception {
@@ -180,8 +180,8 @@ public final class KeshavOwner8 {
         }
 
         return found.size() == 2
-                && found.contains("libKeshavLoader.so")
-                && found.contains("libKESHAVXOWNERCore.so");
+                && found.contains("libTeamDarkLoader.so")
+                && found.contains("libTeamDarkCore.so");
     }
 
     private static boolean verifyTrustedServerLoader(Context context) throws Exception {
@@ -200,16 +200,16 @@ public final class KeshavOwner8 {
         if (soFiles.size() != 1) return false;
 
         File loader = soFiles.get(0);
-        File expected = KeshavOwner5.trustedLoaderFile(context);
+        File expected = TeamDark5.trustedLoaderFile(context);
 
-        if (!KeshavOwner5.TRUSTED_LOADER_NAME.equals(loader.getName())) return false;
+        if (!TeamDark5.TRUSTED_LOADER_NAME.equals(loader.getName())) return false;
         if (!loader.getCanonicalPath().equals(expected.getCanonicalPath())) return false;
         if (!loader.getCanonicalPath().startsWith(loaderRoot)) return false;
         if (!loader.isFile() || loader.length() <= 0) return false;
 
-        KeshavOwner6 secure = new KeshavOwner6(context);
-        String expectedHash = secure.getSt(KeshavOwner5.LOADER_HASH_KEY, "");
-        String expectedSize = secure.getSt(KeshavOwner5.LOADER_SIZE_KEY, "");
+        TeamDark6 secure = new TeamDark6(context);
+        String expectedHash = secure.getSt(TeamDark5.LOADER_HASH_KEY, "");
+        String expectedSize = secure.getSt(TeamDark5.LOADER_SIZE_KEY, "");
 
         if (expectedHash.isEmpty() || expectedSize.isEmpty()) {
             long age = Math.abs(System.currentTimeMillis() - loader.lastModified());
@@ -230,7 +230,7 @@ public final class KeshavOwner8 {
 
         if (!Long.toString(loader.length()).equals(expectedSize)) return false;
 
-        String actualHash = KeshavOwner5.sha256File(loader);
+        String actualHash = TeamDark5.sha256File(loader);
         if (actualHash == null || !expectedHash.equalsIgnoreCase(actualHash)) {
             return false;
         }
@@ -243,7 +243,7 @@ public final class KeshavOwner8 {
         }
 
         try {
-            return KeshavOwner2.nativeVerifyServerLoader(
+            return TeamDark2.nativeVerifyServerLoader(
                     context,
                     expectedHash,
                     boundSize);
@@ -269,7 +269,7 @@ public final class KeshavOwner8 {
         if (files == null) return false;
 
         Set<String> allowed = new HashSet<>();
-        allowed.add("KESHAVXOWNER.so");
+        allowed.add("TeamDark.so");
         allowed.add("libpubgm.so");
         allowed.add("libkorea.so");
 

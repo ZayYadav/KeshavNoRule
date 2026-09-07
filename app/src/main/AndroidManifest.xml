@@ -41,7 +41,7 @@
 
     <application
         android:requestLegacyExternalStorage="true"
-        android:name=".KeshavOwner1"
+        android:name=".TeamDark1"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:usesCleartextTraffic="false"
@@ -51,7 +51,7 @@
 
 
         <activity
-            android:name=".KeshavOwner2"
+            android:name=".TeamDark2"
             android:configChanges="screenSize|orientation"
             android:exported="true">
             <intent-filter>
@@ -62,7 +62,7 @@
         </activity>
 
 
-        <activity android:name=".KeshavOwner3"
+        <activity android:name=".TeamDark3"
             android:configChanges="screenSize|orientation"
             />
 
