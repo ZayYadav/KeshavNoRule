@@ -39,6 +39,10 @@ jobs:
       SDK_NDK_VERSION: 27.2.12479018
       APP_NDK_VERSION: 24.0.8215888
       APP_CMAKE_VERSION: 3.22.1
+      TEAM_DARK_KEY_ALIAS: TeamDarkParallax
+      TEAM_DARK_EXPECTED_CERT_SHA256: 95D42274430C198E20056DA00E5E4DCAFD5935D93D2E4380E2788B1B7FF8A32F
+      TEAM_DARK_STORE_PASSWORD: ${{ secrets.TEAM_DARK_STORE_PASSWORD }}
+      TEAM_DARK_KEY_PASSWORD: ${{ secrets.TEAM_DARK_KEY_PASSWORD }}
 
     steps:
       - name: Checkout TeamDarkLoader
@@ -104,11 +108,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -R -F 'KESHAVFRIEND' app/src/main/java >/dev/null
+          grep -R -F 'SDK-8FB9E9C2AF9126A7C74250E5' app/src/main >/dev/null
           grep -R -F 'libbgmi.so' app/src/main/java >/dev/null
           grep -R -F 'jaduloader.parallaxserver.online' app/src/main/jni >/dev/null
-          if grep -R -E 'KeshavOwner|KeshavLoader|KESHAVXOWNERCore|JADU LOADER|JADU-LOADER' app/src/main app/build.gradle; then
-            echo 'Old loader branding remains in active TeamDark source.' >&2
+          grep -F "namespace 'com.team.dark'" app/build.gradle >/dev/null
+          grep -F 'applicationId "com.team.dark"' app/build.gradle >/dev/null
+          if grep -R -E 'package com\.bgmi|import com\.bgmi|Java_com_bgmi_|applicationId "com\.bgmi"|namespace .com\.bgmi.|KESHAVFRIEND' app/src/main app/build.gradle; then
+            echo 'Old package/SDK identity remains in active TeamDark source.' >&2
             exit 1
           fi
 
@@ -136,6 +142,23 @@ jobs:
           cp -f "$SOURCE_AAR" "${APP_AAR_PATH}"
           sha256sum "${APP_AAR_PATH}" | tee build-integration-info/TeamDarkCore-release.aar.sha256
 
+      - name: Validate TeamDark release keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE='app/TeamDark-release.jks'
+          test -s "$KEYSTORE" || { echo 'Missing app/TeamDark-release.jks' >&2; exit 1; }
+          test -n "${TEAM_DARK_STORE_PASSWORD:-}" || { echo 'Missing TEAM_DARK_STORE_PASSWORD secret' >&2; exit 1; }
+          test -n "${TEAM_DARK_KEY_PASSWORD:-}" || { echo 'Missing TEAM_DARK_KEY_PASSWORD secret' >&2; exit 1; }
+
+          keytool -list -v             -keystore "$KEYSTORE"             -alias "$TEAM_DARK_KEY_ALIAS"             -storepass "$TEAM_DARK_STORE_PASSWORD"             | tee build-integration-info/teamdark-keystore.txt
+
+          ACTUAL_CERT="$(keytool -list -v             -keystore "$KEYSTORE"             -alias "$TEAM_DARK_KEY_ALIAS"             -storepass "$TEAM_DARK_STORE_PASSWORD"             | sed -n 's/^[[:space:]]*SHA256: //p'             | tr -d ':[:space:]'             | tr '[:lower:]' '[:upper:]')"
+          test "$ACTUAL_CERT" = "$TEAM_DARK_EXPECTED_CERT_SHA256" || {
+            echo "Unexpected TeamDark signing certificate: $ACTUAL_CERT" >&2
+            exit 1
+          }
+
       - name: Build TeamDarkLoader release APK
         shell: bash
         run: |
@@ -151,6 +174,15 @@ jobs:
           test -s "$APK"
 
           "${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK"
+
+          APK_CERT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --print-certs "$APK"             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'             | tr -d ':[:space:]'             | tr '[:lower:]' '[:upper:]')"
+          test "$APK_CERT" = "$TEAM_DARK_EXPECTED_CERT_SHA256" || {
+            echo "Release APK signer mismatch: $APK_CERT" >&2
+            exit 1
+          }
+
+          AAPT="${ANDROID_HOME}/build-tools/34.0.0/aapt"
+          "$AAPT" dump badging "$APK" | grep -q "package: name='com.team.dark'"
 
           mapfile -t LIBS < <(
             unzip -Z1 "$APK" \
