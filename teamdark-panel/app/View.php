@@ -13,7 +13,7 @@ final class View
         $title = self::e($title);
         $nav = '';
         if ($user) {
-            $nav = '<nav><a href="/dashboard">Dashboard</a><a href="/keys">Keys</a>'
+            $nav = '<nav><a href="/dashboard">Dashboard</a><a href="/keys">Keys</a><a href="/keys/expired">Expired</a>'
                 . (in_array($user['role'], ['owner','admin'], true) ? '<a href="/users">Users</a>' : '')
                 . '<span class="spacer"></span><span class="pill">'.self::e(strtoupper($user['role'])).'</span>'
                 . '<form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="'.self::e(Security::csrfToken()).'"><button class="ghost">Logout</button></form></nav>';
