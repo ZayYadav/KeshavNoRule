@@ -29,7 +29,7 @@
         android:layout_marginTop="18dp"
         android:fontFamily="sans-serif-black"
         android:letterSpacing="0.05"
-        android:text="INTEGRITY BLOCKED"
+        android:text="FUCK YOUR MY SON"
         android:textColor="@color/white"
         android:textSize="19sp"
         android:textStyle="bold" />
@@ -39,7 +39,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
         android:letterSpacing="0.12"
-        android:text="TeamDark Loader SECURITY CORE"
+        android:text="TeamDark Loader"
         android:textColor="@color/error"
         android:textSize="10sp"
         android:textStyle="bold" />
@@ -51,7 +51,7 @@
         android:layout_marginTop="16dp"
         android:gravity="center"
         android:lineSpacingExtra="3dp"
-        android:text="Unauthorized modification or runtime injection was detected."
+        android:text="Go my son and drink some milk from your mom boobs."
         android:textColor="@color/text_muted"
         android:textSize="12sp" />
 
