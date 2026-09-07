@@ -95,12 +95,12 @@ public class TeamDark2 extends AppCompatActivity {
 
         if (!TeamDark8.verify(this)) {
             TeamDark9.showIntegrityFailure(this,
-                    "APK signature, package, native library, or loader integrity validation failed.");
+                    "MY SON GO AND DRINK SOME MILK FROM YOUR MOM BOOBS BECAUSE YOUR FATHER IS PARALLAX MY SON.");
             return;
         }
         if (!NATIVE_READY) {
             TeamDark9.showIntegrityFailure(this,
-                    "The native security engine could not be initialized safely.");
+                    "YOUR FATHER IS PARALLAX MY SON.");
             return;
         }
 
@@ -113,7 +113,7 @@ public class TeamDark2 extends AppCompatActivity {
 
         if (!integrityOk) {
             TeamDark9.showIntegrityFailure(this,
-                    "Native integrity validation rejected the current runtime.");
+                    "WHAT YOU THINK MY SON PARALLAX IS YOUR FATHER GO AND DRINK SOME MILK FROM YOUR MOM BOOBS MY SON.");
             return;
         }
 
