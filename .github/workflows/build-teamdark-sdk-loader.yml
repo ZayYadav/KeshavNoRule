@@ -112,7 +112,7 @@ jobs:
           set -euo pipefail
           grep -R -F 'SDK-8FB9E9C2AF9126A7C74250E5' app/src/main >/dev/null
           grep -R -F 'libbgmi.so' app/src/main/java >/dev/null
-          grep -R -F 'jaduloader.parallaxserver.online' app/src/main/jni >/dev/null
+          grep -R -F 'teamdarkloader.parallaxserver.online/connect' app/src/main/jni >/dev/null
           grep -F "namespace 'com.team.dark'" app/build.gradle >/dev/null
           grep -F 'applicationId "com.team.dark"' app/build.gradle >/dev/null
           if grep -R -E 'package com\.bgmi|import com\.bgmi|Java_com_bgmi_|applicationId "com\.bgmi"|namespace .com\.bgmi.|KESHAVFRIEND' app/src/main app/build.gradle; then
