@@ -6,7 +6,7 @@ import android.util.Log;
 
 import com.team.dark.utils.TeamDark5;
 
-import net_62v.external.MetaActivationManager;
+import com.parallax.ELite;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -160,7 +160,7 @@ public class TeamDark1 extends Application {
         super.onCreate();
         ParallaxELiteInstaller.get().doCreate();
         try {
-            MetaActivationManager.activateSdk("SDK-8FB9E9C2AF9126A7C74250E5");
+            ELite.activate(getSdkKey());
         } catch (Exception exception) {
             exception.printStackTrace();
         }
