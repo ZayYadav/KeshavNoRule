@@ -1,15 +1,9 @@
 name: BuildTeamDarkLite
 
-run-name: "TeamDarkLoaderLite • Elite ${{ inputs.elite_ref || 'main' }} • ${{ github.sha }}"
+run-name: "TeamDarkLoaderLite • Fresh Elite main • ${{ github.sha }}"
 
 on:
   workflow_dispatch:
-    inputs:
-      elite_ref:
-        description: "ParallaxElite branch/tag/commit to build fresh"
-        required: false
-        default: "main"
-        type: string
   push:
     branches:
       - TeamDarkLoaderLite
@@ -35,7 +29,7 @@ jobs:
 
     env:
       ELITE_REPO: ZayYadav/ParallaxElite
-      ELITE_REF: ${{ inputs.elite_ref || 'main' }}
+      ELITE_REF: main
       ELITE_DIR: _parallax_elite
       ELITE_AAR: app/libs/ParallaxELite-release.aar
       ELITE_GRADLE_VERSION: '8.13'
@@ -111,11 +105,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'import com.parallaxelite.ParallaxELiteInstaller;' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
-          grep -F 'import com.parallaxelite.ParallaxELiteInstaller;' app/src/main/java/com/team/dark/TeamDark3.java >/dev/null
-          grep -F 'import com.parallaxelite.ParallaxELiteInstaller;' app/src/main/java/com/team/dark/utils/TeamDark4.java >/dev/null
-          grep -F 'import net_62v.external.MetaActivationManager;' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
-          grep -F 'MetaActivationManager.activateSdk("SDK-8FB9E9C2AF9126A7C74250E5")' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          grep -F 'import com.parallax.ELite;' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          grep -F 'import com.parallax.ELite;' app/src/main/java/com/team/dark/TeamDark3.java >/dev/null
+          grep -F 'import com.parallax.ELite;' app/src/main/java/com/team/dark/utils/TeamDark4.java >/dev/null
+          grep -F 'ELite.activate(getSdkKey());' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          grep -F 'ELite.installFromInstalledPackage(PKG_BGMI, USER_ID)' app/src/main/java/com/team/dark/TeamDark3.java >/dev/null
+          grep -F 'ELite.launch(PKG_BGMI, USER_ID)' app/src/main/java/com/team/dark/TeamDark3.java >/dev/null
+          if grep -R -n -E 'net_62v\.external\.MetaActivationManager' app/src/main/java; then
+            echo "Legacy Elite activation facade still remains in loader Java source." >&2
+            exit 1
+          fi
           if grep -R -n -E 'top\.niunaijun\.blackbox' app/src/main/java; then
             echo "Old BlackBox SDK imports still remain in loader Java source." >&2
             exit 1
@@ -151,8 +150,8 @@ jobs:
 
           test -f "${VERIFY_DIR}/classes.jar"
           test -f "${VERIFY_DIR}/jni/arm64-v8a/libParallaxELiteCore.so"
+          jar tf "${VERIFY_DIR}/classes.jar" | grep -qx 'com/parallax/ELite.class'
           jar tf "${VERIFY_DIR}/classes.jar" | grep -qx 'com/parallaxelite/ParallaxELiteInstaller.class'
-          jar tf "${VERIFY_DIR}/classes.jar" | grep -qx 'net_62v/external/MetaActivationManager.class'
 
           mkdir -p app/libs
           rm -f app/libs/*.aar
