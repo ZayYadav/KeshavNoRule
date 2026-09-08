@@ -106,7 +106,7 @@ public class TeamDark2 extends AppCompatActivity {
 
         boolean integrityOk = false;
         try {
-            integrityOk = nativeVerifySignature(this) && nativeCustomIntegrity(this);
+            integrityOk = TeamDark1.isHostSignatureVerified() && nativeCustomIntegrity(this);
         } catch (Throwable ignored) {
             integrityOk = false;
         }
