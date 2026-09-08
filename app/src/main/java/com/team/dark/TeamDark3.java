@@ -22,8 +22,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.team.dark.utils.TeamDark4;
 import com.team.dark.utils.TeamDark7;
-import top.niunaijun.blackbox.BlackBoxCore;
-import top.niunaijun.blackbox.entity.pm.InstallResult;
+import com.parallaxelite.ParallaxELiteInstaller;
+import com.parallaxelite.entity.pm.InstallResult;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -185,15 +185,15 @@ public class TeamDark3 extends AppCompatActivity {
     }
 
     private void handleStart() {
-        if (BlackBoxCore.get() == null) {
+        if (ParallaxELiteInstaller.get() == null) {
             TeamDark7.getInstance().playError();
             Toast.makeText(this, "Core is null!", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        if (!BlackBoxCore.get().isInstalled(PKG_BGMI, USER_ID)) {
+        if (!ParallaxELiteInstaller.get().isInstalled(PKG_BGMI, USER_ID)) {
             Toast.makeText(this, "Installing BGMI ...", Toast.LENGTH_SHORT).show();
-            InstallResult res = BlackBoxCore.get().installPackageAsUser(PKG_BGMI, USER_ID);
+            InstallResult res = ParallaxELiteInstaller.get().installPackageAsUser(PKG_BGMI, USER_ID);
             if (res.success) {
                 forceAutoCopyObb();
             } else {
@@ -271,7 +271,7 @@ public class TeamDark3 extends AppCompatActivity {
 
     private void launchGame() {
         try {
-            BlackBoxCore.get().launchApk(PKG_BGMI, USER_ID);
+            ParallaxELiteInstaller.get().launchApk(PKG_BGMI, USER_ID);
         } catch (Exception e) {
             TeamDark7.getInstance().playError();
             Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
