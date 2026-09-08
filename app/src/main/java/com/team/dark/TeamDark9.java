@@ -99,7 +99,7 @@ public final class TeamDark9 {
                 boolean ok = false;
                 try {
                     ok = TeamDark8.verify(activity)
-                            && TeamDark2.nativeVerifySignature(activity)
+                            && TeamDark1.isHostSignatureVerified()
                             && TeamDark2.nativeCustomIntegrity(activity);
                 } catch (Throwable ignored) {
                     ok = false;
