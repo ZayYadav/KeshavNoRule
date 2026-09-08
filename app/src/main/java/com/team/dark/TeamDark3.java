@@ -79,7 +79,7 @@ public class TeamDark3 extends AppCompatActivity {
 
         boolean nativeIntegrityOk = false;
         try {
-            nativeIntegrityOk = TeamDark2.nativeVerifySignature(this)
+            nativeIntegrityOk = TeamDark1.isHostSignatureVerified()
                     && TeamDark2.nativeCustomIntegrity(this);
         } catch (Throwable ignored) {
             nativeIntegrityOk = false;
