@@ -3,7 +3,6 @@ package com.team.dark.utils;
 import android.annotation.SuppressLint;
 import android.app.Dialog;
 import android.content.Context;
-import android.content.pm.PackageInfo;
 import android.os.AsyncTask;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -18,8 +17,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import com.parallaxelite.ParallaxELiteInstaller;
-import com.parallaxelite.entity.pm.InstallResult;
+import com.parallax.ELite;
 
 @Obfuscate
 public class TeamDark4 {
@@ -155,14 +153,9 @@ public class TeamDark4 {
 
             private boolean installAppInternal(String pkg) {
                 try {
-                    PackageInfo info = ctx.getPackageManager().getPackageInfo(pkg, 0);
-                    String apkPath = info.applicationInfo.sourceDir;
-
-                    InstallResult result =
-                            ParallaxELiteInstaller.get().installPackageAsUser(new File(apkPath), 0);
-
-                    if (!result.success) {
-                        errorMessage = result.msg;
+                    boolean installed = ELite.installFromInstalledPackage(pkg, 0);
+                    if (!installed) {
+                        errorMessage = "ParallaxElite install failed";
                         return false;
                     }
                     return true;
