@@ -120,6 +120,22 @@ jobs:
             exit 1
           fi
 
+          # Signature must be checked once before Elite installs PackageManager hooks.
+          grep -F 'signatureValid = TeamDark2.nativeVerifySignature(base);' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          grep -F 'TeamDark1.isHostSignatureVerified() && nativeCustomIntegrity(this)' app/src/main/java/com/team/dark/TeamDark2.java >/dev/null
+          grep -F 'nativeIntegrityOk = TeamDark1.isHostSignatureVerified()' app/src/main/java/com/team/dark/TeamDark3.java >/dev/null
+          grep -F '&& TeamDark1.isHostSignatureVerified()' app/src/main/java/com/team/dark/TeamDark9.java >/dev/null
+          if grep -n -E 'nativeVerifySignature\((this|activity)\)'               app/src/main/java/com/team/dark/TeamDark3.java               app/src/main/java/com/team/dark/TeamDark9.java; then
+            echo "Post-hook TeamDark signature lookups still remain." >&2
+            exit 1
+          fi
+
+          # Fresh Elite source must snapshot the real host signer before PM hooks
+          # and use that snapshot for secure panel identity binding.
+          grep -F 'sHostSigningSha256 = captureHostSigningSha256(context);'             "${ELITE_DIR}/src/main/java/com/parallaxelite/ParallaxELiteInstaller.java" >/dev/null
+          grep -F 'ParallaxELiteInstaller.getHostSigningSha256()'             "${ELITE_DIR}/src/main/java/android/MetaCore/SecureSdkApiClient.kt" >/dev/null
+          grep -F 'signingInfo.apkContentsSigners?.firstOrNull()'             "${ELITE_DIR}/src/main/java/android/MetaCore/SecureSdkApiClient.kt" >/dev/null
+
       - name: Run ParallaxElite activation/auth regression tests
         working-directory: ${{ env.ELITE_DIR }}
         shell: bash
@@ -177,6 +193,13 @@ jobs:
 
           "${APKSIGNER}" verify --verbose --print-certs "${APK}"
           "${AAPT}" dump badging "${APK}" | grep -q "package: name='com.team.dark'"
+
+          # Verify the release keystore itself carries the same certificate as the APK.
+          KEYSTORE_CERT="$(keytool -list -v             -keystore app/TeamDarkParallax.jks             -storepass 'TeamDarkParallax@2026#Release'             -alias TeamDarkParallax             | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p'             | tr -d ':[:space:]'             | tr '[:lower:]' '[:upper:]')"
+          test "${KEYSTORE_CERT}" = "${TEAM_DARK_EXPECTED_CERT_SHA256}" || {
+            echo "Release keystore certificate mismatch: ${KEYSTORE_CERT}" >&2
+            exit 1
+          }
 
           APK_CERT="$("${APKSIGNER}" verify --print-certs "${APK}" \
             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
