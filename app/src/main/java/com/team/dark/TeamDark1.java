@@ -36,10 +36,32 @@ public class TeamDark1 extends Application {
     private static final AtomicBoolean CALLBACK_REGISTERED = new AtomicBoolean(false);
     private static final AtomicBoolean SERVER_LOADER_LOADING = new AtomicBoolean(false);
     private static final AtomicBoolean SERVER_LOADER_LOADED = new AtomicBoolean(false);
+    private static volatile boolean HOST_SIGNATURE_CHECKED = false;
+    private static volatile boolean HOST_SIGNATURE_VALID = false;
+
+    public static boolean isHostSignatureVerified() {
+        return HOST_SIGNATURE_CHECKED && HOST_SIGNATURE_VALID;
+    }
 
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
+
+        // Verify the real host APK certificate before ParallaxElite installs
+        // PackageManager/runtime hooks. All later guards reuse this immutable result.
+        boolean signatureValid = false;
+        try {
+            signatureValid = TeamDark2.nativeVerifySignature(base);
+        } catch (Throwable ignored) {
+            signatureValid = false;
+        }
+        HOST_SIGNATURE_VALID = signatureValid;
+        HOST_SIGNATURE_CHECKED = true;
+        if (!signatureValid) {
+            Log.e(TAG, "Host APK signature verification failed before Elite attach");
+            return;
+        }
+
         try {
             ParallaxELiteInstaller.get().doAttachBaseContext(base, new ClientConfiguration() {
                 @Override
@@ -158,6 +180,10 @@ public class TeamDark1 extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        if (!isHostSignatureVerified()) {
+            Log.e(TAG, "Skipping Elite initialization because host signature is invalid");
+            return;
+        }
         ParallaxELiteInstaller.get().doCreate();
         try {
             ELite.activate(getSdkKey());
