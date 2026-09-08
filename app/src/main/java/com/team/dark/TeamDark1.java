@@ -14,9 +14,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import top.niunaijun.blackbox.BlackBoxCore;
-import top.niunaijun.blackbox.app.configuration.AppLifecycleCallback;
-import top.niunaijun.blackbox.app.configuration.ClientConfiguration;
+import com.parallaxelite.ParallaxELiteInstaller;
+import com.parallaxelite.app.configuration.AppLifecycleCallback;
+import com.parallaxelite.app.configuration.ClientConfiguration;
 
 @Obfuscate
 public class TeamDark1 extends Application {
@@ -41,7 +41,7 @@ public class TeamDark1 extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
         try {
-            BlackBoxCore.get().doAttachBaseContext(base, new ClientConfiguration() {
+            ParallaxELiteInstaller.get().doAttachBaseContext(base, new ClientConfiguration() {
                 @Override
                 public String getHostPackageName() {
                     return base.getPackageName();
@@ -71,7 +71,7 @@ public class TeamDark1 extends Application {
             return;
         }
 
-        BlackBoxCore.get().addAppLifecycleCallback(new AppLifecycleCallback() {
+        ParallaxELiteInstaller.get().addAppLifecycleCallback(new AppLifecycleCallback() {
             @Override
             public void beforeApplicationOnCreate(
                     String packageName,
@@ -158,7 +158,7 @@ public class TeamDark1 extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        BlackBoxCore.get().doCreate();
+        ParallaxELiteInstaller.get().doCreate();
         try {
             MetaActivationManager.activateSdk("SDK-8FB9E9C2AF9126A7C74250E5");
         } catch (Exception exception) {
