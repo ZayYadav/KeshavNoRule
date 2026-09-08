@@ -18,8 +18,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import top.niunaijun.blackbox.BlackBoxCore;
-import top.niunaijun.blackbox.entity.pm.InstallResult;
+import com.parallaxelite.ParallaxELiteInstaller;
+import com.parallaxelite.entity.pm.InstallResult;
 
 @Obfuscate
 public class TeamDark4 {
@@ -159,7 +159,7 @@ public class TeamDark4 {
                     String apkPath = info.applicationInfo.sourceDir;
 
                     InstallResult result =
-                            BlackBoxCore.get().installPackageAsUser(apkPath, 0);
+                            ParallaxELiteInstaller.get().installPackageAsUser(new File(apkPath), 0);
 
                     if (!result.success) {
                         errorMessage = result.msg;
