@@ -1,0 +1,225 @@
+name: BuildTeamDarkLite
+
+run-name: "TeamDarkLoaderLite • Elite ${{ inputs.elite_ref || 'main' }} • ${{ github.sha }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      elite_ref:
+        description: "ParallaxElite branch/tag/commit to build fresh"
+        required: false
+        default: "main"
+        type: string
+  push:
+    branches:
+      - TeamDarkLoaderLite
+    paths:
+      - 'app/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/BuildTeamDarkLite.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: teamdark-lite-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Fresh ParallaxElite AAR -> TeamDarkLoaderLite APK
+    runs-on: ubuntu-22.04
+    timeout-minutes: 75
+
+    env:
+      ELITE_REPO: ZayYadav/ParallaxElite
+      ELITE_REF: ${{ inputs.elite_ref || 'main' }}
+      ELITE_DIR: _parallax_elite
+      ELITE_AAR: app/libs/ParallaxELite-release.aar
+      ELITE_GRADLE_VERSION: '8.13'
+      ELITE_NDK_VERSION: '27.2.12479018'
+      APP_NDK_VERSION: '24.0.8215888'
+      APP_CMAKE_VERSION: '3.22.1'
+      TEAM_DARK_EXPECTED_CERT_SHA256: 95D42274430C198E20056DA00E5E4DCAFD5935D93D2E4380E2788B1B7FF8A32F
+
+    steps:
+      - name: Checkout TeamDarkLoaderLite
+        uses: actions/checkout@v4
+
+      - name: Checkout fresh ParallaxElite SDK source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.ELITE_REPO }}
+          ref: ${{ env.ELITE_REF }}
+          path: ${{ env.ELITE_DIR }}
+          fetch-depth: 1
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Set up Gradle for ParallaxElite
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.ELITE_GRADLE_VERSION }}
+
+      - name: Install Android build toolchains
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-34" \
+            "platforms;android-36" \
+            "build-tools;34.0.0" \
+            "build-tools;36.0.0" \
+            "ndk;${ELITE_NDK_VERSION}" \
+            "ndk;${APP_NDK_VERSION}" \
+            "cmake;${APP_CMAKE_VERSION}"
+
+      - name: Configure Android SDK paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'sdk.dir=%s\n' "${ANDROID_HOME}" > local.properties
+          printf 'sdk.dir=%s\n' "${ANDROID_HOME}" > "${ELITE_DIR}/local.properties"
+          chmod +x ./gradlew
+
+      - name: Record exact source revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build-teamdark-lite-info
+          {
+            echo "loader_repository=${GITHUB_REPOSITORY}"
+            echo "loader_branch=${GITHUB_REF_NAME}"
+            echo "loader_sha=$(git rev-parse HEAD)"
+            echo "elite_repository=${ELITE_REPO}"
+            echo "elite_ref=${ELITE_REF}"
+            echo "elite_sha=$(git -C "${ELITE_DIR}" rev-parse HEAD)"
+          } | tee build-teamdark-lite-info/SOURCE_REVISIONS.txt
+
+      - name: Verify loader is migrated to ParallaxElite API
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'import com.parallaxelite.ParallaxELiteInstaller;' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          grep -F 'import com.parallaxelite.ParallaxELiteInstaller;' app/src/main/java/com/team/dark/TeamDark3.java >/dev/null
+          grep -F 'import com.parallaxelite.ParallaxELiteInstaller;' app/src/main/java/com/team/dark/utils/TeamDark4.java >/dev/null
+          grep -F 'import net_62v.external.MetaActivationManager;' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          grep -F 'MetaActivationManager.activateSdk("SDK-8FB9E9C2AF9126A7C74250E5")' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          if grep -R -n -E 'top\.niunaijun\.blackbox' app/src/main/java; then
+            echo "Old BlackBox SDK imports still remain in loader Java source." >&2
+            exit 1
+          fi
+
+      - name: Run ParallaxElite activation/auth regression tests
+        working-directory: ${{ env.ELITE_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle testReleaseUnitTest --no-daemon --stacktrace
+
+      - name: Fresh build ParallaxElite release AAR
+        working-directory: ${{ env.ELITE_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle clean assembleRelease --no-daemon --stacktrace
+
+      - name: Validate and inject fresh ParallaxElite AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE_AAR="$(find "${ELITE_DIR}/build/outputs/aar" -maxdepth 1 -type f -name '*-release.aar' -print -quit)"
+          test -n "${SOURCE_AAR}"
+          test -s "${SOURCE_AAR}"
+          unzip -tq "${SOURCE_AAR}"
+
+          VERIFY_DIR="${RUNNER_TEMP}/elite-aar-check"
+          rm -rf "${VERIFY_DIR}"
+          mkdir -p "${VERIFY_DIR}"
+          unzip -q "${SOURCE_AAR}" -d "${VERIFY_DIR}"
+
+          test -f "${VERIFY_DIR}/classes.jar"
+          test -f "${VERIFY_DIR}/jni/arm64-v8a/libParallaxELiteCore.so"
+          jar tf "${VERIFY_DIR}/classes.jar" | grep -qx 'com/parallaxelite/ParallaxELiteInstaller.class'
+          jar tf "${VERIFY_DIR}/classes.jar" | grep -qx 'net_62v/external/MetaActivationManager.class'
+
+          mkdir -p app/libs
+          rm -f app/libs/*.aar
+          cp -f "${SOURCE_AAR}" "${ELITE_AAR}"
+          sha256sum "${ELITE_AAR}" | tee build-teamdark-lite-info/ParallaxELite-release.aar.sha256
+
+      - name: Build signed TeamDarkLoaderLite release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew clean :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Verify TeamDarkLoaderLite release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="$(find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          test -n "${APK}"
+          test -s "${APK}"
+
+          AAPT="${ANDROID_HOME}/build-tools/34.0.0/aapt"
+          APKSIGNER="${ANDROID_HOME}/build-tools/34.0.0/apksigner"
+
+          "${APKSIGNER}" verify --verbose --print-certs "${APK}"
+          "${AAPT}" dump badging "${APK}" | grep -q "package: name='com.team.dark'"
+
+          APK_CERT="$("${APKSIGNER}" verify --print-certs "${APK}" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            | tr -d ':[:space:]' \
+            | tr '[:lower:]' '[:upper:]')"
+          test "${APK_CERT}" = "${TEAM_DARK_EXPECTED_CERT_SHA256}" || {
+            echo "Release APK signer mismatch: ${APK_CERT}" >&2
+            exit 1
+          }
+
+          unzip -Z1 "${APK}" | grep -qx 'lib/arm64-v8a/libParallaxELiteCore.so'
+          unzip -Z1 "${APK}" | grep -qx 'lib/arm64-v8a/libTeamDarkLoader.so'
+          if unzip -Z1 "${APK}" | grep -q 'lib/arm64-v8a/libTeamDarkCore.so'; then
+            echo "Old TeamDarkCore SDK native library is still packaged." >&2
+            exit 1
+          fi
+
+          OUT="app/build/outputs/apk/release/TeamDarkLoaderLite-release.apk"
+          cp -f "${APK}" "${OUT}"
+          sha256sum "${OUT}" | tee build-teamdark-lite-info/TeamDarkLoaderLite-release.apk.sha256
+
+      - name: Upload fresh ParallaxElite AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: TeamDarkLite-ParallaxELite-release-aar
+          path: ${{ env.ELITE_AAR }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload TeamDarkLoaderLite APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TeamDarkLoaderLite-release
+          path: app/build/outputs/apk/release/TeamDarkLoaderLite-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build integration info
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TeamDarkLoaderLite-build-info
+          path: build-teamdark-lite-info/
+          if-no-files-found: warn
+          retention-days: 30
