@@ -31,7 +31,7 @@ public final class TeamDark8 {
 
     static {
         ALLOWED_NATIVE_LIBS.add("libTeamDarkLoader.so");
-        ALLOWED_NATIVE_LIBS.add("libTeamDarkCore.so");
+        ALLOWED_NATIVE_LIBS.add("libParallaxELiteCore.so");
     }
 
     private TeamDark8() {}
@@ -45,8 +45,9 @@ public final class TeamDark8 {
             if (!expectedPackage().equals(app.getPackageName())) return false;
             if ((app.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) return false;
 
-            if (!verifyInstalledSigningCertificate(app)) return false;
-            if (!verifyBaseApkSigningCertificate(app)) return false;
+            // The host certificate was verified before Elite installed PM hooks.
+            // Re-reading it here would route through the virtual PackageManager.
+            if (!TeamDark1.isHostSignatureVerified()) return false;
             if (!verifyApkNativeEntries(app)) return false;
             if (!verifyExtractedNativeDirectory(app)) return false;
             if (!verifyTrustedServerLoader(app)) return false;
@@ -61,67 +62,6 @@ public final class TeamDark8 {
 
     private static String expectedPackage() {
         return "com." + "team" + ".dark";
-    }
-
-    private static String expectedCertSha256() {
-        return "95d42274430c198e"
-                + "20056da00e5e4dca"
-                + "fd5935d93d2e4380"
-                + "e2788b1b7ff8a32f";
-    }
-
-    private static boolean verifyInstalledSigningCertificate(Context context) throws Exception {
-        PackageManager pm = context.getPackageManager();
-        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
-                ? PackageManager.GET_SIGNING_CERTIFICATES
-                : PackageManager.GET_SIGNATURES;
-
-        PackageInfo info = pm.getPackageInfo(context.getPackageName(), flags);
-        return signaturesTrusted(info);
-    }
-
-    private static boolean verifyBaseApkSigningCertificate(Context context) throws Exception {
-        PackageManager pm = context.getPackageManager();
-        ApplicationInfo ai = context.getApplicationInfo();
-
-        if (ai == null || ai.sourceDir == null) return false;
-
-        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
-                ? PackageManager.GET_SIGNING_CERTIFICATES
-                : PackageManager.GET_SIGNATURES;
-
-        PackageInfo archive = pm.getPackageArchiveInfo(ai.sourceDir, flags);
-        return signaturesTrusted(archive);
-    }
-
-    private static boolean signaturesTrusted(PackageInfo info) throws Exception {
-        if (info == null) return false;
-
-        Signature[] signatures;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && info.signingInfo != null) {
-            SigningInfo signingInfo = info.signingInfo;
-            signatures = signingInfo.hasMultipleSigners()
-                    ? signingInfo.getApkContentsSigners()
-                    : signingInfo.getSigningCertificateHistory();
-        } else {
-            signatures = info.signatures;
-        }
-
-        if (signatures == null || signatures.length == 0) return false;
-
-        String expected = expectedCertSha256();
-
-        for (Signature signature : signatures) {
-            if (signature == null) continue;
-
-            String actual = sha256Hex(signature.toByteArray());
-            if (expected.equals(actual)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private static boolean verifyApkNativeEntries(Context context) throws Exception {
@@ -151,7 +91,7 @@ public final class TeamDark8 {
 
         return found.size() == 2
                 && found.contains("libTeamDarkLoader.so")
-                && found.contains("libTeamDarkCore.so");
+                && found.contains("libParallaxELiteCore.so");
     }
 
     private static boolean verifyExtractedNativeDirectory(Context context) throws Exception {
@@ -181,7 +121,7 @@ public final class TeamDark8 {
 
         return found.size() == 2
                 && found.contains("libTeamDarkLoader.so")
-                && found.contains("libTeamDarkCore.so");
+                && found.contains("libParallaxELiteCore.so");
     }
 
     private static boolean verifyTrustedServerLoader(Context context) throws Exception {
