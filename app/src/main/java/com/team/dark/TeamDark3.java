@@ -22,8 +22,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.team.dark.utils.TeamDark4;
 import com.team.dark.utils.TeamDark7;
+import com.parallax.ELite;
 import com.parallaxelite.ParallaxELiteInstaller;
-import com.parallaxelite.entity.pm.InstallResult;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -193,12 +193,12 @@ public class TeamDark3 extends AppCompatActivity {
 
         if (!ParallaxELiteInstaller.get().isInstalled(PKG_BGMI, USER_ID)) {
             Toast.makeText(this, "Installing BGMI ...", Toast.LENGTH_SHORT).show();
-            InstallResult res = ParallaxELiteInstaller.get().installPackageAsUser(PKG_BGMI, USER_ID);
-            if (res.success) {
+            boolean installed = ELite.installFromInstalledPackage(PKG_BGMI, USER_ID);
+            if (installed) {
                 forceAutoCopyObb();
             } else {
                 TeamDark7.getInstance().playError();
-                Toast.makeText(this, "Install Failed: " + res.msg, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Install Failed", Toast.LENGTH_SHORT).show();
             }
         } else {
             forceAutoCopyObb();
@@ -271,7 +271,7 @@ public class TeamDark3 extends AppCompatActivity {
 
     private void launchGame() {
         try {
-            ParallaxELiteInstaller.get().launchApk(PKG_BGMI, USER_ID);
+            ELite.launch(PKG_BGMI, USER_ID);
         } catch (Exception e) {
             TeamDark7.getInstance().playError();
             Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
