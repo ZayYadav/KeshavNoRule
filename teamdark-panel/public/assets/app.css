@@ -1509,3 +1509,23 @@ body[data-teamdark-ui="5"] .audit-detail::-webkit-scrollbar-track{background:tra
   }
   body[data-teamdark-ui="5"] .setting-row{padding:15px 13px}
 }
+
+body[data-teamdark-ui="5"] .ui-dialog[data-tone="success"] .ui-dialog-icon{
+  color:#03140e;
+  background:linear-gradient(135deg,#5be0ac,#9cf0cf);
+  box-shadow:0 16px 34px rgba(66,217,161,.13);
+}
+body[data-teamdark-ui="5"] .ui-dialog[data-tone="success"] [data-dialog-ok]{
+  color:#03140e;
+  border-color:rgba(66,217,161,.28);
+  background:
+    linear-gradient(180deg,rgba(255,255,255,.13),transparent 35%),
+    linear-gradient(110deg,#55dda8,#98ebca);
+  box-shadow:0 12px 34px rgba(66,217,161,.13);
+}
+body[data-teamdark-ui="5"] .sidebar-scrim.show{
+  animation:tdBackdropIn .2s ease both;
+  background:rgba(2,4,8,.67);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
