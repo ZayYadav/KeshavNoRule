@@ -291,9 +291,22 @@ UPDATE license_devices
 SET serial=CONCAT('legacy-',id,'-',LEFT(device_hash,16))
 WHERE serial='';
 
+-- Remove historical raw device identifiers. Future Loader requests use device_hash.
+UPDATE license_devices
+SET serial=CONCAT('h:',device_hash)
+WHERE serial NOT LIKE 'h:%';
+
+UPDATE license_devices
+SET ip_address=''
+WHERE ip_address<>'' AND ip_address NOT LIKE 'h:%';
+
 CALL td_add_index(
   'license_devices','uq_key_serial',
   'ALTER TABLE license_devices ADD UNIQUE INDEX uq_key_serial(license_key_id,serial)'
+);
+CALL td_add_index(
+  'license_devices','uq_key_device_hash',
+  'ALTER TABLE license_devices ADD UNIQUE INDEX uq_key_device_hash(license_key_id,device_hash)'
 );
 CALL td_add_index(
   'license_devices','idx_device_active',
