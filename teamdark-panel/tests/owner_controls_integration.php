@@ -106,6 +106,19 @@ try {
         'enabled splash renders for guest web pages'
     );
 
+    $activeSplashSettings = PanelControl::settings();
+    $splashVersion = (string)$activeSplashSettings['splash_version'];
+    $seenSplash = request(
+        client(),
+        '/login',
+        null,
+        ['Cookie: TD_SPLASH='.$splashVersion]
+    );
+    check(
+        !str_contains($seenSplash['body'],'data-site-splash'),
+        'seen splash version does not replay on internal browsing session'
+    );
+
     $splashSettings = PanelControl::settings();
     $splashOff = request($ownerClient,'/owner/settings',[
         'csrf'=>$ownerCsrf,
