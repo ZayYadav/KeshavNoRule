@@ -52,7 +52,9 @@ $path = rawurldecode(
 $path = '/' . ltrim(preg_replace('#/+#', '/', $path) ?? '/', '/');
 
 // Bearer APIs are stateless; only browser routes need a PHP session cookie.
+// Native /connect and Telegram webhook are separate entry points and remain untouched.
 if (!str_starts_with($path, '/api/')) {
+    Security::enforceHttpsWebRequest();
     Security::startSession();
 }
 
