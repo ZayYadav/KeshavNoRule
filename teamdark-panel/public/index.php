@@ -505,7 +505,11 @@ try {
             || $path === '/api/v1/license/validate')
         && $method === 'POST'
     ) {
-        Security::rateLimit('license-json-validate', 120, 3600);
+        if (!(bool)Config::get('legacy_license_api_enabled', false)) {
+            jsonOut(['ok'=>false, 'error'=>'Not found'], 404);
+        }
+
+        Security::rateLimit('license-json-validate', 30, 3600);
 
         $b = jsonBody();
 
@@ -825,8 +829,8 @@ try {
             $pdo->prepare(
                 "INSERT INTO users(
                     name,username,password_hash,role,balance,referral_code,
-                    referred_by,created_by,status
-                 ) VALUES(?,?,?,?,?,?,?,?,'active')"
+                    referred_by,created_by,login_not_before,status
+                 ) VALUES(?,?,?,?,?,?,?,?,DATE_ADD(NOW(),INTERVAL 15 SECOND),'active')"
             )->execute([
                 $name,
                 $username,
