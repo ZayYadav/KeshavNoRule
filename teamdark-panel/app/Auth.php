@@ -147,8 +147,15 @@ final class Auth
 
     public static function logout(): void
     {
-        $u = self::user();
-        Security::audit($u ? (int)$u['id'] : null, 'logout');
-        Security::destroySession();
+        try {
+            $u = self::user();
+            try {
+                Security::audit($u ? (int)$u['id'] : null, 'logout');
+            } catch (\Throwable) {
+                // Logout must still succeed if optional audit logging is unavailable.
+            }
+        } finally {
+            Security::destroySession();
+        }
     }
 }
