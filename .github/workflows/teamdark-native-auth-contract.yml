@@ -71,7 +71,7 @@ jobs:
           grep -F 'rng < now - 60 || rng > now + 60' app/src/main/jni/main.cpp >/dev/null
 
           # Server hardening must never alter the native request/response contract.
-          grep -F 'teamdarkJson(
+          grep -F 'function teamdarkJson(array $payload): never' teamdark-panel/public/connect.php >/dev/null
           grep -F "'status'=>true" teamdark-panel/app/LoaderAuthService.php >/dev/null
           grep -F "'token'=>self::makeToken(" teamdark-panel/app/LoaderAuthService.php >/dev/null
           grep -F "'rng'=>\$rng" teamdark-panel/app/LoaderAuthService.php >/dev/null
