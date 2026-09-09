@@ -238,7 +238,8 @@ function ownerManagedUser(array $actor, int $targetId): array
     }
 
     $q = Database::pdo()->prepare(
-        'SELECT id,name,username,role,balance,telegram_chat_id,status,created_at
+        'SELECT id,name,username,role,balance,telegram_chat_id,
+                telegram_2fa_enabled,telegram_2fa_enabled_at,status,created_at
          FROM users WHERE id=? LIMIT 1'
     );
     $q->execute([$targetId]);
@@ -1639,11 +1640,11 @@ try {
 
         if ($user['role'] === 'owner') {
             $rows = $pdo->query(
-                'SELECT id,name,username,role,balance,telegram_chat_id,status,last_login_at,created_at FROM users ORDER BY id DESC LIMIT 1000'
+                'SELECT id,name,username,role,balance,telegram_chat_id,telegram_2fa_enabled,status,last_login_at,created_at FROM users ORDER BY id DESC LIMIT 1000'
             )->fetchAll();
         } else {
             $q = $pdo->prepare(
-                "SELECT id,name,username,role,balance,telegram_chat_id,status,last_login_at,created_at
+                "SELECT id,name,username,role,balance,telegram_chat_id,telegram_2fa_enabled,status,last_login_at,created_at
                  FROM users
                  WHERE role<>'owner'
                  ORDER BY id DESC
@@ -1662,6 +1663,7 @@ try {
         $activeCount = 0;
         $disabledCount = 0;
         $linkedCount = 0;
+        $twoFactorCount = 0;
         $adminCount = 0;
         $trs = '';
         foreach ($rows as $row) {
@@ -1671,6 +1673,7 @@ try {
 
             $row['status'] === 'active' ? $activeCount++ : $disabledCount++;
             if ($row['telegram_chat_id']) $linkedCount++;
+            if ((int)($row['telegram_2fa_enabled'] ?? 0) === 1) $twoFactorCount++;
             if ($row['role'] === 'admin') $adminCount++;
 
             $canAdjust = Auth::canManageRole($user, $row['role']);
@@ -1693,7 +1696,8 @@ try {
                         .' data-user-role="'.View::e($row['role']).'"'
                         .' data-user-status="'.View::e($row['status']).'"'
                         .' data-user-balance="'.View::e($rowBalance).'"'
-                        .' data-user-telegram="'.View::e($row['telegram_chat_id'] ?: '').'">Manage</button>'
+                        .' data-user-telegram="'.View::e($row['telegram_chat_id'] ?: '').'"'
+                        .' data-user-2fa="'.((int)($row['telegram_2fa_enabled'] ?? 0) === 1 ? 'enabled' : 'off').'">Manage</button>'
                     : '<span class="muted">Protected</span>');
 
             $telegramCell = $row['telegram_chat_id']
@@ -1703,6 +1707,10 @@ try {
                         : '<span class="status-chip status-active">LINKED</span>'
                 )
                 : '<span class="muted">Not linked</span>';
+
+            $twoFactorCell = (int)($row['telegram_2fa_enabled'] ?? 0) === 1
+                ? '<span class="status-chip status-active">2FA ON</span>'
+                : '<span class="status-chip status-disabled">OFF</span>';
 
             $initial = strtoupper(substr((string)($row['name'] ?: $row['username']), 0, 1));
             $checkbox = $isOwnerTarget
@@ -1715,6 +1723,7 @@ try {
                 .'<td><span class="tag">'.View::e($row['role']).'</span></td>'
                 .'<td>'.View::e($rowBalance).'</td>'
                 .'<td>'.$telegramCell.'</td>'
+                .'<td>'.$twoFactorCell.'</td>'
                 .'<td><span class="status-chip status-'.View::e($row['status']).'">'.View::e($row['status']).'</span></td>'
                 .'<td>'.View::e($row['last_login_at'] ?: 'Never').'</td>'
                 .'<td>'.$adjust.'</td>'
@@ -1765,7 +1774,7 @@ try {
                 .'<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="owner-user-title">'
                 .'<div class="modal-head"><div><div class="eyebrow">OWNER CONTROL</div><h3 id="owner-user-title">Manage user</h3></div><button type="button" class="icon-btn" data-close-modal aria-label="Close">×</button></div>'
                 .'<div class="user-summary"><span class="mini-avatar" data-owner-initial>U</span><div><strong data-owner-user-name>User</strong><small data-owner-user-handle>@username</small></div><span class="tag" data-owner-user-role>USER</span></div>'
-                .'<div class="modal-section"><a class="ghost wide" href="/owner/users" data-owner-history>Keys, balance and all history</a><div class="form-row"><div><span class="eyebrow">BALANCE</span><strong data-owner-user-balance>0</strong></div><div><span class="eyebrow">TELEGRAM</span><strong data-owner-user-telegram>Not linked</strong></div></div></div>'
+                .'<div class="modal-section"><a class="ghost wide" href="/owner/users" data-owner-history>Keys, balance and all history</a><div class="form-row"><div><span class="eyebrow">BALANCE</span><strong data-owner-user-balance>0</strong></div><div><span class="eyebrow">TELEGRAM</span><strong data-owner-user-telegram>Not linked</strong></div></div><div class="security-detail"><span>Telegram 2FA</span><strong data-owner-user-2fa>OFF</strong></div></div>'
                 .'<div class="modal-section"><div class="eyebrow">ACCOUNT SETTINGS</div><div class="modal-actions-grid">'
                 .'<form method="post" action="/users/balance" class="stack" data-owner-form data-busy="Updating balance…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Balance adjustment</label><input name="amount" type="number" required placeholder="Use + or - credits"></div><button class="primary" type="submit">Update balance</button></form>'
                 .'<form method="post" action="/users/role" class="stack" data-owner-form data-confirm="Change this user role?" data-busy="Changing account role…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Account role</label><select name="role" data-owner-role-select><option value="admin">Admin</option><option value="reseller">Reseller</option><option value="user">User</option></select></div><button class="ghost" type="submit">Change role</button></form>'
@@ -1773,7 +1782,8 @@ try {
                 .'<div class="modal-section"><div class="eyebrow">SECURITY ACTIONS</div><div class="modal-actions-grid">'
                 .'<form method="post" action="/users/status" data-owner-form data-owner-status-form data-busy="Updating account status…">'.View::csrf().'<input type="hidden" name="user_id"><input type="hidden" name="action"><button class="ghost wide" type="submit">Disable account</button></form>'
                 .'<form method="post" action="/users/revoke-access" data-owner-form data-confirm="Revoke every active API token for this user?" data-busy="Revoking active access…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost warning wide" type="submit">Revoke API access</button></form>'
-                .'<form method="post" action="/users/telegram-reset" data-owner-form data-owner-telegram-form data-confirm="Disconnect this Telegram account?" data-busy="Disconnecting Telegram…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost wide" type="submit">Disconnect Telegram</button></form>'
+                .'<form method="post" action="/users/telegram-reset" data-owner-form data-owner-telegram-form data-confirm="Disconnect this Telegram account? Active 2FA will also be reset." data-busy="Disconnecting Telegram…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost wide" type="submit">Disconnect Telegram</button></form>'
+                .'<form method="post" action="/users/2fa-reset" data-owner-form data-owner-2fa-form data-confirm="Reset Telegram 2FA for this user? Their linked Telegram will stay connected." data-busy="Resetting 2FA…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost warning wide" type="submit">Reset 2FA</button></form>'
                 .'</div></div>'
                 .'<div class="modal-section"><form method="post" action="/users/password" class="stack" data-owner-form data-confirm="Replace this user password and revoke API access?" data-busy="Resetting password…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Temporary password</label><input name="password" type="password" minlength="12" maxlength="200" required autocomplete="new-password" placeholder="12+ chars, number and symbol"></div><button class="ghost danger wide" type="submit">Reset password</button></form></div>'
                 .'</div></div>';
@@ -1787,7 +1797,7 @@ try {
             .'<div class="card quarter metric"><div class="eyebrow">TOTAL USERS</div><div class="stat">'.count($rows).'</div><div class="metric-note">'.$adminCount.' admin accounts</div></div>'
             .'<div class="card quarter metric"><div class="eyebrow">ACTIVE</div><div class="stat">'.$activeCount.'</div><div class="metric-note"><span>●</span> Access enabled</div></div>'
             .'<div class="card quarter metric"><div class="eyebrow">DISABLED</div><div class="stat">'.$disabledCount.'</div><div class="metric-note">Access blocked</div></div>'
-            .'<div class="card quarter metric"><div class="eyebrow">TELEGRAM</div><div class="stat">'.$linkedCount.'</div><div class="metric-note">Verified links</div></div>'
+            .'<div class="card quarter metric"><div class="eyebrow">TELEGRAM</div><div class="stat">'.$linkedCount.'</div><div class="metric-note">'.$twoFactorCount.' with 2FA enabled</div></div>'
             .'<div class="card third spotlight"><div class="eyebrow">CREATE REFERRAL</div>'
             .'<h3>One-time registration invite</h3>'
             .'<p class="muted">'.($user['role'] === 'owner'
@@ -1808,8 +1818,8 @@ try {
             .'<select class="control-select" data-user-status-filter aria-label="Filter by status"><option value="all">Any status</option><option value="active">Active</option><option value="disabled">Disabled</option></select></div></div>'
             .$bulkBar
             .'<div class="table-wrap"><table class="compact-table">'
-            .'<thead><tr><th>'.($user['role'] === 'owner' ? '<input class="row-check" type="checkbox" data-select-all-users aria-label="Select all manageable users">' : 'Select').'</th><th>User</th><th>Role</th><th>Balance</th><th>Telegram</th><th>Status</th><th>Last login</th><th>Control</th></tr></thead>'
-            .'<tbody>'.$trs.'<tr class="table-empty" data-user-empty><td colspan="8">No users match these filters.</td></tr></tbody></table></div></div>'
+            .'<thead><tr><th>'.($user['role'] === 'owner' ? '<input class="row-check" type="checkbox" data-select-all-users aria-label="Select all manageable users">' : 'Select').'</th><th>User</th><th>Role</th><th>Balance</th><th>Telegram</th><th>2FA</th><th>Status</th><th>Last login</th><th>Control</th></tr></thead>'
+            .'<tbody>'.$trs.'<tr class="table-empty" data-user-empty><td colspan="9">No users match these filters.</td></tr></tbody></table></div></div>'
             .'</div>'.$ownerModal;
 
         View::page('Users & invites', $body, $user);
@@ -1935,6 +1945,30 @@ try {
         } catch (Throwable $e) {
             flash('err', safeMessage($e));
         }
+        redirectTo('/users');
+    }
+
+    if ($path === '/users/2fa-reset' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+
+        try {
+            $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
+
+            if ((int)($target['telegram_2fa_enabled'] ?? 0) !== 1) {
+                throw new RuntimeException('Telegram 2FA is not enabled for this user.');
+            }
+
+            TwoFactorService::forceDisable(
+                (int)$target['id'],
+                (int)$user['id']
+            );
+
+            flash('ok', 'Telegram 2FA reset for @'.$target['username'].'.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
         redirectTo('/users');
     }
 
