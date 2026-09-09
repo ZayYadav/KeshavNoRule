@@ -631,12 +631,14 @@ try {
             .'<input class="otp-input" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required autofocus placeholder="12345678"></div>'
             .'<button class="primary wide">Verify & sign in</button>'
             .'</form>'
-            .'<form method="post" action="/login/2fa/resend" class="inline twofa-resend">'
+            .'<div class="inline twofa-resend">'
+            .'<form method="post" action="/login/2fa/resend" class="inline">'
             .View::csrf()
-            .'<button class="ghost" type="submit">Send a new code</button>'
-            .'<form method="post" action="/login/2fa/cancel" class="inline">'.View::csrf()
+            .'<button class="ghost" type="submit">Send a new code</button></form>'
+            .'<form method="post" action="/login/2fa/cancel" class="inline">'
+            .View::csrf()
             .'<button class="ghost danger" type="submit">Cancel</button></form>'
-            .'</form>'
+            .'</div>'
             .'<p class="hint">Only use codes delivered by the Team Dark bot. Never share a login code.</p>'
             .'</div></section>';
 
@@ -985,7 +987,7 @@ try {
     ) {
         Auth::logout();
         Security::startSession();
-        flash('err', 'Fresh sign-in required for this owner security action.');
+        flash('err', 'Fresh sign-in required for this privileged security action.');
         redirectTo('/login');
     }
 
@@ -1833,7 +1835,10 @@ try {
                 && $row['role'] !== 'owner'
                 && (int)$row['id'] !== (int)$user['id'];
 
-            $adjust = $canAdjust && $user['role'] !== 'owner'
+            $adminBalanceAllowed = $user['role'] === 'admin'
+                && (bool)Config::get('admin_balance_adjustments_enabled', false);
+
+            $adjust = $canAdjust && $user['role'] !== 'owner' && $adminBalanceAllowed
                 ? '<form method="post" action="/users/balance" class="inline balance-form">'
                     .View::csrf()
                     .'<input type="hidden" name="user_id" value="'.(int)$row['id'].'">'
@@ -2043,6 +2048,7 @@ try {
                 $target['id'],
             ]);
             $pdo->commit();
+            ReferralManager::revokeUnauthorizedPendingForUser((int)$target['id']);
             Security::audit((int)$user['id'], 'user_status_changed', [
                 'target_id'=>(int)$target['id'],
                 'status'=>$status,
@@ -2069,6 +2075,7 @@ try {
                 'UPDATE users SET role=? WHERE id=?'
             )->execute([$role, $target['id']]);
             Auth::bumpAuthVersion((int)$target['id'], true);
+            ReferralManager::revokeUnauthorizedPendingForUser((int)$target['id']);
             Security::audit((int)$user['id'], 'user_role_changed', [
                 'target_id'=>(int)$target['id'],
                 'from'=>$target['role'],
@@ -2222,6 +2229,9 @@ try {
                 ]);
             }
             $pdo->commit();
+            foreach ($targets as $target) {
+                ReferralManager::revokeUnauthorizedPendingForUser((int)$target['id']);
+            }
             Security::audit((int)$user['id'], 'users_bulk_action', [
                 'action'=>$action,
                 'target_ids'=>$ids,
@@ -2246,6 +2256,14 @@ try {
         Auth::requireRole($user, 'admin');
 
         $targetId = (int)($_POST['user_id'] ?? 0);
+
+        if (
+            $user['role'] === 'admin'
+            && !(bool)Config::get('admin_balance_adjustments_enabled', false)
+        ) {
+            flash('err', 'Admin balance adjustments are disabled by the Owner security policy.');
+            redirectTo('/users');
+        }
 
         $amount = parseBalanceDelta(
             input('amount'),
@@ -2291,6 +2309,26 @@ try {
                 throw new RuntimeException(
                     'Balance cannot go below zero.'
                 );
+            }
+
+            if ($user['role'] === 'admin' && $amount > 0) {
+                $limit = (int)Config::get('admin_balance_daily_limit', 10000);
+                $spentQ = $pdo->prepare(
+                    "SELECT COALESCE(SUM(amount),0)
+                     FROM balance_ledger
+                     WHERE actor_user_id=?
+                       AND amount>0
+                       AND reason='Manual balance adjustment'
+                       AND created_at>=CURDATE()"
+                );
+                $spentQ->execute([(int)$user['id']]);
+                $usedToday = (int)$spentQ->fetchColumn();
+
+                if ($limit <= 0 || ($usedToday + $amount) > $limit) {
+                    throw new RuntimeException(
+                        'Admin daily balance adjustment limit reached.'
+                    );
+                }
             }
 
             $pdo->prepare(
