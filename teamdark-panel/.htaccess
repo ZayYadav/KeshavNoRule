@@ -1,12 +1,23 @@
 Options -Indexes
+ServerSignature Off
 
 RewriteEngine On
 
-# Never expose private application/configuration paths.
-RewriteRule ^(?:app|database|bin|storage)(?:/|$) - [F,L,NC]
-RewriteRule ^(?:\.env(?:\..*)?|composer\.(?:json|lock)|README\.md)$ - [F,L,NC]
+# Deny hidden files/directories except ACME .well-known challenges.
+RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L,NC]
 
-# Existing TeamDarkLoader native endpoint.
+# Never expose private application/configuration/source paths.
+RewriteRule ^(?:app|database|bin|storage|vendor|tests|docs-src)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:\.env(?:\..*)?|composer\.(?:json|lock)|README\.md|NATIVE_AUTH_DEPLOY\.md)$ - [F,L,NC]
+
+# Deny common backup/source/config artifacts if accidentally uploaded.
+RewriteRule \.(?:bak|backup|old|orig|save|swp|sql|sqlite|ini|log|conf|dist|example|yml|yaml)$ - [F,L,NC]
+
+# Only the methods used by the panel are accepted.
+RewriteCond %{REQUEST_METHOD} !^(?:GET|POST|HEAD)$ [NC]
+RewriteRule ^ - [R=405,L]
+
+# Existing TeamDarkLoader native endpoint. Contract intentionally unchanged.
 RewriteRule ^connect/?$ public/connect.php [L,QSA]
 
 # Telegram Bot API webhook endpoint.
@@ -26,4 +37,5 @@ RewriteRule ^.*$ public/index.php [QSA,L]
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"
     Header always set Referrer-Policy "no-referrer"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
 </IfModule>
