@@ -338,8 +338,10 @@ final class Security
 
     public static function audit(?int $userId, string $action, array $meta = []): void
     {
+        $pdo = Database::pdo();
+
         try {
-            $stmt = Database::pdo()->prepare(
+            $stmt = $pdo->prepare(
                 'INSERT INTO audit_logs(user_id,action,ip_address,user_agent,meta_json) VALUES(?,?,?,?,?)'
             );
             $stmt->execute([
@@ -347,7 +349,12 @@ final class Security
                 substr($action, 0, 100),
                 self::clientIp(),
                 substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
-                json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+                json_encode(
+                    $meta,
+                    JSON_UNESCAPED_SLASHES
+                    | JSON_UNESCAPED_UNICODE
+                    | JSON_INVALID_UTF8_SUBSTITUTE
+                ),
             ]);
         } catch (\Throwable $e) {
             // Security logging must never become an availability kill-switch.
@@ -360,7 +367,9 @@ final class Security
             return;
         }
 
-        self::housekeepingMaybe();
+        if (!$pdo->inTransaction()) {
+            self::housekeepingMaybe();
+        }
     }
 
     private static function housekeepingMaybe(): void
