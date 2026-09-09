@@ -90,6 +90,25 @@ final class LoaderAuthService
                 return self::fail('Invalid Key');
             }
 
+            // Transparently migrate historical plain SHA-256 lookup rows
+            // to the APP_KEY-backed HMAC after a legitimate key is supplied.
+            // This changes only DB storage; Loader request/response stays exact.
+            if (
+                hash_equals((string)$key['key_hash'], $legacyKeyHash)
+                && !hash_equals((string)$key['key_hash'], $keyHash)
+            ) {
+                $pdo->prepare(
+                    'UPDATE license_keys
+                     SET key_hash=?
+                     WHERE id=? AND key_hash=?'
+                )->execute([
+                    $keyHash,
+                    $key['id'],
+                    $legacyKeyHash,
+                ]);
+                $key['key_hash'] = $keyHash;
+            }
+
             if (($key['game'] ?? 'PUBG') !== $game) {
                 $pdo->rollBack();
                 return self::fail('Invalid Game');
