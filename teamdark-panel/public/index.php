@@ -465,14 +465,23 @@ try {
         $rows = KeyManager::visibleKeys($u, 'all');
         $out = [];
 
+        $allowPlaintextKeys = (bool)Config::get('api_reveal_license_keys', false)
+            && ($u['role'] ?? '') === 'owner';
+
         foreach ($rows as $row) {
+            $plainKey = Crypto::decrypt(
+                $row['key_cipher'],
+                $row['key_iv'],
+                $row['key_tag']
+            );
+            $maskedKey = strlen($plainKey) <= 8
+                ? '********'
+                : substr($plainKey, 0, 6).'…'.substr($plainKey, -4);
+
             $out[] = [
                 'id'=>(int)$row['id'],
-                'key'=>Crypto::decrypt(
-                    $row['key_cipher'],
-                    $row['key_iv'],
-                    $row['key_tag']
-                ),
+                'key'=>$allowPlaintextKeys ? $plainKey : $maskedKey,
+                'key_revealed'=>$allowPlaintextKeys,
                 'game'=>$row['game'],
                 'owner'=>$row['owner_name'],
                 'label'=>$row['label'],
@@ -505,7 +514,11 @@ try {
             || $path === '/api/v1/license/validate')
         && $method === 'POST'
     ) {
-        Security::rateLimit('license-json-validate', 120, 3600);
+        if (!(bool)Config::get('legacy_license_api_enabled', false)) {
+            jsonOut(['ok'=>false, 'error'=>'Not found'], 404);
+        }
+
+        Security::rateLimit('license-json-validate', 30, 3600);
 
         $b = jsonBody();
 
@@ -825,8 +838,8 @@ try {
             $pdo->prepare(
                 "INSERT INTO users(
                     name,username,password_hash,role,balance,referral_code,
-                    referred_by,created_by,status
-                 ) VALUES(?,?,?,?,?,?,?,?,'active')"
+                    referred_by,created_by,login_not_before,status
+                 ) VALUES(?,?,?,?,?,?,?,?,DATE_ADD(NOW(),INTERVAL 15 SECOND),'active')"
             )->execute([
                 $name,
                 $username,
@@ -916,6 +929,37 @@ try {
     }
 
     $user = Auth::requireLogin();
+
+    $ownerFreshAuthRoutes = [
+        '/owner/settings',
+        '/telegram/unlink',
+        '/keys/create',
+        '/keys/action',
+        '/keys/devices/reset',
+        '/telegram-users/key-action',
+        '/referrals/create',
+        '/referrals/revoke',
+        '/users/status',
+        '/users/role',
+        '/users/revoke-access',
+        '/users/2fa-reset',
+        '/users/telegram-reset',
+        '/users/password',
+        '/users/bulk',
+        '/users/balance',
+    ];
+
+    if (
+        $method === 'POST'
+        && ($user['role'] ?? '') === 'owner'
+        && in_array($path, $ownerFreshAuthRoutes, true)
+        && !Auth::recentlyAuthenticated(300)
+    ) {
+        Auth::logout();
+        Security::startSession();
+        flash('err', 'Fresh sign-in required for this owner security action.');
+        redirectTo('/login');
+    }
 
     if (PanelControl::blocked($user)) redirectTo('/');
     if ($method === 'POST') {
@@ -1216,7 +1260,7 @@ try {
                 .'<form method="post" action="/keys/create" class="stack" data-action="Generate key" data-confirm="Generate this key with the selected validity and device limit?" data-busy="Generating secure key…">'
                 .View::csrf()
                 .'<div class="field"><label>Custom key <span class="optional">optional</span></label>'
-                .'<input name="custom_key" minlength="12" maxlength="80" placeholder="Team-Dark-MyVIPKey" autocomplete="off"></div>'
+                .'<input name="custom_key" minlength="16" maxlength="80" placeholder="Team-Dark-MyVIPKey9" autocomplete="off"></div>'
                 .'<div class="field"><label>Label <span class="optional">optional</span></label>'
                 .'<input name="label" maxlength="100" placeholder="Customer / plan note"></div>'
                 .'<div class="form-row">'
@@ -1885,15 +1929,15 @@ try {
             $status = $action === 'enable' ? 'active' : 'disabled';
             $pdo = Database::pdo();
             $pdo->beginTransaction();
-            $pdo->prepare('UPDATE users SET status=? WHERE id=?')->execute([
+            $pdo->prepare(
+                'UPDATE users SET status=?,auth_version=auth_version+1 WHERE id=?'
+            )->execute([
                 $status,
                 $target['id'],
             ]);
-            if ($status === 'disabled') {
-                $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
-                    $target['id'],
-                ]);
-            }
+            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
+                $target['id'],
+            ]);
             $pdo->commit();
             Security::audit((int)$user['id'], 'user_status_changed', [
                 'target_id'=>(int)$target['id'],
@@ -1917,10 +1961,10 @@ try {
             if (!in_array($role, ['admin','reseller','user'], true)) {
                 throw new RuntimeException('Invalid account role.');
             }
-            Database::pdo()->prepare('UPDATE users SET role=? WHERE id=?')->execute([
-                $role,
-                $target['id'],
-            ]);
+            Database::pdo()->prepare(
+                'UPDATE users SET role=? WHERE id=?'
+            )->execute([$role, $target['id']]);
+            Auth::bumpAuthVersion((int)$target['id'], true);
             Security::audit((int)$user['id'], 'user_role_changed', [
                 'target_id'=>(int)$target['id'],
                 'from'=>$target['role'],
@@ -1939,11 +1983,10 @@ try {
 
         try {
             $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
-            $q = Database::pdo()->prepare('DELETE FROM api_tokens WHERE user_id=?');
-            $q->execute([$target['id']]);
+            Auth::bumpAuthVersion((int)$target['id'], true);
             Security::audit((int)$user['id'], 'user_access_revoked', [
                 'target_id'=>(int)$target['id'],
-                'tokens_revoked'=>$q->rowCount(),
+                'sessions_revoked'=>true,
             ]);
             flash('ok', 'Active API access revoked for @'.$target['username'].'.');
         } catch (Throwable $e) {
@@ -2010,7 +2053,9 @@ try {
             }
             $pdo = Database::pdo();
             $pdo->beginTransaction();
-            $pdo->prepare('UPDATE users SET password_hash=? WHERE id=?')->execute([
+            $pdo->prepare(
+                'UPDATE users SET password_hash=?,auth_version=auth_version+1 WHERE id=?'
+            )->execute([
                 Security::passwordHash($password),
                 $target['id'],
             ]);
@@ -2053,21 +2098,24 @@ try {
             $pdo->beginTransaction();
             foreach ($targets as $target) {
                 if ($action === 'revoke_access') {
+                    $pdo->prepare(
+                        'UPDATE users SET auth_version=auth_version+1 WHERE id=?'
+                    )->execute([$target['id']]);
                     $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
                         $target['id'],
                     ]);
                     continue;
                 }
                 $status = $action === 'enable' ? 'active' : 'disabled';
-                $pdo->prepare('UPDATE users SET status=? WHERE id=?')->execute([
+                $pdo->prepare(
+                    'UPDATE users SET status=?,auth_version=auth_version+1 WHERE id=?'
+                )->execute([
                     $status,
                     $target['id'],
                 ]);
-                if ($status === 'disabled') {
-                    $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
-                        $target['id'],
-                    ]);
-                }
+                $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
+                    $target['id'],
+                ]);
             }
             $pdo->commit();
             Security::audit((int)$user['id'], 'users_bulk_action', [

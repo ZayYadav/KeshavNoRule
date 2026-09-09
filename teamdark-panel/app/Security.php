@@ -146,8 +146,83 @@ final class Security
 
     public static function clientIp(): string
     {
-        $ip = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
-        return filter_var($ip, FILTER_VALIDATE_IP) !== false ? $ip : '0.0.0.0';
+        $remote = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+        if (filter_var($remote, FILTER_VALIDATE_IP) === false) {
+            return '0.0.0.0';
+        }
+
+        if (!self::trustedProxy($remote)) {
+            return $remote;
+        }
+
+        $cf = trim((string)($_SERVER['HTTP_CF_CONNECTING_IP'] ?? ''));
+        if ($cf !== '' && filter_var($cf, FILTER_VALIDATE_IP) !== false) {
+            return $cf;
+        }
+
+        $xff = trim((string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''));
+        if ($xff !== '') {
+            $first = trim(explode(',', $xff, 2)[0]);
+            if (filter_var($first, FILTER_VALIDATE_IP) !== false) {
+                return $first;
+            }
+        }
+
+        return $remote;
+    }
+
+    private static function trustedProxy(string $remote): bool
+    {
+        $raw = trim((string)Config::get('trusted_proxy_cidrs', ''));
+        if ($raw === '') {
+            return false;
+        }
+
+        foreach (preg_split('/\\s*,\\s*/', $raw) ?: [] as $cidr) {
+            if ($cidr !== '' && self::ipInCidr($remote, $cidr)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function ipInCidr(string $ip, string $cidr): bool
+    {
+        if (!str_contains($cidr, '/')) {
+            return hash_equals($cidr, $ip);
+        }
+
+        [$network, $prefixRaw] = explode('/', $cidr, 2);
+        $ipBin = @inet_pton($ip);
+        $networkBin = @inet_pton(trim($network));
+
+        if ($ipBin === false || $networkBin === false || strlen($ipBin) !== strlen($networkBin)) {
+            return false;
+        }
+
+        $maxBits = strlen($ipBin) * 8;
+        $prefix = filter_var($prefixRaw, FILTER_VALIDATE_INT, [
+            'options'=>['min_range'=>0,'max_range'=>$maxBits],
+        ]);
+
+        if ($prefix === false) {
+            return false;
+        }
+
+        $whole = intdiv((int)$prefix, 8);
+        $remain = (int)$prefix % 8;
+
+        if ($whole > 0 && substr($ipBin, 0, $whole) !== substr($networkBin, 0, $whole)) {
+            return false;
+        }
+
+        if ($remain === 0) {
+            return true;
+        }
+
+        $mask = (0xFF << (8 - $remain)) & 0xFF;
+        return (ord($ipBin[$whole]) & $mask) === (ord($networkBin[$whole]) & $mask);
     }
 
     private static function rateLimitHash(string $bucket, ?string $subject = null): string

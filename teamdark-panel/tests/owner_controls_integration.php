@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use TeamDark\Panel\{Config,Database,Security,PanelControl,KeyManager,Crypto};
+use TeamDark\Panel\{Config,Database,Security,PanelControl,KeyManager,Crypto,Auth};
 
 $root = dirname(__DIR__);
-foreach (['Config','Database','Security','Crypto','KeyManager'] as $file) require $root.'/app/'.$file.'.php';
+foreach (['Config','Database','Security','Crypto','Auth','KeyManager'] as $file) require $root.'/app/'.$file.'.php';
 Config::load($root);
 if (Config::get('db_name') !== 'teamdark_test') throw new RuntimeException('Run only against isolated teamdark_test database.');
 $pdo = Database::pdo();
@@ -85,6 +85,24 @@ try {
         && str_contains($registrationReview['body'],$registrationRef),
         'registration review shows account details and 15 second countdown'
     );
+
+    $delayBlocked = false;
+    try {
+        Auth::verifyPasswordCredentials(
+            'review-flow-user',
+            'ReviewFlow@12345',
+            'registration-delay-contract'
+        );
+    } catch (RuntimeException $e) {
+        $delayBlocked = str_contains($e->getMessage(), 'activation delay');
+    }
+    check($delayBlocked,'registration 15 second delay enforced server-side');
+
+    $legacyApi = request($guest,'/api/v1/license/validate',[
+        'key'=>'Team-Dark-ContractValidation9',
+        'device_id'=>'CONTRACT-DEVICE',
+    ]);
+    check($legacyApi['status']===404,'legacy public license API disabled by default');
 
     check(request($guest,'/assets/app.css')['status']===200,'stylesheet served');
     check(request($userClient,'/owner/settings')['status']!==200,'non-owner cannot read controls');

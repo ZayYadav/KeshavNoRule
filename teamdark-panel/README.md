@@ -129,3 +129,25 @@ Back up MySQL, deploy the changed PHP/assets, then run the existing single upgra
 `database/schema.sql`
 
 The same SQL is backward-compatible and adds `telegram_2fa_enabled`, `telegram_2fa_enabled_at`, `telegram_2fa_activation_tokens`, and `login_2fa_challenges` without resetting existing users or keys. Existing users start with 2FA disabled. The native Loader `/connect` contract is unchanged.
+
+
+## Server hardening v2
+
+This hardening layer does not change the native TeamDarkLoader `/connect` URL, form fields, token formula, JSON response contract or Loader C++.
+
+- Every web account now has an `auth_version`. Security-sensitive changes increment it so older PHP sessions immediately fail on their next request.
+- 2FA enable/disable/reset, Telegram unlink/recovery, password reset, role changes, status changes, bulk access changes and explicit access revocation revoke older web sessions and API tokens.
+- Owner destructive web actions require a login authenticated within the previous 5 minutes. A stale owner session is logged out before the action can run.
+- Registration now stores `login_not_before=NOW()+15 seconds`; the countdown is enforced by password authentication on the server, not only JavaScript.
+- Password guessing is limited by IP plus a tighter per-account bucket.
+- `/api/v1/license/activate` and `/api/v1/license/validate` are disabled by default with `LEGACY_LICENSE_API_ENABLED=false`. The Loader `/connect` endpoint remains available.
+- `/api/v1/licenses` masks decrypted license keys by default. Plaintext API output requires both Owner role and the explicit server setting `API_REVEAL_LICENSE_KEYS=true`.
+- Telegram Owner mutation callbacks are disabled by default. Read-only Owner views remain available. Set `TELEGRAM_OWNER_MUTATIONS_ENABLED=true` only if the increased Telegram account risk is explicitly accepted.
+- Linked-user Telegram key generation is also disabled by default. Account/key viewing and Telegram 2FA setup remain available; set `TELEGRAM_LINKED_KEY_GENERATION_ENABLED=true` only if bot-side generation is intentionally required.
+- Forwarded IP headers are ignored unless the direct peer matches `TRUSTED_PROXY_CIDRS`.
+- New custom license keys require 16–80 characters with both letters and numbers. Existing keys remain valid.
+- Raw Loader device serials and IP addresses are no longer stored. Device matching uses the existing APP_KEY-backed device HMAC, and historical raw serial/IP values are sanitized by the schema upgrade.
+
+### Upgrade
+
+Back up the database and run the same `database/schema.sql` once after deploying. It adds `auth_version` and `login_not_before` without deleting existing accounts or keys. Existing authenticated browser sessions created before this upgrade will be asked to sign in again because they do not contain an auth-version value.

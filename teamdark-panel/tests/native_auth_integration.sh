@@ -85,6 +85,12 @@ HASH_TIMED="$(printf '%s' "$TIMED" | sha256sum | awk '{print $1}')"
 COUNT="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT COUNT(*) FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash='$HASH_TIMED' AND d.active=1")"
 [[ "$COUNT" == "1" ]] || fail "same serial consumed duplicate slot: $COUNT"
 
+STORED_SERIAL="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT d.serial FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash='$HASH_TIMED' LIMIT 1")"
+[[ "$STORED_SERIAL" == h:* ]] || fail "raw device serial stored in database"
+
+STORED_IP="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT d.ip_address FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash='$HASH_TIMED' LIMIT 1")"
+[[ "$STORED_IP" == h:* ]] || fail "raw device IP stored in database"
+
 # 8. New serial within limit
 R3="$(post_form --data-urlencode "game=PUBG" --data-urlencode "user_key=$TIMED" --data-urlencode "serial=CONTRACT-DEVICE-TWO")"
 echo "$R3" | jq -e '.status == true' >/dev/null || fail "second device should be allowed"

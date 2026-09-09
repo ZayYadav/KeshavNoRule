@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS users (
   telegram_chat_id BIGINT NULL,
   telegram_2fa_enabled TINYINT(1) NOT NULL DEFAULT 0,
   telegram_2fa_enabled_at DATETIME NULL,
+  auth_version INT UNSIGNED NOT NULL DEFAULT 1,
+  login_not_before DATETIME NULL,
   status ENUM('active','disabled') NOT NULL DEFAULT 'active',
   last_login_at DATETIME NULL,
   last_login_ip VARCHAR(45) NULL,
@@ -96,6 +98,14 @@ CALL td_add_column(
 CALL td_add_column(
   'users','telegram_2fa_enabled_at',
   'ALTER TABLE users ADD COLUMN telegram_2fa_enabled_at DATETIME NULL AFTER telegram_2fa_enabled'
+);
+CALL td_add_column(
+  'users','auth_version',
+  'ALTER TABLE users ADD COLUMN auth_version INT UNSIGNED NOT NULL DEFAULT 1 AFTER telegram_2fa_enabled_at'
+);
+CALL td_add_column(
+  'users','login_not_before',
+  'ALTER TABLE users ADD COLUMN login_not_before DATETIME NULL AFTER auth_version'
 );
 
 ALTER TABLE users
@@ -281,9 +291,22 @@ UPDATE license_devices
 SET serial=CONCAT('legacy-',id,'-',LEFT(device_hash,16))
 WHERE serial='';
 
+-- Remove historical raw device identifiers. Future Loader requests use device_hash.
+UPDATE license_devices
+SET serial=CONCAT('h:',device_hash)
+WHERE serial NOT LIKE 'h:%';
+
+UPDATE license_devices
+SET ip_address=''
+WHERE ip_address<>'' AND ip_address NOT LIKE 'h:%';
+
 CALL td_add_index(
   'license_devices','uq_key_serial',
   'ALTER TABLE license_devices ADD UNIQUE INDEX uq_key_serial(license_key_id,serial)'
+);
+CALL td_add_index(
+  'license_devices','uq_key_device_hash',
+  'ALTER TABLE license_devices ADD UNIQUE INDEX uq_key_device_hash(license_key_id,device_hash)'
 );
 CALL td_add_index(
   'license_devices','idx_device_active',

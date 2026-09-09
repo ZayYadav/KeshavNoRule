@@ -173,13 +173,19 @@ final class LoaderAuthService
                 $key['status'] = 'active';
             }
 
+            $deviceHash = Crypto::fingerprint($serial);
+            $storedSerial = 'h:'.$deviceHash;
+            $storedIp = $ipAddress === ''
+                ? ''
+                : 'h:'.substr(Crypto::fingerprint('ip|'.$ipAddress), 0, 43);
+
             $deviceQ = $pdo->prepare(
                 "SELECT id,active
                  FROM license_devices
-                 WHERE license_key_id=? AND serial=?
+                 WHERE license_key_id=? AND device_hash=?
                  LIMIT 1"
             );
-            $deviceQ->execute([$key['id'], $serial]);
+            $deviceQ->execute([$key['id'], $deviceHash]);
             $device = $deviceQ->fetch();
 
             $unlimitedDevices =
@@ -193,11 +199,12 @@ final class LoaderAuthService
                 // Same serial: do not consume another slot.
                 $pdo->prepare(
                     "UPDATE license_devices
-                     SET last_seen_at=?, ip_address=?
+                     SET serial=?,last_seen_at=?,ip_address=?
                      WHERE id=?"
                 )->execute([
+                    $storedSerial,
                     $nowString,
-                    $ipAddress,
+                    $storedIp,
                     $device['id'],
                 ]);
             } else {
@@ -217,23 +224,23 @@ final class LoaderAuthService
                     return self::fail('Device Limit Reached');
                 }
 
-                $deviceHash = Crypto::fingerprint($serial);
-
                 if ($device) {
                     // Previously reset serial: reactivate the same unique row.
                     $pdo->prepare(
                         "UPDATE license_devices
                          SET active=1,
                              device_hash=?,
+                             serial=?,
                              first_seen_at=?,
                              last_seen_at=?,
                              ip_address=?
                          WHERE id=?"
                     )->execute([
                         $deviceHash,
+                        $storedSerial,
                         $nowString,
                         $nowString,
-                        $ipAddress,
+                        $storedIp,
                         $device['id'],
                     ]);
                 } else {
@@ -252,11 +259,11 @@ final class LoaderAuthService
                         )->execute([
                             $key['id'],
                             $deviceHash,
-                            $serial,
+                            $storedSerial,
                             '',
                             $nowString,
                             $nowString,
-                            $ipAddress,
+                            $storedIp,
                         ]);
                     } catch (PDOException $e) {
                         // Defensive duplicate recovery. The key row lock
@@ -268,10 +275,10 @@ final class LoaderAuthService
                         $again = $pdo->prepare(
                             "SELECT id
                              FROM license_devices
-                             WHERE license_key_id=? AND serial=?
+                             WHERE license_key_id=? AND device_hash=?
                              LIMIT 1"
                         );
-                        $again->execute([$key['id'], $serial]);
+                        $again->execute([$key['id'], $deviceHash]);
                         $found = $again->fetch();
 
                         if (!$found) {
@@ -281,12 +288,14 @@ final class LoaderAuthService
                         $pdo->prepare(
                             "UPDATE license_devices
                              SET active=1,
+                                 serial=?,
                                  last_seen_at=?,
                                  ip_address=?
                              WHERE id=?"
                         )->execute([
+                            $storedSerial,
                             $nowString,
-                            $ipAddress,
+                            $storedIp,
                             $found['id'],
                         ]);
                     }
