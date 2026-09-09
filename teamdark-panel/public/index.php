@@ -1044,6 +1044,37 @@ try {
                 .'</form>'.$verify.'</div>';
         }
 
+        if (!$telegramInfo) {
+            $twoFactorCard = '<div class="card half security-card">'
+                .'<div class="toolbar"><div><div class="eyebrow">LOGIN SECURITY</div><h3>Telegram 2FA</h3></div>'
+                .'<span class="status-chip status-disabled">OFF</span></div>'
+                .'<p class="muted">Link and verify Telegram first. After linking, the bot can generate your one-time 2FA activation key.</p>'
+                .'</div>';
+        } elseif ((int)($user['telegram_2fa_enabled'] ?? 0) === 1) {
+            $twoFactorCard = '<div class="card half security-card spotlight">'
+                .'<div class="toolbar"><div><div class="eyebrow">LOGIN SECURITY</div><h3>Telegram 2FA</h3></div>'
+                .'<span class="status-chip status-active">ENABLED</span></div>'
+                .'<p class="muted">Password login now requires an 8-digit single-use code sent by the Team Dark bot to your linked Telegram.</p>'
+                .'<div class="security-detail"><span>Enabled</span><strong>'.View::e($user['telegram_2fa_enabled_at'] ?: 'Active').'</strong></div>'
+                .'<form method="post" action="/security/2fa/disable" class="stack" data-confirm="Disable Telegram 2FA for your account?" data-busy="Updating login security…">'
+                .View::csrf()
+                .'<div class="field"><label>Current password</label>'
+                .'<input type="password" name="password" autocomplete="current-password" maxlength="200" required placeholder="Confirm with your password"></div>'
+                .'<button class="ghost danger">Disable 2FA</button>'
+                .'</form></div>';
+        } else {
+            $twoFactorCard = '<div class="card half security-card spotlight">'
+                .'<div class="toolbar"><div><div class="eyebrow">LOGIN SECURITY</div><h3>Telegram 2FA</h3></div>'
+                .'<span class="status-chip status-disabled">OPTIONAL</span></div>'
+                .'<p class="muted">Open the linked Team Dark bot and send <span class="key">/2fa</span> or tap <b>2FA Setup</b>. The bot will generate a 10-minute activation key.</p>'
+                .'<form method="post" action="/security/2fa/enable" class="stack" data-busy="Enabling Telegram 2FA…">'
+                .View::csrf()
+                .'<div class="field"><label>Bot activation key</label>'
+                .'<input name="activation_key" autocomplete="one-time-code" pattern="TD2FA-[A-Fa-f0-9]{12}" minlength="18" maxlength="18" required placeholder="TD2FA-XXXXXXXXXXXX"></div>'
+                .'<button class="primary">Activate 2FA</button>'
+                .'</form></div>';
+        }
+
         $body = '<section class="hero hero-dashboard">'
             .'<div><span class="tag">'.View::e(strtoupper($user['role'])).'</span>'
             .'<h1>Hello, '.View::e($displayName).'</h1>'
@@ -1062,6 +1093,7 @@ try {
             .$ownerPulse
             .$referralCard
             .$telegramCard
+            .$twoFactorCard
             .'<div class="card half"><div class="eyebrow">PROFILE</div><h3>Account</h3>'
             .'<p class="muted">Username: '.View::e($user['username']).'<br>'
             .'Role: '.View::e($user['role']).'<br>'
@@ -1109,6 +1141,35 @@ try {
             TelegramService::unlink($user);
             unset($_SESSION['telegram_link_code']);
             flash('ok', 'Telegram account unlinked.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/dashboard');
+    }
+
+    if ($path === '/security/2fa/enable' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        try {
+            TwoFactorService::activate($user, input('activation_key'));
+            flash('ok', 'Telegram 2FA enabled. Future logins require an 8-digit bot code.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/dashboard');
+    }
+
+    if ($path === '/security/2fa/disable' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        try {
+            TwoFactorService::disable(
+                $user,
+                (string)($_POST['password'] ?? '')
+            );
+            flash('ok', 'Telegram 2FA disabled.');
         } catch (Throwable $e) {
             flash('err', safeMessage($e));
         }
@@ -1886,7 +1947,7 @@ try {
             if (!$target['telegram_chat_id']) {
                 throw new RuntimeException('This user has no linked Telegram account.');
             }
-            TelegramService::unlink($target);
+            TelegramService::unlink($target, true);
             Security::audit((int)$user['id'], 'user_telegram_reset', [
                 'target_id'=>(int)$target['id'],
             ]);
