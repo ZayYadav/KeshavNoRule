@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace TeamDark\Panel;
 
+require_once __DIR__.'/Auth.php';
+
 use PDOException;
 use RuntimeException;
 use Throwable;
