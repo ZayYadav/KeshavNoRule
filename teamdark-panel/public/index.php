@@ -2306,6 +2306,14 @@ try {
                 $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
                     $target['id'],
                 ]);
+
+                if ($action === 'disable') {
+                    $pdo->prepare(
+                        "UPDATE referral_invites
+                         SET status='revoked'
+                         WHERE created_by=? AND status='pending'"
+                    )->execute([$target['id']]);
+                }
             }
             $pdo->commit();
             Security::audit((int)$user['id'], 'users_bulk_action', [
