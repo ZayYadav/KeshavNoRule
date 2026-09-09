@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
   referred_by BIGINT UNSIGNED NULL,
   created_by BIGINT UNSIGNED NULL,
   telegram_chat_id BIGINT NULL,
+  telegram_2fa_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  telegram_2fa_enabled_at DATETIME NULL,
   status ENUM('active','disabled') NOT NULL DEFAULT 'active',
   last_login_at DATETIME NULL,
   last_login_ip VARCHAR(45) NULL,
