@@ -921,6 +921,37 @@ try {
 
     $user = Auth::requireLogin();
 
+    $ownerFreshAuthRoutes = [
+        '/owner/settings',
+        '/telegram/unlink',
+        '/keys/create',
+        '/keys/action',
+        '/keys/devices/reset',
+        '/telegram-users/key-action',
+        '/referrals/create',
+        '/referrals/revoke',
+        '/users/status',
+        '/users/role',
+        '/users/revoke-access',
+        '/users/2fa-reset',
+        '/users/telegram-reset',
+        '/users/password',
+        '/users/bulk',
+        '/users/balance',
+    ];
+
+    if (
+        $method === 'POST'
+        && ($user['role'] ?? '') === 'owner'
+        && in_array($path, $ownerFreshAuthRoutes, true)
+        && !Auth::recentlyAuthenticated(300)
+    ) {
+        Auth::logout();
+        Security::startSession();
+        flash('err', 'Fresh sign-in required for this owner security action.');
+        redirectTo('/login');
+    }
+
     if (PanelControl::blocked($user)) redirectTo('/');
     if ($method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
@@ -1889,15 +1920,15 @@ try {
             $status = $action === 'enable' ? 'active' : 'disabled';
             $pdo = Database::pdo();
             $pdo->beginTransaction();
-            $pdo->prepare('UPDATE users SET status=? WHERE id=?')->execute([
+            $pdo->prepare(
+                'UPDATE users SET status=?,auth_version=auth_version+1 WHERE id=?'
+            )->execute([
                 $status,
                 $target['id'],
             ]);
-            if ($status === 'disabled') {
-                $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
-                    $target['id'],
-                ]);
-            }
+            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
+                $target['id'],
+            ]);
             $pdo->commit();
             Security::audit((int)$user['id'], 'user_status_changed', [
                 'target_id'=>(int)$target['id'],
@@ -1921,10 +1952,10 @@ try {
             if (!in_array($role, ['admin','reseller','user'], true)) {
                 throw new RuntimeException('Invalid account role.');
             }
-            Database::pdo()->prepare('UPDATE users SET role=? WHERE id=?')->execute([
-                $role,
-                $target['id'],
-            ]);
+            Database::pdo()->prepare(
+                'UPDATE users SET role=? WHERE id=?'
+            )->execute([$role, $target['id']]);
+            Auth::bumpAuthVersion((int)$target['id'], true);
             Security::audit((int)$user['id'], 'user_role_changed', [
                 'target_id'=>(int)$target['id'],
                 'from'=>$target['role'],
@@ -1943,11 +1974,12 @@ try {
 
         try {
             $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
-            $q = Database::pdo()->prepare('DELETE FROM api_tokens WHERE user_id=?');
-            $q->execute([$target['id']]);
+            $version = Auth::bumpAuthVersion((int)$target['id'], true);
+            $q = Database::pdo()->prepare('SELECT 0');
+            $q->execute();
             Security::audit((int)$user['id'], 'user_access_revoked', [
                 'target_id'=>(int)$target['id'],
-                'tokens_revoked'=>$q->rowCount(),
+                'sessions_revoked'=>true,
             ]);
             flash('ok', 'Active API access revoked for @'.$target['username'].'.');
         } catch (Throwable $e) {
@@ -2014,7 +2046,9 @@ try {
             }
             $pdo = Database::pdo();
             $pdo->beginTransaction();
-            $pdo->prepare('UPDATE users SET password_hash=? WHERE id=?')->execute([
+            $pdo->prepare(
+                'UPDATE users SET password_hash=?,auth_version=auth_version+1 WHERE id=?'
+            )->execute([
                 Security::passwordHash($password),
                 $target['id'],
             ]);
@@ -2057,21 +2091,24 @@ try {
             $pdo->beginTransaction();
             foreach ($targets as $target) {
                 if ($action === 'revoke_access') {
+                    $pdo->prepare(
+                        'UPDATE users SET auth_version=auth_version+1 WHERE id=?'
+                    )->execute([$target['id']]);
                     $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
                         $target['id'],
                     ]);
                     continue;
                 }
                 $status = $action === 'enable' ? 'active' : 'disabled';
-                $pdo->prepare('UPDATE users SET status=? WHERE id=?')->execute([
+                $pdo->prepare(
+                    'UPDATE users SET status=?,auth_version=auth_version+1 WHERE id=?'
+                )->execute([
                     $status,
                     $target['id'],
                 ]);
-                if ($status === 'disabled') {
-                    $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
-                        $target['id'],
-                    ]);
-                }
+                $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
+                    $target['id'],
+                ]);
             }
             $pdo->commit();
             Security::audit((int)$user['id'], 'users_bulk_action', [
