@@ -264,7 +264,7 @@ final class OwnerConsole
             $body .= '<section class="premium-section"><div class="section-heading"><div><span class="eyebrow">SERVER POLICY</span>'
                 .'<h2>Availability controls</h2><p>Infrastructure-safe controls for panel access and generation.</p></div></div>'
                 .'<form method="post" action="/owner/settings" class="card history-card stack premium-settings"'
-                .' data-confirm="Apply these availability settings to all non-owner users?">'
+                .' data-confirm="Save the site experience and server controls?">'
                 .View::csrf().'<input type="hidden" name="revision" value="'.$settings['revision'].'">'
                 .'<input type="hidden" name="splash_present" value="1">'
                 .'<div class="splash-control-block" data-splash-control>'
