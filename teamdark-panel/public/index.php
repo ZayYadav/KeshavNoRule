@@ -10,6 +10,7 @@ use TeamDark\Panel\{
     LicenseService,
     ReferralManager,
     TelegramService,
+    TwoFactorService,
     Security,
     View
 };
@@ -31,6 +32,7 @@ foreach ([
     'LicenseService',
     'ReferralManager',
     'TelegramService',
+    'TwoFactorService',
 ] as $file) {
     require $root.'/app/'.$file.'.php';
 }
@@ -312,6 +314,77 @@ function bearerUser(): array
     }
 
     return $u;
+}
+
+function issueApiToken(array $u): array
+{
+    if (($u['status'] ?? 'active') !== 'active') {
+        throw new RuntimeException('Account unavailable.');
+    }
+
+    if (PanelControl::blocked($u)) {
+        throw new RuntimeException('Panel under maintenance.');
+    }
+
+    $token = rtrim(
+        strtr(base64_encode(random_bytes(48)), '+/', '-_'),
+        '='
+    );
+    $hash = hash('sha256', $token);
+    $ttl = (int)Config::get('token_ttl');
+    $expiresAt = (new DateTimeImmutable())
+        ->add(new DateInterval('PT'.$ttl.'S'))
+        ->format('Y-m-d H:i:s');
+
+    $pdo = Database::pdo();
+    $pdo->beginTransaction();
+
+    try {
+        $pdo->prepare('DELETE FROM api_tokens WHERE expires_at<=NOW()')->execute();
+        $pdo->prepare(
+            'INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)'
+        )->execute([(int)$u['id'], $hash, $expiresAt]);
+
+        $pdo->prepare(
+            "DELETE FROM api_tokens
+             WHERE user_id=?
+               AND id NOT IN (
+                   SELECT id FROM (
+                       SELECT id
+                       FROM api_tokens
+                       WHERE user_id=?
+                       ORDER BY id DESC
+                       LIMIT 20
+                   ) AS keep_tokens
+               )"
+        )->execute([(int)$u['id'], (int)$u['id']]);
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    Security::audit((int)$u['id'], 'api_login_success', [
+        'two_factor'=>(int)($u['telegram_2fa_enabled'] ?? 0) === 1,
+    ]);
+
+    return [
+        'ok'=>true,
+        'token'=>$token,
+        'token_type'=>'Bearer',
+        'expires_in'=>$ttl,
+        'user'=>[
+            'id'=>(int)$u['id'],
+            'name'=>$u['name'] ?: $u['username'],
+            'username'=>$u['username'],
+            'role'=>$u['role'],
+            'balance'=>$u['role'] === 'owner' ? null : (int)$u['balance'],
+            'balance_unlimited'=>$u['role'] === 'owner',
+        ],
+    ];
 }
 
 try {
