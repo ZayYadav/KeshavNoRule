@@ -98,6 +98,12 @@ try {
     }
     check($delayBlocked,'registration 15 second delay enforced server-side');
 
+    $legacyApi = request($guest,'/api/v1/license/validate',[
+        'key'=>'Team-Dark-ContractValidation9',
+        'device_id'=>'CONTRACT-DEVICE',
+    ]);
+    check($legacyApi['status']===404,'legacy public license API disabled by default');
+
     check(request($guest,'/assets/app.css')['status']===200,'stylesheet served');
     check(request($userClient,'/owner/settings')['status']!==200,'non-owner cannot read controls');
     check(request($userClient,'/activity')['status']!==200,'non-owner cannot read history');
