@@ -620,7 +620,11 @@ final class TelegramBot
             ."\nRole: ".self::h(strtoupper($u['role']))
             ."\nStatus: ".self::h($u['status'])
             ."\nBalance: ".self::h($u['role'] === 'owner' ? '∞' : (string)$u['balance'])
-            ."\nTelegram: ".self::h($u['telegram_chat_id'] ?: 'Not linked')
+            ."\nTelegram: ".self::h(
+                $u['telegram_chat_id']
+                    ? self::maskSecret((string)$u['telegram_chat_id'], 3, 3)
+                    : 'Not linked'
+            )
             ."\nCreated: ".self::h($u['created_at']);
 
         $keyboard = [];
@@ -657,7 +661,9 @@ final class TelegramBot
 
         foreach ($rows as $row) {
             $text .= self::h(TelegramService::displayName($row))
-                .' • <code>'.self::h($row['chat_id'])."</code>"
+                .' • <code>'.self::h(
+                    self::maskSecret((string)$row['chat_id'], 3, 3)
+                )."</code>"
                 .' • keys '.(int)$row['guest_key_count_db']
                 ."\n";
 
@@ -692,7 +698,9 @@ final class TelegramBot
         $keys = TelegramService::guestKeys($tgId, 5);
         $text = "✈️ <b>Telegram Guest</b>\n"
             ."Name: ".self::h(TelegramService::displayName($tg))
-            ."\nChat ID: <code>".self::h($tg['chat_id'])."</code>"
+            ."\nChat ID: <code>".self::h(
+                self::maskSecret((string)$tg['chat_id'], 3, 3)
+            )."</code>"
             ."\nUsername: ".self::h($tg['username'] ? '@'.$tg['username'] : '—')
             ."\nFirst seen: ".self::h($tg['first_seen_at'])
             ."\nLast seen: ".self::h($tg['last_seen_at'])
@@ -940,6 +948,14 @@ final class TelegramBot
             )->execute([$next, $targetId]);
             $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')
                 ->execute([$targetId]);
+
+            if ($next === 'disabled') {
+                $pdo->prepare(
+                    "UPDATE referral_invites
+                     SET status='revoked'
+                     WHERE created_by=? AND status='pending'"
+                )->execute([$targetId]);
+            }
 
             $pdo->commit();
 
