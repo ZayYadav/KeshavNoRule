@@ -179,15 +179,16 @@ final class KeyManager
 
             $pdo->prepare(
                 "INSERT INTO license_keys(
-                    owner_user_id,created_by,key_hash,key_cipher,key_iv,key_tag,
+                    owner_user_id,created_by,key_hash,key_hash_version,key_cipher,key_iv,key_tag,
                     label,game,duration_seconds,unlimited_expiry,
                     activated_at,expires_at,last_used_at,
                     max_devices,unlimited_devices,status
-                 ) VALUES(?,?,?,?,?,?,?,'PUBG',?,?,NULL,NULL,NULL,?,?,'unused')"
+                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',?,?,NULL,NULL,NULL,?,?,'unused')"
             )->execute([
                 $actor['id'],
                 $actor['id'],
                 Crypto::licenseLookupHash($plain),
+                2,
                 $cipher,
                 $iv,
                 $tag,
@@ -227,6 +228,10 @@ final class KeyManager
         array $ownerActor,
         int $telegramUserId
     ): array {
+        if (!(bool)Config::get('telegram_guest_free_keys_enabled', false)) {
+            throw new RuntimeException('Telegram guest free-key generation is disabled.');
+        }
+
         PanelControl::assertGeneration($ownerActor, true);
         if (($ownerActor['role'] ?? '') !== 'owner') {
             throw new RuntimeException('Owner authority is required.');
@@ -273,15 +278,16 @@ final class KeyManager
 
             $pdo->prepare(
                 "INSERT INTO license_keys(
-                    owner_user_id,created_by,key_hash,key_cipher,key_iv,key_tag,
+                    owner_user_id,created_by,key_hash,key_hash_version,key_cipher,key_iv,key_tag,
                     label,game,duration_seconds,unlimited_expiry,
                     activated_at,expires_at,last_used_at,
                     max_devices,unlimited_devices,status,key_source,telegram_user_id
-                 ) VALUES(?,?,?,?,?,?,?,'PUBG',7200,0,NULL,NULL,NULL,1,0,'unused','telegram_guest',?)"
+                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',7200,0,NULL,NULL,NULL,1,0,'unused','telegram_guest',?)"
             )->execute([
                 $ownerActor['id'],
                 $ownerActor['id'],
                 Crypto::licenseLookupHash($plain),
+                2,
                 $cipher,
                 $iv,
                 $tag,
@@ -600,14 +606,15 @@ final class KeyManager
 
         if ($customKey !== '') {
             if (
-                strlen($customKey) < 16
+                strlen($customKey) < 24
                 || strlen($customKey) > 80
                 || !preg_match('/^[A-Za-z0-9._-]+$/', $customKey)
-                || !preg_match('/[A-Za-z]/', $customKey)
+                || !preg_match('/[A-Z]/', $customKey)
+                || !preg_match('/[a-z]/', $customKey)
                 || !preg_match('/[0-9]/', $customKey)
             ) {
                 throw new RuntimeException(
-                    'Custom key must be 16–80 characters and include both letters and numbers.'
+                    'Custom key must be 24–80 characters and include uppercase, lowercase and numbers.'
                 );
             }
 
