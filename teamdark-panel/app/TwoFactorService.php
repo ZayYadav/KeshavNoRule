@@ -117,16 +117,19 @@ final class TwoFactorService
                 throw new RuntimeException('2FA activation key is invalid or expired.');
             }
 
-            $pdo->prepare(
+            $updateUser = $pdo->prepare(
                 'UPDATE users
                  SET telegram_2fa_enabled=1,
                      telegram_2fa_enabled_at=NOW(),
                      auth_version=auth_version+1
                  WHERE id=? AND telegram_chat_id IS NOT NULL'
-            )->execute([$userId]);
+            );
+            $updateUser->execute([$userId]);
 
-            if ($pdo->lastInsertId() === false) {
-                throw new RuntimeException('Could not update 2FA state.');
+            if ($updateUser->rowCount() !== 1) {
+                throw new RuntimeException(
+                    'Telegram link changed. Reload and try enabling 2FA again.'
+                );
             }
 
             $pdo->prepare(
