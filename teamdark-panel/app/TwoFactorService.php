@@ -253,7 +253,7 @@ final class TwoFactorService
         }
     }
 
-    public static function startLoginChallenge(array $user): array
+    public static function startLoginChallenge(array $user, bool $apiContinuation = false): array
     {
         $userId = (int)($user['id'] ?? 0);
         $chatId = (int)($user['telegram_chat_id'] ?? 0);
@@ -267,6 +267,12 @@ final class TwoFactorService
 
         $code = (string)random_int(10000000, 99999999);
         $hash = self::loginCodeHash($userId, $code);
+        $continuationToken = $apiContinuation
+            ? rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=')
+            : '';
+        $continuationHash = $continuationToken !== ''
+            ? Crypto::fingerprint('2fa-continuation|'.$userId.'|'.$continuationToken)
+            : null;
         $pdo = Database::pdo();
 
         $pdo->beginTransaction();
@@ -285,11 +291,12 @@ final class TwoFactorService
 
             $pdo->prepare(
                 'INSERT INTO login_2fa_challenges(
-                    user_id,code_hash,expires_at,attempts,created_ip
-                 ) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 5 MINUTE),0,?)'
+                    user_id,code_hash,continuation_hash,expires_at,attempts,created_ip
+                 ) VALUES(?,?,?,DATE_ADD(NOW(), INTERVAL 5 MINUTE),0,?)'
             )->execute([
                 $userId,
                 $hash,
+                $continuationHash,
                 Security::clientIp(),
             ]);
 
@@ -333,13 +340,15 @@ final class TwoFactorService
             'challenge_id'=>$challengeId,
             'user_id'=>$userId,
             'expires_ts'=>time() + self::LOGIN_TTL,
+            'continuation_token'=>$continuationToken,
         ];
     }
 
     public static function verifyLoginChallenge(
         int $challengeId,
         int $userId,
-        string $rawCode
+        string $rawCode,
+        string $continuationToken = ''
     ): array {
         $code = trim($rawCode);
 
@@ -376,6 +385,22 @@ final class TwoFactorService
                 || (int)$row['attempts'] >= self::MAX_LOGIN_ATTEMPTS
             ) {
                 throw new RuntimeException('Verification code is invalid or expired.');
+            }
+
+            if (!empty($row['continuation_hash'])) {
+                $providedContinuation = trim($continuationToken);
+                $expectedContinuation = $providedContinuation === ''
+                    ? ''
+                    : Crypto::fingerprint(
+                        '2fa-continuation|'.$userId.'|'.$providedContinuation
+                    );
+
+                if (
+                    $expectedContinuation === ''
+                    || !hash_equals((string)$row['continuation_hash'], $expectedContinuation)
+                ) {
+                    throw new RuntimeException('Verification continuation is invalid or expired.');
+                }
             }
 
             $expected = self::loginCodeHash($userId, $code);
