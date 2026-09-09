@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/cyber_bg_gradient">
+    android:background="@drawable/baba_bg">
+
+    <View
+        android:layout_width="210dp"
+        android:layout_height="210dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="-110dp"
+        android:layout_marginEnd="-86dp"
+        android:alpha="0.16"
+        android:background="@drawable/baba_primary_button" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -17,9 +26,9 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="20dp"
-            android:paddingTop="40dp"
+            android:paddingTop="34dp"
             android:paddingEnd="20dp"
-            android:paddingBottom="28dp">
+            android:paddingBottom="30dp">
 
             <LinearLayout
                 android:id="@+id/mainHeader"
@@ -28,292 +37,480 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
+                <FrameLayout
+                    android:layout_width="54dp"
+                    android:layout_height="54dp"
+                    android:background="@drawable/baba_panel_soft"
+                    android:padding="10dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="BABA DARK"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/icon" />
+                </FrameLayout>
+
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="13dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/tvMainTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif-black"
+                        android:text="BABA DARK"
+                        android:textColor="@color/baba_text"
+                        android:textSize="24sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:letterSpacing="0.16"
+                        android:text="LOADER / COMMAND CENTER"
+                        android:textColor="@color/baba_crimson"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:background="@drawable/baba_badge"
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:paddingStart="11dp"
+                    android:paddingEnd="11dp">
+
+                    <View
+                        android:layout_width="6dp"
+                        android:layout_height="6dp"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/circle_bg"
+                        android:backgroundTint="@color/baba_success" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="LIVE"
+                        android:textColor="@color/baba_success"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:background="@drawable/baba_panel"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.14"
+                    android:text="SESSION STATUS"
+                    android:textColor="@color/baba_gold"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="9dp"
+                    android:fontFamily="sans-serif-black"
+                    android:text="Runtime armed.\nReady when you are."
+                    android:textColor="@color/baba_text"
+                    android:textSize="25sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="9dp"
+                    android:lineSpacingExtra="3dp"
+                    android:text="Your private environment is prepared and waiting for launch."
+                    android:textColor="@color/baba_muted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/timerCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/baba_panel_soft"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="Timer"
+                        android:src="@drawable/ic_timer"
+                        app:tint="@color/baba_gold" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="9dp"
+                        android:layout_weight="1"
+                        android:text="ACCESS WINDOW"
+                        android:textColor="@color/baba_text"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvExpires"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Active"
+                        android:textColor="@color/baba_success"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="86dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/baba_time_tile"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvDays"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="sans-serif-black"
+                            android:text="00"
+                            android:textColor="@color/baba_text"
+                            android:textSize="25sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="DAYS"
+                            android:textColor="@color/baba_dim"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="8dp"
+                        android:layout_height="1dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="86dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/baba_time_tile"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvHours"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="sans-serif-black"
+                            android:text="00"
+                            android:textColor="@color/baba_text"
+                            android:textSize="25sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="HRS"
+                            android:textColor="@color/baba_dim"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="8dp"
+                        android:layout_height="1dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="86dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/baba_time_tile"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvMins"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="sans-serif-black"
+                            android:text="00"
+                            android:textColor="@color/baba_text"
+                            android:textSize="25sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="MIN"
+                            android:textColor="@color/baba_dim"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <Space
+                        android:layout_width="8dp"
+                        android:layout_height="1dp" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="86dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/baba_time_tile"
+                        android:gravity="center"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvSecs"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="sans-serif-black"
+                            android:text="00"
+                            android:textColor="@color/baba_crimson"
+                            android:textSize="25sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="SEC"
+                            android:textColor="@color/baba_dim"
+                            android:textSize="8sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/gameCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/baba_panel"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="@drawable/baba_secondary_button">
+
+                        <ImageView
+                            android:layout_width="23dp"
+                            android:layout_height="23dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="BGMI"
+                            android:src="@drawable/ic_gamepad"
+                            app:tint="@color/baba_gold" />
+                    </FrameLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="13dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="BGMI OPERATION"
+                            android:textColor="@color/baba_text"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Virtual space • runtime handoff"
+                            android:textColor="@color/baba_muted"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/baba_badge"
+                        android:paddingStart="10dp"
+                        android:paddingTop="5dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="5dp"
+                        android:text="READY"
+                        android:textColor="@color/baba_crimson"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <FrameLayout
+                    android:id="@+id/btnStartContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="68dp"
+                    android:layout_marginTop="20dp"
+                    android:background="@drawable/baba_primary_button"
+                    android:elevation="10dp">
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btnStart"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@android:color/transparent"
+                        android:drawableStart="@drawable/ic_power"
+                        android:drawablePadding="10dp"
+                        android:gravity="center"
+                        android:letterSpacing="0.10"
+                        android:text="START BGMI"
+                        android:textColor="#180709"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:drawableTint="#180709" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="AUTO SDK CHECK"
+                        android:textColor="@color/baba_dim"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="•"
+                        android:textColor="@color/baba_crimson"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="end"
+                        android:text="OBB HANDOFF"
+                        android:textColor="@color/baba_dim"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/tipsCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/baba_panel_soft"
+                android:orientation="horizontal"
+                android:padding="16dp">
+
+                <View
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:background="@color/baba_gold" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.12"
-                        android:text="SECURE DASHBOARD"
-                        android:textColor="@color/cyber_cyan"
+                        android:text="BEFORE LAUNCH"
+                        android:textColor="@color/baba_gold"
                         android:textSize="10sp"
                         android:textStyle="bold" />
 
                     <TextView
-                        android:id="@+id/tvMainTitle"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:fontFamily="sans-serif-black"
-                        android:text="BABA DARK LOADER"
-                        android:textColor="@color/white"
-                        android:textSize="25sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/cyber_badge_green"
-                    android:gravity="center_vertical"
-                    android:paddingStart="11dp"
-                    android:paddingTop="6dp"
-                    android:paddingEnd="11dp"
-                    android:paddingBottom="6dp">
-
-                    <View
-                        android:layout_width="7dp"
-                        android:layout_height="7dp"
-                        android:layout_marginEnd="6dp"
-                        android:background="@drawable/circle_bg"
-                        android:backgroundTint="@color/cyber_emerald" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="ACTIVE"
-                        android:textColor="@color/cyber_emerald"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:layout_marginTop="5dp"
+                        android:lineSpacingExtra="3dp"
+                        android:text="Keep BGMI installed and its OBB available. The loader will handle the rest automatically."
+                        android:textColor="@color/baba_muted"
+                        android:textSize="11sp" />
                 </LinearLayout>
             </LinearLayout>
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/timerCard"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="22dp"
-                app:cardBackgroundColor="#E60D1424"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="8dp"
-                app:strokeColor="#3300F0FF"
-                app:strokeWidth="1dp">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <View
+                    android:layout_width="28dp"
+                    android:layout_height="2dp"
+                    android:background="@color/baba_crimson" />
+
+                <TextView
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="18dp">
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:text="BABA DARK // COMMAND CENTER"
+                    android:textColor="@color/baba_dim"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Expiry timer"
-                            android:src="@drawable/ic_timer"
-                            app:tint="@color/cyber_cyan" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="9dp"
-                            android:layout_weight="1"
-                            android:text="LICENSE TIME LEFT"
-                            android:textColor="@color/text_muted"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tvExpires"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Active"
-                            android:textColor="@color/cyber_emerald"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:orientation="horizontal">
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="74dp"
-                            android:layout_marginEnd="4dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
-                            android:gravity="center"
-                            android:orientation="vertical">
-                            <TextView android:id="@+id/tvDays" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_purple" android:textSize="22sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="DAYS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="74dp"
-                            android:layout_marginStart="4dp"
-                            android:layout_marginEnd="4dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
-                            android:gravity="center"
-                            android:orientation="vertical">
-                            <TextView android:id="@+id/tvHours" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_pink" android:textSize="22sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="HOURS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="74dp"
-                            android:layout_marginStart="4dp"
-                            android:layout_marginEnd="4dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
-                            android:gravity="center"
-                            android:orientation="vertical">
-                            <TextView android:id="@+id/tvMins" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_cyan" android:textSize="22sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="MINS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="74dp"
-                            android:layout_marginStart="4dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
-                            android:gravity="center"
-                            android:orientation="vertical">
-                            <TextView android:id="@+id/tvSecs" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_emerald" android:textSize="22sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="SECS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
-                        </LinearLayout>
-                    </LinearLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/gameCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="#E60D1424"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="8dp"
-                app:strokeColor="#26FFFFFF"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="18dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="34dp"
-                            android:layout_height="34dp"
-                            android:contentDescription="Game"
-                            android:src="@drawable/ic_gamepad"
-                            app:tint="@color/cyber_cyan" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="BGMI secure container"
-                                android:textColor="@color/white"
-                                android:textSize="16sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="3dp"
-                                android:text="Environment ready • ARM64"
-                                android:textColor="@color/text_muted"
-                                android:textSize="11sp" />
-                        </LinearLayout>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:background="@drawable/cyber_badge_green"
-                            android:paddingStart="10dp"
-                            android:paddingTop="5dp"
-                            android:paddingEnd="10dp"
-                            android:paddingBottom="5dp"
-                            android:text="READY"
-                            android:textColor="@color/cyber_emerald"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <FrameLayout
-                        android:id="@+id/btnStartContainer"
-                        android:layout_width="match_parent"
-                        android:layout_height="58dp"
-                        android:layout_marginTop="18dp">
-
-                        <androidx.appcompat.widget.AppCompatButton
-                            android:id="@+id/btnStart"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:background="@drawable/cyber_btn_primary"
-                            android:letterSpacing="0.08"
-                            android:text="LAUNCH SECURE SESSION"
-                            android:textColor="@color/text_dark"
-                            android:textSize="14sp"
-                            android:textStyle="bold" />
-                    </FrameLayout>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tipsCard"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="#C90A1020"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="4dp"
-                app:strokeColor="#269D4EDD"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="SECURITY CORE"
-                        android:textColor="@color/cyber_purple"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:lineSpacingExtra="3dp"
-                        android:text="Native integrity hook enabled • screenshot protection enabled • optimized release build active."
-                        android:textColor="@color/text_muted"
-                        android:textSize="11sp" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                    android:text="02"
+                    android:textColor="@color/baba_gold"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
-</RelativeLayout>
+</FrameLayout>
