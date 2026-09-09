@@ -40,6 +40,8 @@ foreach ([
 
 try {
     Config::load($root);
+    Security::headers();
+    header('Content-Type: application/json; charset=utf-8');
 
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         http_response_code(405);
@@ -71,7 +73,17 @@ try {
     }
 
     $raw = file_get_contents('php://input') ?: '';
-    $update = json_decode($raw, true);
+    if (strlen($raw) > 1048576) {
+        http_response_code(413);
+        echo '{"ok":false}';
+        exit;
+    }
+
+    try {
+        $update = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+    } catch (JsonException) {
+        $update = null;
+    }
 
     if (!is_array($update)) {
         http_response_code(400);
