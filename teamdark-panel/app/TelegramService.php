@@ -70,16 +70,60 @@ final class TelegramService
         array $panelUser,
         string $rawChatId
     ): array {
+        $userId = (int)($panelUser['id'] ?? 0);
         $chatId = self::chatId($rawChatId);
+
+        if ($userId <= 0) {
+            throw new RuntimeException('Invalid panel account.');
+        }
+
+        Security::rateLimit(
+            'telegram-link-start-user',
+            6,
+            3600,
+            (string)$userId
+        );
+        Security::rateLimit(
+            'telegram-link-start-chat',
+            6,
+            3600,
+            (string)$chatId
+        );
+
         $pdo = Database::pdo();
 
         $q = $pdo->prepare(
-            "SELECT id,username
+            "SELECT id,username,status,telegram_chat_id,telegram_2fa_enabled
+             FROM users
+             WHERE id=?
+             LIMIT 1"
+        );
+        $q->execute([$userId]);
+        $fresh = $q->fetch();
+
+        if (!$fresh || $fresh['status'] !== 'active') {
+            throw new RuntimeException('Panel account is unavailable.');
+        }
+
+        if ((int)($fresh['telegram_2fa_enabled'] ?? 0) === 1) {
+            throw new RuntimeException(
+                'Disable Telegram 2FA before changing the linked Telegram account.'
+            );
+        }
+
+        if (!empty($fresh['telegram_chat_id'])) {
+            throw new RuntimeException(
+                'A Telegram account is already linked. Unlink it securely before linking another account.'
+            );
+        }
+
+        $q = $pdo->prepare(
+            "SELECT id
              FROM users
              WHERE telegram_chat_id=? AND id<>?
              LIMIT 1"
         );
-        $q->execute([$chatId, $panelUser['id']]);
+        $q->execute([$chatId, $userId]);
 
         if ($q->fetch()) {
             throw new RuntimeException(
@@ -90,11 +134,13 @@ final class TelegramService
         $pdo->prepare(
             "DELETE FROM telegram_link_tokens
              WHERE user_id=? OR expires_at<=NOW() OR used_at IS NOT NULL"
-        )->execute([$panelUser['id']]);
+        )->execute([$userId]);
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            $code = 'TDLINK-'.strtoupper(bin2hex(random_bytes(4)));
-            $hash = hash('sha256', $code);
+            $code = 'TDLINK-'.strtoupper(bin2hex(random_bytes(8)));
+            $hash = Crypto::fingerprint(
+                'telegram-link|'.$chatId.'|'.$code
+            );
 
             try {
                 $pdo->prepare(
@@ -102,9 +148,13 @@ final class TelegramService
                         user_id,chat_id,code_hash,expires_at
                      ) VALUES(?,?,?,DATE_ADD(NOW(), INTERVAL 15 MINUTE))"
                 )->execute([
-                    $panelUser['id'],
+                    $userId,
                     $chatId,
                     $hash,
+                ]);
+
+                Security::audit($userId, 'telegram_link_challenge_created', [
+                    'chat_id_suffix'=>substr((string)$chatId, -4),
                 ]);
 
                 return [
@@ -129,34 +179,64 @@ final class TelegramService
     ): array {
         $code = strtoupper(trim($code));
 
-        if (!preg_match('/^TDLINK-[A-F0-9]{8}$/', $code)) {
+        // Accept the previous 8-hex format only for already-issued,
+        // short-lived challenges during deployment. New challenges are 16 hex.
+        if (!preg_match('/^TDLINK-(?:[A-F0-9]{8}|[A-F0-9]{16})$/', $code)) {
             throw new RuntimeException('Invalid verification code.');
         }
+
+        Security::rateLimit(
+            'telegram-link-confirm-chat',
+            6,
+            900,
+            (string)$chatId
+        );
+
+        $keyedHash = Crypto::fingerprint(
+            'telegram-link|'.$chatId.'|'.$code
+        );
+        $legacyHash = hash('sha256', $code);
 
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
         try {
             $q = $pdo->prepare(
-                "SELECT t.*,u.username,u.status
+                "SELECT t.*,u.username,u.status,u.telegram_chat_id,
+                        u.telegram_2fa_enabled
                  FROM telegram_link_tokens t
                  JOIN users u ON u.id=t.user_id
-                 WHERE t.code_hash=?
+                 WHERE t.code_hash IN (?,?)
                    AND t.chat_id=?
                    AND t.used_at IS NULL
                    AND t.expires_at>NOW()
+                 ORDER BY CASE WHEN t.code_hash=? THEN 0 ELSE 1 END
                  LIMIT 1
                  FOR UPDATE"
             );
             $q->execute([
-                hash('sha256', $code),
+                $keyedHash,
+                $legacyHash,
                 $chatId,
+                $keyedHash,
             ]);
             $token = $q->fetch();
 
             if (!$token || $token['status'] !== 'active') {
                 throw new RuntimeException(
                     'Verification code is invalid or expired.'
+                );
+            }
+
+            if ((int)($token['telegram_2fa_enabled'] ?? 0) === 1) {
+                throw new RuntimeException(
+                    'Telegram 2FA is active. Disable it before changing Telegram.'
+                );
+            }
+
+            if (!empty($token['telegram_chat_id'])) {
+                throw new RuntimeException(
+                    'This panel account already has a linked Telegram account.'
                 );
             }
 
@@ -209,7 +289,8 @@ final class TelegramService
 
             $pdo->prepare(
                 "UPDATE users
-                 SET telegram_chat_id=?
+                 SET telegram_chat_id=?,
+                     auth_version=auth_version+1
                  WHERE id=?"
             )->execute([
                 $chatId,
@@ -241,15 +322,34 @@ final class TelegramService
                  WHERE id=?"
             )->execute([$token['id']]);
 
+            $pdo->prepare(
+                "DELETE FROM telegram_link_tokens
+                 WHERE user_id=? AND id<>?"
+            )->execute([
+                $token['user_id'],
+                $token['id'],
+            ]);
+
+            $pdo->prepare(
+                'DELETE FROM api_tokens WHERE user_id=?'
+            )->execute([$token['user_id']]);
+
+            $pdo->prepare(
+                'DELETE FROM login_2fa_challenges WHERE user_id=?'
+            )->execute([$token['user_id']]);
+
             $pdo->commit();
 
-            try {
-                Security::audit((int)$token['user_id'], 'telegram_linked', [
-                    'telegram_user_id'=>$telegramUserId,
-                    'chat_id_suffix'=>substr((string)$chatId, -4),
-                ]);
-            } catch (Throwable) {
-            }
+            Security::clearRateLimit(
+                'telegram-link-confirm-chat',
+                (string)$chatId
+            );
+
+            Security::audit((int)$token['user_id'], 'telegram_linked', [
+                'telegram_user_id'=>$telegramUserId,
+                'chat_id_suffix'=>substr((string)$chatId, -4),
+                'sessions_revoked'=>true,
+            ]);
 
             return [
                 'user_id'=>(int)$token['user_id'],
@@ -263,16 +363,26 @@ final class TelegramService
         }
     }
 
-    public static function unlink(array $panelUser, bool $force = false): void
-    {
+    public static function unlink(
+        array $panelUser,
+        bool $force = false,
+        ?int $actorUserId = null
+    ): void {
         $userId = (int)($panelUser['id'] ?? 0);
+        $actorUserId ??= $userId;
+
         $q = Database::pdo()->prepare(
-            'SELECT telegram_2fa_enabled FROM users WHERE id=? LIMIT 1'
+            'SELECT telegram_chat_id,telegram_2fa_enabled
+             FROM users WHERE id=? LIMIT 1'
         );
         $q->execute([$userId]);
-        $twoFactorEnabled = (int)$q->fetchColumn() === 1;
+        $fresh = $q->fetch();
 
-        if ($twoFactorEnabled && !$force) {
+        if (!$fresh || empty($fresh['telegram_chat_id'])) {
+            throw new RuntimeException('No Telegram account is linked.');
+        }
+
+        if ((int)$fresh['telegram_2fa_enabled'] === 1 && !$force) {
             throw new RuntimeException(
                 'Disable Telegram 2FA before unlinking Telegram.'
             );
@@ -292,7 +402,8 @@ final class TelegramService
                 "UPDATE users
                  SET telegram_chat_id=NULL,
                      telegram_2fa_enabled=0,
-                     telegram_2fa_enabled_at=NULL
+                     telegram_2fa_enabled_at=NULL,
+                     auth_version=auth_version+1
                  WHERE id=?"
             )->execute([$userId]);
 
@@ -305,15 +416,28 @@ final class TelegramService
             $pdo->prepare(
                 "DELETE FROM login_2fa_challenges WHERE user_id=?"
             )->execute([$userId]);
+            $pdo->prepare(
+                "DELETE FROM api_tokens WHERE user_id=?"
+            )->execute([$userId]);
+
+            $q = $pdo->prepare(
+                'SELECT auth_version FROM users WHERE id=? LIMIT 1'
+            );
+            $q->execute([$userId]);
+            $newVersion = max(1, (int)$q->fetchColumn());
+
             $pdo->commit();
 
-            $newVersion = Auth::bumpAuthVersion($userId, true);
-            Auth::refreshCurrentSessionVersion($userId, $newVersion);
+            Auth::refreshCurrentSessionVersion(
+                $userId,
+                $newVersion
+            );
 
-            try {
-                Security::audit((int)$panelUser['id'], 'telegram_unlinked');
-            } catch (Throwable) {
-            }
+            Security::audit($actorUserId, 'telegram_unlinked', [
+                'target_id'=>$userId,
+                'forced'=>$force,
+                'sessions_revoked'=>true,
+            ]);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
