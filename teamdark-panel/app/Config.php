@@ -54,6 +54,7 @@ final class Config
             'session_absolute_seconds' => max(1800, min(604800, (int)$get('SESSION_ABSOLUTE_SECONDS', '43200'))),
             'referrer_bonus' => max(0, (int)$get('REFERRER_BONUS', '5')),
             'signup_bonus' => max(0, (int)$get('SIGNUP_BONUS', '2')),
+            'registration_bonuses_enabled' => strtolower($get('REGISTRATION_BONUSES_ENABLED', 'false')) === 'true',
             // KEY_COST is treated as the price per started 24-hour period.
             'key_cost' => max(0, (int)$get('KEY_COST', '1')),
             'unlimited_key_cost' => max(0, (int)$get('UNLIMITED_KEY_COST', '100')),
