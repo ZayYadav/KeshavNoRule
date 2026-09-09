@@ -333,7 +333,7 @@ static bool verifyProcessMaps(
 
 } // namespace
 
-namespace keshav_integrity {
+namespace babadark_integrity {
 
 bool verify_server_loader(
         JNIEnv *env,
@@ -446,4 +446,4 @@ bool run(JNIEnv *env, jobject context) {
     return true;
 }
 
-} // namespace keshav_integrity
+} // namespace babadark_integrity
