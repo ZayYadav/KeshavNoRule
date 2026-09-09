@@ -285,6 +285,8 @@ function bearerUser(): array
         jsonOut(['ok'=>false, 'error'=>'Unauthorized'], 401);
     }
 
+    Security::rateLimit('api-bearer-ip', 300, 60);
+
     $hash = hash('sha256', $m[1]);
 
     $q = Database::pdo()->prepare(
@@ -456,14 +458,28 @@ try {
     }
 
     if ($path === '/api/v1/me' && $method === 'GET') {
+        $apiUser = bearerUser();
+        Security::rateLimit(
+            'api-me-user',
+            120,
+            60,
+            (string)$apiUser['id']
+        );
+
         jsonOut([
             'ok'=>true,
-            'user'=>bearerUser(),
+            'user'=>$apiUser,
         ]);
     }
 
     if ($path === '/api/v1/licenses' && $method === 'GET') {
         $u = bearerUser();
+        Security::rateLimit(
+            'api-license-list-user',
+            30,
+            60,
+            (string)$u['id']
+        );
         $rows = KeyManager::visibleKeys($u, 'all');
         $out = [];
 
@@ -834,6 +850,18 @@ try {
                 throw new RuntimeException('Invalid referral role.');
             }
 
+            if (!in_array(
+                $invite['role'],
+                ReferralManager::allowedRoles([
+                    'role'=>$invite['creator_role'],
+                ]),
+                true
+            )) {
+                throw new RuntimeException(
+                    'This referral is no longer authorized by its creator role.'
+                );
+            }
+
             $signup = (int)Config::get('signup_bonus');
             $bonus = (int)Config::get('referrer_bonus');
 
@@ -955,13 +983,13 @@ try {
 
     if (
         $method === 'POST'
-        && ($user['role'] ?? '') === 'owner'
+        && in_array(($user['role'] ?? ''), ['owner','admin'], true)
         && in_array($path, $ownerFreshAuthRoutes, true)
         && !Auth::recentlyAuthenticated(300)
     ) {
         Auth::logout();
         Security::startSession();
-        flash('err', 'Fresh sign-in required for this owner security action.');
+        flash('err', 'Fresh sign-in required for this privileged security action.');
         redirectTo('/login');
     }
 
@@ -1791,14 +1819,7 @@ try {
                 && $row['role'] !== 'owner'
                 && (int)$row['id'] !== (int)$user['id'];
 
-            $adjust = $canAdjust && $user['role'] !== 'owner'
-                ? '<form method="post" action="/users/balance" class="inline balance-form">'
-                    .View::csrf()
-                    .'<input type="hidden" name="user_id" value="'.(int)$row['id'].'">'
-                    .'<input name="amount" type="number" required placeholder="± credits">'
-                    .'<button class="ghost compact" data-action="Update balance">Apply</button>'
-                    .'</form>'
-                : ($isOwnerTarget
+            $adjust = $isOwnerTarget
                     ? '<button type="button" class="ghost compact" data-open-modal="owner-user" data-user-manage'
                         .' data-user-id="'.(int)$row['id'].'"'
                         .' data-user-name="'.View::e($row['name'] ?: $row['username']).'"'
@@ -1808,7 +1829,7 @@ try {
                         .' data-user-balance="'.View::e($rowBalance).'"'
                         .' data-user-telegram="'.View::e($row['telegram_chat_id'] ?: '').'"'
                         .' data-user-2fa="'.((int)($row['telegram_2fa_enabled'] ?? 0) === 1 ? 'enabled' : 'off').'">Manage</button>'
-                    : '<span class="muted">Protected</span>');
+                    : '<span class="muted">Protected</span>';
 
             $telegramCell = $row['telegram_chat_id']
                 ? (
@@ -2000,6 +2021,15 @@ try {
             $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
                 $target['id'],
             ]);
+
+            if ($status === 'disabled') {
+                $pdo->prepare(
+                    "UPDATE referral_invites
+                     SET status='revoked'
+                     WHERE created_by=? AND status='pending'"
+                )->execute([$target['id']]);
+            }
+
             $pdo->commit();
             Security::audit((int)$user['id'], 'user_status_changed', [
                 'target_id'=>(int)$target['id'],
@@ -2023,14 +2053,43 @@ try {
             if (!in_array($role, ['admin','reseller','user'], true)) {
                 throw new RuntimeException('Invalid account role.');
             }
-            Database::pdo()->prepare(
-                'UPDATE users SET role=? WHERE id=?'
+            $pdo = Database::pdo();
+            $pdo->beginTransaction();
+
+            $pdo->prepare(
+                'UPDATE users
+                 SET role=?,auth_version=auth_version+1
+                 WHERE id=?'
             )->execute([$role, $target['id']]);
-            Auth::bumpAuthVersion((int)$target['id'], true);
+
+            $pdo->prepare(
+                'DELETE FROM api_tokens WHERE user_id=?'
+            )->execute([$target['id']]);
+
+            if ($role === 'admin') {
+                $pdo->prepare(
+                    "UPDATE referral_invites
+                     SET status='revoked'
+                     WHERE created_by=?
+                       AND status='pending'
+                       AND role<>'user'"
+                )->execute([$target['id']]);
+            } else {
+                $pdo->prepare(
+                    "UPDATE referral_invites
+                     SET status='revoked'
+                     WHERE created_by=? AND status='pending'"
+                )->execute([$target['id']]);
+            }
+
+            $pdo->commit();
+
             Security::audit((int)$user['id'], 'user_role_changed', [
                 'target_id'=>(int)$target['id'],
                 'from'=>$target['role'],
                 'to'=>$role,
+                'sessions_revoked'=>true,
+                'stale_invites_revoked'=>true,
             ]);
             flash('ok', '@'.$target['username'].' is now '.ucfirst($role).'.');
         } catch (Throwable $e) {
@@ -2090,7 +2149,11 @@ try {
             if (!$target['telegram_chat_id']) {
                 throw new RuntimeException('This user has no linked Telegram account.');
             }
-            TelegramService::unlink($target, true);
+            TelegramService::unlink(
+                $target,
+                true,
+                (int)$user['id']
+            );
             Security::audit((int)$user['id'], 'user_telegram_reset', [
                 'target_id'=>(int)$target['id'],
             ]);
@@ -2201,21 +2264,19 @@ try {
 
     if ($path === '/users/balance' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
-        Auth::requireRole($user, 'admin');
+        Auth::requireRole($user, 'owner');
 
         $targetId = (int)($_POST['user_id'] ?? 0);
 
         $amount = parseBalanceDelta(
             input('amount'),
-            $user['role'] === 'owner'
+            true
         );
 
         if ($amount === null) {
             flash(
                 'err',
-                $user['role'] === 'owner'
-                    ? 'Enter a valid non-zero balance adjustment.'
-                    : 'Admin adjustment must be between -100000 and 100000.'
+                'Enter a valid non-zero balance adjustment.'
             );
             redirectTo('/users');
         }
