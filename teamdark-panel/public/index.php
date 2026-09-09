@@ -863,8 +863,13 @@ try {
                 );
             }
 
-            $signup = (int)Config::get('signup_bonus');
-            $bonus = (int)Config::get('referrer_bonus');
+            // Only Owner-issued invitations may bootstrap configured
+            // signup credit. Lower privileged inviters cannot mint credits by
+            // mass-registering accounts.
+            $signup = $invite['creator_role'] === 'owner'
+                ? (int)Config::get('signup_bonus')
+                : 0;
+            $bonus = 0;
 
             $pdo->prepare(
                 "INSERT INTO users(
