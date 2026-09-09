@@ -391,9 +391,21 @@ final class Security
 
     public static function clearRateLimit(string $bucket, ?string $subject = null): void
     {
-        Database::pdo()->prepare(
-            'DELETE FROM rate_limits WHERE bucket_hash=?'
-        )->execute([self::rateLimitHash($bucket, $subject)]);
+        $identity = self::rateLimitHash($bucket, $subject);
+
+        if (function_exists('apcu_delete')) {
+            @apcu_delete('tdrl:'.$identity);
+        }
+
+        try {
+            Database::pdo()->prepare(
+                'DELETE FROM rate_limits WHERE bucket_hash=?'
+            )->execute([$identity]);
+        } catch (\Throwable $e) {
+            error_log(
+                'TeamDark rate-limit clear failed: '.get_class($e)
+            );
+        }
     }
 
     public static function audit(?int $userId, string $action, array $meta = []): void
