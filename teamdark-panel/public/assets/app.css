@@ -96,3 +96,18 @@ button:active,.btn:active{transform:translateY(1px)}.modal-section .eyebrow{disp
 @media(max-width:900px){.auth-layout{grid-template-columns:1fr;gap:0}.auth-intro{display:none}.auth-layout .auth{max-width:520px}.history-filters{grid-template-columns:1fr 1fr}.sidebar{width:280px}}
 @media(max-width:600px){.history-filters{grid-template-columns:1fr}.setting-row{gap:14px}.profile-chip{display:none}.key-line{flex-wrap:wrap}.topbar .breadcrumb{font-size:12px}.history-pager a{flex:1}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+
+/* Telegram 2FA + registration confirmation */
+.security-card{min-height:250px}.security-detail{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:16px 0;padding:13px 14px;border:1px solid rgba(94,234,212,.14);border-radius:12px;background:rgba(94,234,212,.035)}
+.security-detail span{color:var(--muted);font-size:12px}.security-detail strong{font-size:12px;color:#cafff3}
+.twofa-login-card{max-width:500px}.twofa-delivery,.countdown-panel{display:flex;align-items:center;gap:14px;margin:18px 0;padding:15px;border:1px solid rgba(94,234,212,.16);border-radius:14px;background:linear-gradient(110deg,rgba(94,234,212,.055),rgba(96,165,250,.025))}
+.twofa-delivery>div,.countdown-panel>div{display:grid;gap:3px}.twofa-delivery strong,.countdown-panel strong{font-size:13px}.twofa-delivery small,.countdown-panel small{font-size:11px;color:var(--muted)}
+.security-orb{width:48px;height:48px;flex:0 0 auto;display:grid;place-items:center;border-radius:14px;border:1px solid rgba(94,234,212,.22);background:linear-gradient(145deg,rgba(94,234,212,.15),rgba(96,165,250,.08));color:#cafff3;font-weight:900;letter-spacing:.02em}
+.otp-input{text-align:center!important;font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace!important;font-size:24px!important;font-weight:800!important;letter-spacing:.32em!important;padding-left:calc(12px + .32em)!important}
+.twofa-resend{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.twofa-resend>*{flex:1}
+.registration-success{max-width:620px}.registration-success .card{padding:clamp(24px,4vw,36px)}.success-mark{width:60px;height:60px;display:grid;place-items:center;margin-bottom:18px;border-radius:18px;background:linear-gradient(135deg,var(--cyan),#91bfff);color:#04110f;font-size:27px;font-weight:950;box-shadow:0 18px 45px rgba(45,212,191,.18)}
+.registration-summary{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:20px 0}.registration-summary>div{display:grid;gap:5px;padding:13px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.018)}
+.registration-summary span{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)}.registration-summary strong{font-size:13px;overflow-wrap:anywhere}
+.countdown-action.is-disabled{opacity:.42;pointer-events:none;filter:saturate(.45);cursor:not-allowed}
+@media(max-width:600px){.registration-summary{grid-template-columns:1fr}.otp-input{font-size:20px!important;letter-spacing:.22em!important}.twofa-resend{display:grid}.twofa-resend>*{width:100%}}
