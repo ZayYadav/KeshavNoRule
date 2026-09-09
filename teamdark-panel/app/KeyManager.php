@@ -599,15 +599,20 @@ final class KeyManager
         $customKey = trim($customKey);
 
         if ($customKey !== '') {
+            $uniqueChars = count(array_unique(
+                str_split(strtolower($customKey))
+            ));
+
             if (
-                strlen($customKey) < 16
+                strlen($customKey) < 20
                 || strlen($customKey) > 80
                 || !preg_match('/^[A-Za-z0-9._-]+$/', $customKey)
                 || !preg_match('/[A-Za-z]/', $customKey)
                 || !preg_match('/[0-9]/', $customKey)
+                || $uniqueChars < 8
             ) {
                 throw new RuntimeException(
-                    'Custom key must be 16–80 characters and include both letters and numbers.'
+                    'Custom key must be 20–80 characters, include letters and numbers, and use at least 8 distinct characters.'
                 );
             }
 
