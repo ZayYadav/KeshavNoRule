@@ -60,19 +60,21 @@ final class View
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             .'<title>'.$safeTitle.' • '.$app.'</title>'
-            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-5">'
+            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-6">'
             .'<meta name="theme-color" content="#05070b">'
             .'<meta name="color-scheme" content="dark"></head>';
 
         if (!$user) {
-            echo $head.'<body data-teamdark-ui="4" class="guest-body">'
-                .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>'
+            echo $head.'<body data-teamdark-ui="5" class="guest-body">'
+                .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
+                .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
+                .'<div class="cursor-aura" aria-hidden="true"></div>'
                 .'<main class="guest-main"><a class="guest-brand" href="/" aria-label="'.$app.' home">'
                 .'<span class="brand-mark"><b>TD</b><i></i></span>'
                 .'<span><strong>'.$app.'</strong><small>Secure control plane</small></span></a>'
                 .(in_array($path, ['/login','/login/2fa','/register','/register/success'], true)
                     ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
-                    : $body).'</main><script src="/assets/app.js?v=20260909-5" defer></script></body></html>';
+                    : $body).'</main><script src="/assets/app.js?v=20260909-6" defer></script></body></html>';
             return;
         }
 
@@ -112,8 +114,10 @@ final class View
         if (!$settings['panel_online']) {
             $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
         }
-        echo $head.'<body data-teamdark-ui="4">'
-            .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>'
+        echo $head.'<body data-teamdark-ui="5">'
+            .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
+            .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
+            .'<div class="cursor-aura" aria-hidden="true"></div>'
             .'<div class="app-layout"><aside class="sidebar" id="app-sidebar" aria-label="Primary navigation">'
             .'<a class="sidebar-brand" href="/dashboard"><span class="brand-mark"><b>TD</b><i></i></span>'
             .'<span><strong>'.$app.'</strong><small>'.self::e(ucfirst($user['role'])).' console</small></span></a>'
@@ -127,11 +131,11 @@ final class View
             .'<button class="mobile-menu" type="button" data-sidebar-toggle aria-controls="app-sidebar" aria-expanded="false">'
             .self::icon('menu').'<span>Menu</span></button><div class="breadcrumb"><span>TeamDark</span>'
             .self::icon('chevron').'<strong>'.$safeTitle.'</strong></div></div>'
-            .'<div class="topbar-right"><div class="secure-pill"><span></span>Protected</div>'
+            .'<div class="topbar-right"><div class="secure-pill"><span></span><b>Protected</b><i>Live security</i></div>'
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'
             .'<main class="page-content">'.$notice.$body.'</main>'
-            .'<footer><span>TeamDark secure control plane</span><span>Session encrypted</span></footer>'
-            .'</div></div><script src="/assets/app.js?v=20260909-5" defer></script></body></html>';
+            .'<footer><span><i class="footer-dot"></i> TeamDark secure control plane</span><span>Session encrypted • Premium UI</span></footer>'
+            .'</div></div><script src="/assets/app.js?v=20260909-6" defer></script></body></html>';
     }
 
     public static function csrf(): string
