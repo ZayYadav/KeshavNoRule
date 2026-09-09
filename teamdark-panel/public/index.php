@@ -964,6 +964,8 @@ try {
         '/owner/settings',
         '/owner/announcements/create',
         '/owner/announcements/clear',
+        '/owner/telegram-mutations/unlock',
+        '/owner/telegram-mutations/lock',
         '/telegram/unlink',
         '/keys/create',
         '/keys/action',
@@ -1061,6 +1063,43 @@ try {
         }
 
         redirectTo('/owner/settings#announcements');
+    }
+
+    if (
+        in_array(
+            $path,
+            [
+                '/owner/telegram-mutations/unlock',
+                '/owner/telegram-mutations/lock',
+            ],
+            true
+        )
+        && $method === 'POST'
+    ) {
+        Auth::requireRole($user, 'owner');
+        Security::rateLimit(
+            'owner-telegram-mutation-window',
+            12,
+            3600,
+            (string)$user['id']
+        );
+
+        try {
+            PanelControl::setTelegramOwnerMutationWindow(
+                $user,
+                $path === '/owner/telegram-mutations/unlock'
+            );
+            flash(
+                'ok',
+                $path === '/owner/telegram-mutations/unlock'
+                    ? 'Telegram Owner mutations approved for 5 minutes.'
+                    : 'Telegram Owner mutations locked.'
+            );
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/owner/settings');
     }
 
     if ($path === '/owner/settings' && $method === 'POST') {
