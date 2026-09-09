@@ -115,7 +115,14 @@ jobs:
           LEGACY_LICENSE_API_ENABLED="false"
           API_REVEAL_LICENSE_KEYS="false"
           TELEGRAM_OWNER_MUTATIONS_ENABLED="false"
+          TELEGRAM_OWNER_SENSITIVE_READS_ENABLED="false"
           TELEGRAM_LINKED_KEY_GENERATION_ENABLED="false"
+          TELEGRAM_GUEST_FREE_KEYS_ENABLED="true"
+          ADMIN_BALANCE_ADJUSTMENTS_ENABLED="false"
+          ADMIN_BALANCE_DAILY_LIMIT="10000"
+          ADMIN_REFERRAL_BONUS_ENABLED="false"
+          AUDIT_RETENTION_DAYS="90"
+          BROADCAST_RETENTION_DAYS="30"
           TRUSTED_PROXY_CIDRS=""
           EOF
 
@@ -195,6 +202,9 @@ jobs:
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_2fa_enabled_at';" | grep -F 'telegram_2fa_enabled_at' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'auth_version';" | grep -F 'auth_version' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'login_not_before';" | grep -F 'login_not_before' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM referral_invites LIKE 'expires_at';" | grep -F 'expires_at' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'key_hash_version';" | grep -F 'key_hash_version' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM login_2fa_challenges LIKE 'continuation_hash';" | grep -F 'continuation_hash' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'telegram_2fa_activation_tokens';" | grep -F 'telegram_2fa_activation_tokens' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'login_2fa_challenges';" | grep -F 'login_2fa_challenges' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'key_source';" | grep -F 'key_source' >/dev/null
