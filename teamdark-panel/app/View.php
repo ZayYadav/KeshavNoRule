@@ -47,6 +47,41 @@ final class View
             .($active ? '<i></i>' : '').'</a>';
     }
 
+    private static function splash(array $settings): string
+    {
+        if (!(bool)($settings['splash_enabled'] ?? false)) {
+            return '';
+        }
+
+        $version = (string)max(1, (int)($settings['splash_version'] ?? 1));
+        if ((string)($_COOKIE['TD_SPLASH'] ?? '') === $version) {
+            return '';
+        }
+
+        $duration = (int)($settings['splash_duration_ms'] ?? 2400);
+        if (!in_array($duration, [1400,2000,2400,3200,4200], true)) {
+            $duration = 2400;
+        }
+
+        $title = self::e((string)($settings['splash_title'] ?? 'TEAM DARK'));
+        $subtitle = self::e((string)($settings['splash_subtitle'] ?? 'Secure control plane'));
+
+        return '<div class="td-splash" data-site-splash data-splash-version="'.self::e($version).'" data-splash-duration="'.$duration.'" role="status" aria-live="polite">'
+            .'<div class="td-splash-grid" aria-hidden="true"></div>'
+            .'<div class="td-splash-glow td-splash-glow-a" aria-hidden="true"></div>'
+            .'<div class="td-splash-glow td-splash-glow-b" aria-hidden="true"></div>'
+            .'<div class="td-splash-stage">'
+            .'<div class="td-splash-orbit" aria-hidden="true"><i></i><i></i><i></i></div>'
+            .'<div class="td-splash-logo"><span>TD</span><i></i></div>'
+            .'<div class="td-splash-kicker"><i></i> SECURE ACCESS INITIALIZING <i></i></div>'
+            .'<h1>'.$title.'</h1>'
+            .'<p>'.$subtitle.'</p>'
+            .'<div class="td-splash-progress"><span></span></div>'
+            .'<div class="td-splash-foot"><span><i></i> Protected workspace</span>'
+            .'<button type="button" data-splash-skip>Enter now</button></div>'
+            .'</div></div>';
+    }
+
     public static function page(string $title, string $body, ?array $user = null): void
     {
         $app = self::e(Config::get('app_name'));
@@ -56,6 +91,8 @@ final class View
             ?: '/'
         );
         $csrf = self::e(Security::csrfToken());
+        $settings = PanelControl::settings();
+        $splash = self::splash($settings);
 
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
@@ -65,7 +102,7 @@ final class View
             .'<meta name="color-scheme" content="dark"></head>';
 
         if (!$user) {
-            echo $head.'<body data-teamdark-ui="5" class="guest-body">'
+            echo $head.'<body data-teamdark-ui="5" class="guest-body">'.$splash
                 .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
                 .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
                 .'<div class="cursor-aura" aria-hidden="true"></div>'
@@ -99,7 +136,6 @@ final class View
             $nav .= '</div>';
         }
 
-        $settings = PanelControl::settings();
         $notice = '';
 
         if (($settings['announcement'] ?? '') !== '') {
@@ -114,7 +150,7 @@ final class View
         if (!$settings['panel_online']) {
             $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
         }
-        echo $head.'<body data-teamdark-ui="5">'
+        echo $head.'<body data-teamdark-ui="5">'.$splash
             .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
             .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
             .'<div class="cursor-aura" aria-hidden="true"></div>'
