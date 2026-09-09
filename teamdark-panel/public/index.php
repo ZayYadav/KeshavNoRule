@@ -711,11 +711,13 @@ try {
             .'<h1>Welcome to Team Dark</h1>'
             .'<p class="muted">Review your account details before continuing to login.</p>'
             .'<div class="registration-summary">'
+            .'<div><span>User ID</span><strong>#'.View::e((string)$state['user_id']).'</strong></div>'
             .'<div><span>Name</span><strong>'.View::e($state['name']).'</strong></div>'
             .'<div><span>Username</span><strong>@'.View::e($state['username']).'</strong></div>'
             .'<div><span>Role</span><strong>'.View::e(strtoupper((string)$state['role'])).'</strong></div>'
             .'<div><span>Referral used</span><strong class="key">'.View::e($state['referral']).'</strong></div>'
             .'<div><span>Signup balance</span><strong>'.View::e((string)$state['signup_bonus']).' credits</strong></div>'
+            .'<div><span>Created</span><strong>'.View::e((string)$state['created_at']).'</strong></div>'
             .'<div><span>Password</span><strong>Saved securely • not displayed</strong></div>'
             .'</div>'
             .'<div class="countdown-panel"><span class="security-orb">15</span>'
@@ -900,11 +902,13 @@ try {
         }
 
         $_SESSION['registration_success'] = [
+            'user_id'=>$uid,
             'name'=>$name,
             'username'=>$username,
             'role'=>$invite['role'],
             'referral'=>$ref,
             'signup_bonus'=>$signup,
+            'created_at'=>date('Y-m-d H:i:s'),
             'created_ts'=>time(),
         ];
 
