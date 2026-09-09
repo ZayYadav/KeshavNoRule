@@ -51,6 +51,7 @@ final class Config
             'session_name' => $get('SESSION_NAME', 'TDSESSID'),
             'session_idle_seconds' => max(300, (int)$get('SESSION_IDLE_SECONDS', '1800')),
             'session_rotate_seconds' => max(300, (int)$get('SESSION_ROTATE_SECONDS', '900')),
+            'session_absolute_seconds' => max(1800, min(604800, (int)$get('SESSION_ABSOLUTE_SECONDS', '43200'))),
             'referrer_bonus' => max(0, (int)$get('REFERRER_BONUS', '5')),
             'signup_bonus' => max(0, (int)$get('SIGNUP_BONUS', '2')),
             // KEY_COST is treated as the price per started 24-hour period.
