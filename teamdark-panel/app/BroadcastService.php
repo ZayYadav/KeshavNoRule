@@ -157,6 +157,16 @@ final class BroadcastService
                AND updated_at<DATE_SUB(NOW(),INTERVAL 10 MINUTE)"
         )->execute([$broadcastId]);
 
+        $pdo->prepare(
+            "UPDATE announcement_recipients
+             SET status='failed',
+                 last_error='Retry limit reached',
+                 updated_at=NOW()
+             WHERE broadcast_id=?
+               AND status='pending'
+               AND attempts>=?"
+        )->execute([$broadcastId, self::MAX_ATTEMPTS]);
+
         $q = $pdo->prepare(
             "SELECT id,chat_id,attempts
              FROM announcement_recipients
