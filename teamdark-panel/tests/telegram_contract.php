@@ -114,6 +114,10 @@ TelegramService::confirmLink(
     (int)$tg['id']
 );
 
+if (!preg_match('/^TDLINK-[A-F0-9]{24}$/', $challenge['code'])) {
+    throw new RuntimeException('Telegram link code entropy/format failed.');
+}
+
 $q = $pdo->prepare(
     "SELECT telegram_chat_id FROM users WHERE id=?"
 );
@@ -149,6 +153,16 @@ $q = $pdo->prepare(
 $q->execute([$userId]);
 $linkedUser = $q->fetch();
 
+$relinkBlocked = false;
+try {
+    TelegramService::createLinkChallenge($linkedUser, '7000000002');
+} catch (RuntimeException $e) {
+    $relinkBlocked = str_contains($e->getMessage(), 'already linked');
+}
+if (!$relinkBlocked) {
+    throw new RuntimeException('Telegram relink protection failed.');
+}
+
 $activation = TwoFactorService::createActivationToken($linkedUser);
 
 if (!preg_match('/^TD2FA-[A-F0-9]{12}$/', $activation['code'])) {
@@ -168,19 +182,39 @@ if ((int)$q->fetchColumn() !== 1) {
 
 $loginCode = '48372615';
 $loginHash = TwoFactorService::loginCodeHash($userId, $loginCode);
+$continuation = 'contract-continuation-token-123456789';
+$continuationHash = Crypto::fingerprint(
+    '2fa-continuation|'.$userId.'|'.$continuation
+);
 
 $pdo->prepare(
     "INSERT INTO login_2fa_challenges(
-        user_id,code_hash,expires_at,attempts,created_ip
-     ) VALUES(?,?,DATE_ADD(NOW(),INTERVAL 5 MINUTE),0,'127.0.0.1')"
-)->execute([$userId, $loginHash]);
+        user_id,code_hash,continuation_hash,expires_at,attempts,created_ip
+     ) VALUES(?,?,?,DATE_ADD(NOW(),INTERVAL 5 MINUTE),0,'127.0.0.1')"
+)->execute([$userId, $loginHash, $continuationHash]);
 
 $challengeId = (int)$pdo->lastInsertId();
+
+$wrongContinuationBlocked = false;
+try {
+    TwoFactorService::verifyLoginChallenge(
+        $challengeId,
+        $userId,
+        $loginCode,
+        'wrong-continuation'
+    );
+} catch (RuntimeException $e) {
+    $wrongContinuationBlocked = str_contains($e->getMessage(), 'continuation');
+}
+if (!$wrongContinuationBlocked) {
+    throw new RuntimeException('API 2FA continuation binding failed.');
+}
 
 $verified = TwoFactorService::verifyLoginChallenge(
     $challengeId,
     $userId,
-    $loginCode
+    $loginCode,
+    $continuation
 );
 
 if ((int)$verified['id'] !== $userId) {
@@ -192,7 +226,8 @@ try {
     TwoFactorService::verifyLoginChallenge(
         $challengeId,
         $userId,
-        $loginCode
+        $loginCode,
+        $continuation
     );
 } catch (RuntimeException $e) {
     $reused = str_contains($e->getMessage(), 'invalid or expired');
