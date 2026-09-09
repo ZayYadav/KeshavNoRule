@@ -23,6 +23,16 @@ assert_false_reason() {
     || fail "expected reason '$reason', got: $json"
 }
 
+lookup_hash() {
+  local key="$1"
+  php -r '
+    require "teamdark-panel/app/Config.php";
+    require "teamdark-panel/app/Crypto.php";
+    \TeamDark\Panel\Config::load("teamdark-panel");
+    echo \TeamDark\Panel\Crypto::licenseLookupHash($argv[1]);
+  ' "$key"
+}
+
 TIMED="$(jq -r .timed "$FIXTURE")"
 UNLIMITED="$(jq -r .unlimited "$FIXTURE")"
 DISABLED="$(jq -r .disabled "$FIXTURE")"
@@ -81,14 +91,15 @@ ACTUAL="$(echo "$R" | jq -r '.data.token')"
 R2="$(post_form --data-urlencode "game=PUBG" --data-urlencode "user_key=$TIMED" --data-urlencode "serial=$SERIAL1")"
 echo "$R2" | jq -e '.status == true' >/dev/null || fail "same serial second login failed"
 
-HASH_TIMED="$(printf '%s' "$TIMED" | sha256sum | awk '{print $1}')"
-COUNT="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT COUNT(*) FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash='$HASH_TIMED' AND d.active=1")"
+HASH_TIMED_LEGACY="$(printf '%s' "$TIMED" | sha256sum | awk '{print $1}')"
+HASH_TIMED_HMAC="$(lookup_hash "$TIMED")"
+COUNT="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT COUNT(*) FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash IN('$HASH_TIMED_LEGACY','$HASH_TIMED_HMAC') AND d.active=1")"
 [[ "$COUNT" == "1" ]] || fail "same serial consumed duplicate slot: $COUNT"
 
-STORED_SERIAL="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT d.serial FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash='$HASH_TIMED' LIMIT 1")"
+STORED_SERIAL="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT d.serial FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash IN('$HASH_TIMED_LEGACY','$HASH_TIMED_HMAC') LIMIT 1")"
 [[ "$STORED_SERIAL" == h:* ]] || fail "raw device serial stored in database"
 
-STORED_IP="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT d.ip_address FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash='$HASH_TIMED' LIMIT 1")"
+STORED_IP="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT d.ip_address FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash IN('$HASH_TIMED_LEGACY','$HASH_TIMED_HMAC') LIMIT 1")"
 [[ "$STORED_IP" == h:* ]] || fail "raw device IP stored in database"
 
 # 8. New serial within limit
@@ -138,11 +149,12 @@ wait
 SUCCESS="$(jq -s '[.[] | select(.status == true)] | length' "$TMP1"/*.json)"
 [[ "$SUCCESS" == "10" ]] || fail "simultaneous first-use success count: $SUCCESS"
 
-HASH_RACE_ACT="$(printf '%s' "$RACE_ACT" | sha256sum | awk '{print $1}')"
-DEVICE_COUNT="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT COUNT(*) FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash='$HASH_RACE_ACT' AND d.active=1")"
+HASH_RACE_ACT_LEGACY="$(printf '%s' "$RACE_ACT" | sha256sum | awk '{print $1}')"
+HASH_RACE_ACT_HMAC="$(lookup_hash "$RACE_ACT")"
+DEVICE_COUNT="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT COUNT(*) FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash IN('$HASH_RACE_ACT_LEGACY','$HASH_RACE_ACT_HMAC') AND d.active=1")"
 [[ "$DEVICE_COUNT" == "1" ]] || fail "first-use race created $DEVICE_COUNT devices"
 
-ACTIVATED="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT activated_at IS NOT NULL FROM license_keys WHERE key_hash='$HASH_RACE_ACT'")"
+ACTIVATED="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT activated_at IS NOT NULL FROM license_keys WHERE key_hash IN('$HASH_RACE_ACT_LEGACY','$HASH_RACE_ACT_HMAC')")"
 [[ "$ACTIVATED" == "1" ]] || fail "race key was not activated"
 
 # 19. Simultaneous distinct device registrations with max_devices=5.
@@ -163,8 +175,9 @@ LIMITED="$(jq -s '[.[] | select(.status == false and .reason == "Device Limit Re
 [[ "$SUCCESS" == "5" ]] || fail "device race allowed $SUCCESS, expected 5"
 [[ "$LIMITED" == "5" ]] || fail "device race rejected $LIMITED, expected 5"
 
-HASH_RACE_DEV="$(printf '%s' "$RACE_DEV" | sha256sum | awk '{print $1}')"
-DEVICE_COUNT="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT COUNT(*) FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash='$HASH_RACE_DEV' AND d.active=1")"
+HASH_RACE_DEV_LEGACY="$(printf '%s' "$RACE_DEV" | sha256sum | awk '{print $1}')"
+HASH_RACE_DEV_HMAC="$(lookup_hash "$RACE_DEV")"
+DEVICE_COUNT="$(mysql -N -h127.0.0.1 -uroot -proot teamdark_test -e "SELECT COUNT(*) FROM license_devices d JOIN license_keys k ON k.id=d.license_key_id WHERE k.key_hash IN('$HASH_RACE_DEV_LEGACY','$HASH_RACE_DEV_HMAC') AND d.active=1")"
 [[ "$DEVICE_COUNT" == "5" ]] || fail "device race DB count $DEVICE_COUNT, expected 5"
 
 echo "All TeamDark native /connect contract tests passed."
