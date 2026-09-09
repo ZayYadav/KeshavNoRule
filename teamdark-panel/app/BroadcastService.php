@@ -135,7 +135,7 @@ final class BroadcastService
 
         Security::rateLimit(
             'owner-announcement-process',
-            240,
+            1200,
             3600,
             (string)$actor['id']
         );
