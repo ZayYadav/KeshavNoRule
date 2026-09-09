@@ -261,8 +261,21 @@ final class TelegramService
         }
     }
 
-    public static function unlink(array $panelUser): void
+    public static function unlink(array $panelUser, bool $force = false): void
     {
+        $userId = (int)($panelUser['id'] ?? 0);
+        $q = Database::pdo()->prepare(
+            'SELECT telegram_2fa_enabled FROM users WHERE id=? LIMIT 1'
+        );
+        $q->execute([$userId]);
+        $twoFactorEnabled = (int)$q->fetchColumn() === 1;
+
+        if ($twoFactorEnabled && !$force) {
+            throw new RuntimeException(
+                'Disable Telegram 2FA before unlinking Telegram.'
+            );
+        }
+
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
@@ -271,17 +284,28 @@ final class TelegramService
                 "UPDATE telegram_users
                  SET linked_user_id=NULL
                  WHERE linked_user_id=?"
-            )->execute([$panelUser['id']]);
+            )->execute([$userId]);
 
             $pdo->prepare(
                 "UPDATE users
-                 SET telegram_chat_id=NULL
+                 SET telegram_chat_id=NULL,
+                     telegram_2fa_enabled=0,
+                     telegram_2fa_enabled_at=NULL
                  WHERE id=?"
-            )->execute([$panelUser['id']]);
+            )->execute([$userId]);
 
             $pdo->prepare(
                 "DELETE FROM telegram_link_tokens WHERE user_id=?"
-            )->execute([$panelUser['id']]);
+            )->execute([$userId]);
+            $pdo->prepare(
+                "DELETE FROM telegram_2fa_activation_tokens WHERE user_id=?"
+            )->execute([$userId]);
+            $pdo->prepare(
+                "DELETE FROM login_2fa_challenges WHERE user_id=?"
+            )->execute([$userId]);
+            $pdo->prepare(
+                "DELETE FROM api_tokens WHERE user_id=?"
+            )->execute([$userId]);
 
             $pdo->commit();
 
