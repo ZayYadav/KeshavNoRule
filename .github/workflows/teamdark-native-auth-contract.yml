@@ -115,6 +115,7 @@ jobs:
           LEGACY_LICENSE_API_ENABLED="false"
           API_REVEAL_LICENSE_KEYS="false"
           TELEGRAM_OWNER_MUTATIONS_ENABLED="false"
+          TELEGRAM_LINKED_KEY_GENERATION_ENABLED="false"
           TRUSTED_PROXY_CIDRS=""
           EOF
 
