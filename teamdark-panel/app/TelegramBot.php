@@ -177,7 +177,7 @@ final class TelegramBot
                 $chatId,
                 "🔗 <b>Link your panel account</b>\n\n1) Login to the panel.\n2) On Dashboard enter this Chat ID:\n<code>"
                 .$chatId
-                ."</code>\n3) Panel gives a TDLINK code.\n4) Send:\n<code>/link TDLINK-XXXXXXXX</code>\n\nThe code expires in 15 minutes.",
+                ."</code>\n3) Panel gives a TDLINK code.\n4) Send:\n<code>/link TDLINK-XXXXXXXXXXXXXXXXXXXXXXXX</code>\n\nThe code expires in 15 minutes.",
                 $keyboard
             );
             return;
@@ -306,7 +306,7 @@ final class TelegramBot
             self::send(
                 $chatId,
                 "👑 <b>Owner 30-day key</b>\n<code>"
-                .self::h($created['key'])
+                .self::h(self::ownerSecret((string)$created['key']))
                 ."</code>",
                 self::ownerKeyboard()
             );
@@ -318,7 +318,7 @@ final class TelegramBot
             self::send(
                 $chatId,
                 "🎟 <b>".self::h(ucfirst($m[1]))." referral</b>\n<code>"
-                .self::h($invite['code'])
+                .self::h(self::ownerSecret((string)$invite['code']))
                 ."</code>",
                 self::ownerKeyboard()
             );
@@ -595,7 +595,11 @@ final class TelegramBot
             ."\nRole: ".self::h(strtoupper($u['role']))
             ."\nStatus: ".self::h($u['status'])
             ."\nBalance: ".self::h($u['role'] === 'owner' ? '∞' : (string)$u['balance'])
-            ."\nTelegram: ".self::h($u['telegram_chat_id'] ?: 'Not linked')
+            ."\nTelegram: ".self::h(
+                $u['telegram_chat_id']
+                    ? self::ownerSecret((string)$u['telegram_chat_id'])
+                    : 'Not linked'
+            )
             ."\nCreated: ".self::h($u['created_at']);
 
         $keyboard = [];
@@ -667,7 +671,7 @@ final class TelegramBot
         $keys = TelegramService::guestKeys($tgId, 5);
         $text = "✈️ <b>Telegram Guest</b>\n"
             ."Name: ".self::h(TelegramService::displayName($tg))
-            ."\nChat ID: <code>".self::h($tg['chat_id'])."</code>"
+            ."\nChat ID: <code>".self::h(self::ownerSecret((string)$tg['chat_id']))."</code>"
             ."\nUsername: ".self::h($tg['username'] ? '@'.$tg['username'] : '—')
             ."\nFirst seen: ".self::h($tg['first_seen_at'])
             ."\nLast seen: ".self::h($tg['last_seen_at'])
@@ -754,7 +758,7 @@ final class TelegramBot
         }
 
         $text = "🔐 <b>Key #".$keyId."</b>\n<code>"
-            .self::h(self::plainKey($key))
+            .self::h(self::ownerSecret(self::plainKey($key)))
             ."</code>\nStatus: ".self::h(strtoupper($key['status']))
             ."\nOwner: @".self::h($key['owner_name'])
             ."\nSource: ".self::h($key['key_source'])
