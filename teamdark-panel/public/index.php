@@ -687,13 +687,14 @@ try {
                 $pdo->rollBack();
             }
 
-            $message = $e instanceof RuntimeException
-                ? $e->getMessage()
-                : (
-                    $e instanceof PDOException && $e->getCode() === '23000'
-                        ? 'Username already exists.'
-                        : 'Registration failed.'
-                );
+            if ($e instanceof PDOException) {
+                // Never expose SQLSTATE/driver/schema details to an unauthenticated user.
+                $message = 'Registration failed.';
+            } elseif ($e instanceof RuntimeException) {
+                $message = substr($e->getMessage(), 0, 300);
+            } else {
+                $message = 'Registration failed.';
+            }
 
             flash('err', $message);
             redirectTo('/register?ref='.urlencode($ref));
