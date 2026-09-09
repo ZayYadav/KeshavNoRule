@@ -483,8 +483,7 @@ try {
         $rows = KeyManager::visibleKeys($u, 'all');
         $out = [];
 
-        $allowPlaintextKeys = (bool)Config::get('api_reveal_license_keys', false)
-            && ($u['role'] ?? '') === 'owner';
+        $allowPlaintextKeys = false;
 
         foreach ($rows as $row) {
             $plainKey = Crypto::decrypt(
@@ -1845,11 +1844,14 @@ try {
             $q = $pdo->prepare(
                 "SELECT id,name,username,role,balance,telegram_chat_id,telegram_2fa_enabled,status,last_login_at,created_at
                  FROM users
-                 WHERE role<>'owner'
+                 WHERE id=? OR referred_by=?
                  ORDER BY id DESC
                  LIMIT 1000"
             );
-            $q->execute();
+            $q->execute([
+                $user['id'],
+                $user['id'],
+            ]);
             $rows = $q->fetchAll();
         }
 
