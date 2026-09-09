@@ -61,6 +61,9 @@ final class Config
             'telegram_bot_token' => $get('TELEGRAM_BOT_TOKEN', ''),
             'telegram_webhook_secret' => $get('TELEGRAM_WEBHOOK_SECRET', ''),
             'telegram_owner_chat_id' => trim($get('TELEGRAM_OWNER_CHAT_ID', '')),
+            'telegram_owner_mutations_enabled' => strtolower($get('TELEGRAM_OWNER_MUTATIONS_ENABLED', 'false')) === 'true',
+            'legacy_license_api_enabled' => strtolower($get('LEGACY_LICENSE_API_ENABLED', 'false')) === 'true',
+            'trusted_proxy_cidrs' => trim($get('TRUSTED_PROXY_CIDRS', '')),
             'token_ttl' => max(300, min(604800, (int)$get('API_TOKEN_TTL', '86400'))),
         ];
 
