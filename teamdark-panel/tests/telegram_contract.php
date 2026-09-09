@@ -108,6 +108,12 @@ $challenge = TelegramService::createLinkChallenge(
     '7000000001'
 );
 
+if (!preg_match('/^TDLINK-[A-F0-9]{16}$/', $challenge['code'])) {
+    throw new RuntimeException(
+        'Telegram link challenge must use the hardened 64-bit format.'
+    );
+}
+
 TelegramService::confirmLink(
     7000000001,
     $challenge['code'],
@@ -121,6 +127,35 @@ $q->execute([$userId]);
 
 if ((int)$q->fetchColumn() !== 7000000001) {
     throw new RuntimeException('Panel Telegram link failed.');
+}
+
+$relinkBlocked = false;
+try {
+    TelegramService::createLinkChallenge(
+        $user,
+        '7000000002'
+    );
+} catch (RuntimeException $e) {
+    $relinkBlocked = str_contains(
+        $e->getMessage(),
+        'already linked'
+    );
+}
+
+if (!$relinkBlocked) {
+    throw new RuntimeException(
+        'Direct Telegram relink bypass was not blocked.'
+    );
+}
+
+$q = $pdo->prepare(
+    'SELECT auth_version FROM users WHERE id=?'
+);
+$q->execute([$userId]);
+if ((int)$q->fetchColumn() <= 1) {
+    throw new RuntimeException(
+        'Telegram link did not revoke older authenticated sessions.'
+    );
 }
 
 $q = $pdo->prepare(
@@ -164,6 +199,22 @@ $q->execute([$userId]);
 
 if ((int)$q->fetchColumn() !== 1) {
     throw new RuntimeException('Telegram 2FA activation failed.');
+}
+
+$unlinkBlocked = false;
+try {
+    TelegramService::unlink($linkedUser);
+} catch (RuntimeException $e) {
+    $unlinkBlocked = str_contains(
+        $e->getMessage(),
+        'Disable Telegram 2FA'
+    );
+}
+
+if (!$unlinkBlocked) {
+    throw new RuntimeException(
+        'Telegram unlink must be blocked while 2FA is active.'
+    );
 }
 
 $loginCode = '48372615';
@@ -211,6 +262,18 @@ $q->execute([$userId]);
 
 if ((int)$q->fetchColumn() !== 0) {
     throw new RuntimeException('2FA disable flow failed.');
+}
+
+TelegramService::unlink($linkedUser);
+
+$q = $pdo->prepare(
+    'SELECT telegram_chat_id FROM users WHERE id=?'
+);
+$q->execute([$userId]);
+if ($q->fetchColumn() !== null) {
+    throw new RuntimeException(
+        'Secure Telegram unlink did not clear the account link.'
+    );
 }
 
 echo "Telegram 2FA contract OK\n";
