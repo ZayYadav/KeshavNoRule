@@ -16,6 +16,8 @@ final class TelegramBot
             return;
         }
 
+        $chatId = 0;
+
         try {
             $callback = is_array($update['callback_query'] ?? null)
                 ? $update['callback_query']
@@ -42,11 +44,22 @@ final class TelegramBot
                 return;
             }
 
-            Security::rateLimit('telegram-bot-'.$chatId, 80, 60);
+            Security::rateLimit(
+                'telegram-bot-global',
+                3000,
+                60,
+                'global'
+            );
+            Security::rateLimit(
+                'telegram-bot-chat',
+                80,
+                60,
+                (string)$chatId
+            );
 
             $tg = TelegramService::upsertTelegramUser($from);
             $panelUser = self::panelUserByChatId($chatId);
-            $isOwner = self::isOwnerChat($chatId);
+            $isOwner = self::isOwnerChat($chatId, $panelUser);
 
             if (!$isOwner && PanelControl::blocked($panelUser)) {
                 if ($callback) self::answerCallback((string)($callback['id'] ?? ''));
@@ -73,7 +86,12 @@ final class TelegramBot
             $text = trim((string)($message['text'] ?? ''));
 
             if (preg_match('/^\/link(?:@\w+)?\s+(\S+)$/i', $text, $m)) {
-                Security::rateLimit('telegram-link-'.$chatId, 8, 900);
+                Security::rateLimit(
+                    'telegram-link-command',
+                    8,
+                    900,
+                    (string)$chatId
+                );
 
                 $linked = TelegramService::confirmLink(
                     $chatId,
@@ -97,7 +115,30 @@ final class TelegramBot
             }
 
             self::showMenu($chatId, $tg, $panelUser, $isOwner);
+        } catch (RuntimeException $e) {
+            // Expected user/security failures are consumed once. Returning 500
+            // would make Telegram replay the same command and amplify load.
+            if ($chatId > 0) {
+                try {
+                    self::send(
+                        $chatId,
+                        "⚠️ <b>Request blocked</b>\n"
+                        .self::h($e->getMessage())
+                    );
+                } catch (Throwable) {
+                }
+            }
+
+            Security::audit(null, 'telegram_request_rejected', [
+                'update_id'=>$updateId,
+                'chat_suffix'=>$chatId > 0
+                    ? substr((string)$chatId, -4)
+                    : '',
+                'reason'=>substr($e->getMessage(), 0, 120),
+            ]);
+            return;
         } catch (Throwable $e) {
+            // Only transient/internal failures are released for Telegram retry.
             self::releaseUpdate($updateId);
             throw $e;
         }
@@ -122,7 +163,7 @@ final class TelegramBot
             }
 
             $created = KeyManager::createTelegramGuestKey(
-                self::ownerActor(),
+                self::serviceOwnerActor(),
                 (int)$tg['id']
             );
 
@@ -155,7 +196,7 @@ final class TelegramBot
                 $chatId,
                 "🔗 <b>Link your panel account</b>\n\n1) Login to the panel.\n2) On Dashboard enter this Chat ID:\n<code>"
                 .$chatId
-                ."</code>\n3) Panel gives a TDLINK code.\n4) Send:\n<code>/link TDLINK-XXXXXXXX</code>\n\nThe code expires in 15 minutes.",
+                ."</code>\n3) Panel gives a TDLINK code.\n4) Send:\n<code>/link TDLINK-XXXXXXXXXXXXXXXX</code>\n\nThe code expires in 15 minutes.",
                 $keyboard
             );
             return;
@@ -479,7 +520,7 @@ final class TelegramBot
         } else {
             foreach ($rows as $row) {
                 $text .= '#'.(int)$row['id'].' <code>'
-                    .self::h(self::plainKey($row))
+                    .self::h(self::maskSecret(self::plainKey($row)))
                     ."</code>\n"
                     .self::h(strtoupper((string)$row['status']))
                     .' • '
@@ -660,7 +701,7 @@ final class TelegramBot
 
         foreach ($keys as $key) {
             $text .= '#'.(int)$key['id'].' <code>'
-                .self::h(self::plainKey($key))
+                .self::h(self::maskSecret(self::plainKey($key)))
                 .'</code> • '.self::h($key['status'])."\n";
             $keyboard[] = [[
                 'text'=>'🔑 Key #'.(int)$key['id'],
@@ -692,7 +733,7 @@ final class TelegramBot
         foreach ($rows as $row) {
             $source = $row['key_source'] === 'telegram_guest' ? 'TG' : 'PANEL';
             $text .= '#'.(int)$row['id'].' <code>'
-                .self::h(self::plainKey($row))
+                .self::h(self::maskSecret(self::plainKey($row)))
                 .'</code> • '.self::h(strtoupper($row['status']))
                 .' • '.$source."\n";
             $keyboard[] = [[
@@ -732,7 +773,7 @@ final class TelegramBot
         }
 
         $text = "🔐 <b>Key #".$keyId."</b>\n<code>"
-            .self::h(self::plainKey($key))
+            .self::h(self::maskSecret(self::plainKey($key)))
             ."</code>\nStatus: ".self::h(strtoupper($key['status']))
             ."\nOwner: @".self::h($key['owner_name'])
             ."\nSource: ".self::h($key['key_source'])
@@ -784,7 +825,7 @@ final class TelegramBot
         $text = "🎟 <b>Referrals</b>\n\n";
 
         foreach ($rows as $row) {
-            $text .= '<code>'.self::h($row['code']).'</code> • '
+            $text .= '<code>'.self::h(self::maskSecret((string)$row['code'], 8, 4)).'</code> • '
                 .self::h(strtoupper($row['role']))
                 .' • '.self::h(strtoupper($row['status']))
                 ."\n";
@@ -913,9 +954,42 @@ final class TelegramBot
 
     private static function ownerActor(): array
     {
+        $ownerChat = trim((string)Config::get('telegram_owner_chat_id', ''));
+
+        if ($ownerChat === '') {
+            throw new RuntimeException(
+                'Telegram Owner Chat ID is not configured.'
+            );
+        }
+
+        $q = Database::pdo()->prepare(
+            "SELECT id,name,username,role,balance,telegram_chat_id,
+                    telegram_2fa_enabled,telegram_2fa_enabled_at,
+                    auth_version,status,created_at
+             FROM users
+             WHERE role='owner'
+               AND status='active'
+               AND telegram_chat_id=?
+             LIMIT 1"
+        );
+        $q->execute([(int)$ownerChat]);
+        $owner = $q->fetch();
+
+        if (!$owner) {
+            throw new RuntimeException(
+                'Configured Telegram Owner must be linked to an active Owner account.'
+            );
+        }
+
+        return $owner;
+    }
+
+    private static function serviceOwnerActor(): array
+    {
         $q = Database::pdo()->query(
             "SELECT id,name,username,role,balance,telegram_chat_id,
-                    telegram_2fa_enabled,telegram_2fa_enabled_at,status,created_at
+                    telegram_2fa_enabled,telegram_2fa_enabled_at,
+                    auth_version,status,created_at
              FROM users
              WHERE role='owner' AND status='active'
              ORDER BY id ASC
@@ -933,7 +1007,9 @@ final class TelegramBot
     private static function panelUserByChatId(int $chatId): ?array
     {
         $q = Database::pdo()->prepare(
-            "SELECT id,name,username,role,balance,telegram_chat_id,status,created_at
+            "SELECT id,name,username,role,balance,telegram_chat_id,
+                    telegram_2fa_enabled,telegram_2fa_enabled_at,
+                    auth_version,status,created_at
              FROM users
              WHERE telegram_chat_id=? AND status='active'
              LIMIT 1"
@@ -944,12 +1020,17 @@ final class TelegramBot
         return $user ?: null;
     }
 
-    private static function isOwnerChat(int $chatId): bool
-    {
-        $ownerChat = (string)Config::get('telegram_owner_chat_id', '');
+    private static function isOwnerChat(
+        int $chatId,
+        ?array $panelUser = null
+    ): bool {
+        $ownerChat = trim((string)Config::get('telegram_owner_chat_id', ''));
 
         return $ownerChat !== ''
-            && hash_equals($ownerChat, (string)$chatId);
+            && hash_equals($ownerChat, (string)$chatId)
+            && is_array($panelUser)
+            && ($panelUser['role'] ?? '') === 'owner'
+            && (int)($panelUser['telegram_chat_id'] ?? 0) === $chatId;
     }
 
     private static function menuKeyboard(int $chatId, ?array $panelUser): array
@@ -1089,10 +1170,16 @@ final class TelegramBot
     private static function claimUpdate(int $updateId): bool
     {
         $pdo = Database::pdo();
-        $pdo->prepare(
-            "DELETE FROM telegram_update_ids
-             WHERE received_at<DATE_SUB(NOW(), INTERVAL 7 DAY)"
-        )->execute();
+        try {
+            if (random_int(1, 100) === 1) {
+                $pdo->exec(
+                    "DELETE FROM telegram_update_ids
+                     WHERE received_at<DATE_SUB(NOW(), INTERVAL 7 DAY)
+                     LIMIT 500"
+                );
+            }
+        } catch (Throwable) {
+        }
 
         $q = $pdo->prepare(
             "INSERT IGNORE INTO telegram_update_ids(update_id,received_at)
@@ -1108,6 +1195,22 @@ final class TelegramBot
         Database::pdo()->prepare(
             "DELETE FROM telegram_update_ids WHERE update_id=?"
         )->execute([$updateId]);
+    }
+
+    private static function maskSecret(
+        string $value,
+        int $prefix = 6,
+        int $suffix = 4
+    ): string {
+        $length = strlen($value);
+
+        if ($length <= ($prefix + $suffix + 4)) {
+            return str_repeat('•', max(8, $length));
+        }
+
+        return substr($value, 0, $prefix)
+            .'••••••'
+            .substr($value, -$suffix);
     }
 
     private static function plainKey(array $row): string
