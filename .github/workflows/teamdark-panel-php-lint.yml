@@ -37,3 +37,13 @@ jobs:
         run: |
           set -euo pipefail
           find teamdark-panel -type f -name '*.php' -print0             | sort -z             | xargs -0 -n1 php -l
+
+      - name: Validate premium panel JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check teamdark-panel/public/assets/app.js
+          grep -F 'TeamDark Premium UI v5' teamdark-panel/public/assets/app.css >/dev/null
+          grep -F 'data-teamdark-ui="5"' teamdark-panel/app/View.php >/dev/null
+          grep -F '/assets/app.css?v=20260909-6' teamdark-panel/app/View.php >/dev/null
+          grep -F '/assets/app.js?v=20260909-6' teamdark-panel/app/View.php >/dev/null
