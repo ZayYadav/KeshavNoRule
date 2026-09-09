@@ -301,13 +301,19 @@ final class TelegramBot
 
         if (
             $ownerMutation
-            && !(bool)Config::get('telegram_owner_mutations_enabled', false)
+            && (
+                !(bool)Config::get(
+                    'telegram_owner_mutations_enabled',
+                    false
+                )
+                || !PanelControl::telegramOwnerMutationsUnlocked()
+            )
         ) {
             self::send(
                 $chatId,
                 "🛡 <b>Owner mutation blocked</b>\n\n"
-                ."High-risk Telegram changes are disabled server-side. "
-                ."Use the web Owner Console with fresh authentication.",
+                ."High-risk Telegram changes require both the server master switch "
+                ."and a fresh 5-minute approval from the web Owner Command Center.",
                 self::ownerKeyboard()
             );
             return;
