@@ -90,6 +90,24 @@ final class LoaderAuthService
                 return self::fail('Invalid Key');
             }
 
+            // Transparently upgrade an old plain SHA-256 lookup hash to APP_KEY HMAC.
+            // This changes only server storage; the native /connect response is untouched.
+            if (
+                array_key_exists('key_hash_version', $key)
+                && (
+                    (int)$key['key_hash_version'] < 2
+                    || hash_equals((string)$key['key_hash'], $legacyKeyHash)
+                )
+            ) {
+                $pdo->prepare(
+                    'UPDATE license_keys
+                     SET key_hash=?,key_hash_version=2
+                     WHERE id=?'
+                )->execute([$keyHash, $key['id']]);
+                $key['key_hash'] = $keyHash;
+                $key['key_hash_version'] = 2;
+            }
+
             if (($key['game'] ?? 'PUBG') !== $game) {
                 $pdo->rollBack();
                 return self::fail('Invalid Game');
