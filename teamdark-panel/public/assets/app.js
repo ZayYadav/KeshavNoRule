@@ -138,9 +138,21 @@
       var cancel = dialog.querySelector('[data-dialog-cancel]');
       var ok = dialog.querySelector('[data-dialog-ok]');
 
+      var dialogSurface = dialog.querySelector('.ui-dialog');
+      var dialogText = ((options.title || '') + ' ' + (options.message || '')).toLowerCase();
+      var tone = options.tone || (
+        options.icon === '✓' || /(^|\\s)(success|completed|delivered)(\\s|$)/.test(dialogText)
+          ? 'success'
+          : (/(delete|disable|disconnect|revoke|remove|clear|reset|failed|error)/.test(dialogText)
+              ? 'danger'
+              : (/(warning|expire|block|offline|stop)/.test(dialogText) ? 'warning' : 'default'))
+      );
+
+      if (dialogSurface) dialogSurface.setAttribute('data-tone', tone);
+
       title.textContent = options.title || 'Confirm action';
       message.textContent = options.message || 'Continue with this action?';
-      icon.textContent = options.icon || 'TD';
+      icon.textContent = options.icon || (tone === 'danger' ? '!' : (tone === 'warning' ? '◆' : 'TD'));
       ok.textContent = options.okText || 'Continue';
       cancel.textContent = options.cancelText || 'Cancel';
       cancel.hidden = options.cancel === false;
@@ -604,6 +616,98 @@
     hideBusy();
     document.querySelectorAll('[data-confirmed]').forEach(function (form) { form.removeAttribute('data-confirmed'); });
   });
+
+  var premiumUi = body && body.getAttribute('data-teamdark-ui') === '5';
+  var reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var finePointer = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+  if (premiumUi) {
+    var pageContent = document.querySelector('.page-content, .guest-main');
+    if (pageContent) pageContent.classList.add('td-page-enter');
+
+    var aura = document.querySelector('.cursor-aura');
+    if (aura && finePointer && !reducedMotion) {
+      var auraX = -800, auraY = -800, targetX = -800, targetY = -800, auraFrame = null;
+      var renderAura = function () {
+        auraX += (targetX - auraX) * 0.16;
+        auraY += (targetY - auraY) * 0.16;
+        document.documentElement.style.setProperty('--cursor-x', auraX + 'px');
+        document.documentElement.style.setProperty('--cursor-y', auraY + 'px');
+        auraFrame = requestAnimationFrame(renderAura);
+      };
+      document.addEventListener('pointermove', function (event) {
+        targetX = event.clientX;
+        targetY = event.clientY;
+      }, {passive:true});
+      document.addEventListener('pointerleave', function () {
+        targetX = -800; targetY = -800;
+      });
+      auraFrame = requestAnimationFrame(renderAura);
+      window.addEventListener('pagehide', function () {
+        if (auraFrame) cancelAnimationFrame(auraFrame);
+      }, {once:true});
+    }
+
+    var glowSelector = '.card,.key-card,.owner-command,.audience-card,.broadcast-job,.modal-card,.ui-dialog';
+    if (finePointer && !reducedMotion) {
+      document.querySelectorAll(glowSelector).forEach(function (surface) {
+        surface.addEventListener('pointermove', function (event) {
+          var rect = surface.getBoundingClientRect();
+          surface.style.setProperty('--mx', (event.clientX - rect.left) + 'px');
+          surface.style.setProperty('--my', (event.clientY - rect.top) + 'px');
+        }, {passive:true});
+        surface.addEventListener('pointerleave', function () {
+          surface.style.setProperty('--mx', '50%');
+          surface.style.setProperty('--my', '50%');
+        }, {passive:true});
+      });
+    }
+
+    document.addEventListener('pointerdown', function (event) {
+      if (reducedMotion) return;
+      var raw = event.target;
+      var element = raw && raw.nodeType === 1 ? raw : (raw && raw.parentElement);
+      if (!element) return;
+      var button = element.closest('.primary,.btn,.ghost,.icon-btn,.mobile-menu');
+      if (!button || button.disabled) return;
+      var rect = button.getBoundingClientRect();
+      var ripple = document.createElement('span');
+      ripple.className = 'td-ripple';
+      ripple.style.left = (event.clientX - rect.left) + 'px';
+      ripple.style.top = (event.clientY - rect.top) + 'px';
+      button.appendChild(ripple);
+      setTimeout(function () { if (ripple.parentNode) ripple.remove(); }, 700);
+    }, {passive:true});
+
+    var revealNodes = Array.prototype.slice.call(document.querySelectorAll(
+      '.hero,.premium-announcement,.card,.key-card,.table-wrap,.premium-section,.owner-command-grid,.tabs,.empty-state'
+    ));
+
+    revealNodes.forEach(function (node, index) {
+      if (node.closest('.modal-backdrop,.ui-dialog-backdrop,.ui-busy-backdrop')) return;
+      node.classList.add('td-reveal');
+      node.style.setProperty('--td-delay', Math.min(index * 24, 180) + 'ms');
+    });
+
+    if (!reducedMotion && 'IntersectionObserver' in window) {
+      var revealObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('td-visible');
+          revealObserver.unobserve(entry.target);
+        });
+      }, {rootMargin:'0px 0px -5% 0px',threshold:.04});
+      revealNodes.forEach(function (node) { revealObserver.observe(node); });
+    } else {
+      revealNodes.forEach(function (node) { node.classList.add('td-visible'); });
+    }
+
+    document.querySelectorAll('button,a.primary,a.btn,a.ghost,.icon-btn').forEach(function (control) {
+      if (!control.getAttribute('title') && control.textContent && control.textContent.trim().length <= 24) {
+        control.setAttribute('data-premium-control', '1');
+      }
+    });
+  }
 
   document.querySelectorAll('.field').forEach(function (field, index) {
     var label = field.querySelector('label'), input = field.querySelector('input,select,textarea');
