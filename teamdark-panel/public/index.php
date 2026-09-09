@@ -10,6 +10,7 @@ use TeamDark\Panel\{
     LicenseService,
     ReferralManager,
     TelegramService,
+    TwoFactorService,
     Security,
     View
 };
@@ -31,6 +32,7 @@ foreach ([
     'LicenseService',
     'ReferralManager',
     'TelegramService',
+    'TwoFactorService',
 ] as $file) {
     require $root.'/app/'.$file.'.php';
 }
@@ -236,7 +238,8 @@ function ownerManagedUser(array $actor, int $targetId): array
     }
 
     $q = Database::pdo()->prepare(
-        'SELECT id,name,username,role,balance,telegram_chat_id,status,created_at
+        'SELECT id,name,username,role,balance,telegram_chat_id,
+                telegram_2fa_enabled,telegram_2fa_enabled_at,status,created_at
          FROM users WHERE id=? LIMIT 1'
     );
     $q->execute([$targetId]);
@@ -314,8 +317,79 @@ function bearerUser(): array
     return $u;
 }
 
+function issueApiToken(array $u): array
+{
+    if (($u['status'] ?? 'active') !== 'active') {
+        throw new RuntimeException('Account unavailable.');
+    }
+
+    if (PanelControl::blocked($u)) {
+        throw new RuntimeException('Panel under maintenance.');
+    }
+
+    $token = rtrim(
+        strtr(base64_encode(random_bytes(48)), '+/', '-_'),
+        '='
+    );
+    $hash = hash('sha256', $token);
+    $ttl = (int)Config::get('token_ttl');
+    $expiresAt = (new DateTimeImmutable())
+        ->add(new DateInterval('PT'.$ttl.'S'))
+        ->format('Y-m-d H:i:s');
+
+    $pdo = Database::pdo();
+    $pdo->beginTransaction();
+
+    try {
+        $pdo->prepare('DELETE FROM api_tokens WHERE expires_at<=NOW()')->execute();
+        $pdo->prepare(
+            'INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)'
+        )->execute([(int)$u['id'], $hash, $expiresAt]);
+
+        $pdo->prepare(
+            "DELETE FROM api_tokens
+             WHERE user_id=?
+               AND id NOT IN (
+                   SELECT id FROM (
+                       SELECT id
+                       FROM api_tokens
+                       WHERE user_id=?
+                       ORDER BY id DESC
+                       LIMIT 20
+                   ) AS keep_tokens
+               )"
+        )->execute([(int)$u['id'], (int)$u['id']]);
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    Security::audit((int)$u['id'], 'api_login_success', [
+        'two_factor'=>(int)($u['telegram_2fa_enabled'] ?? 0) === 1,
+    ]);
+
+    return [
+        'ok'=>true,
+        'token'=>$token,
+        'token_type'=>'Bearer',
+        'expires_in'=>$ttl,
+        'user'=>[
+            'id'=>(int)$u['id'],
+            'name'=>$u['name'] ?: $u['username'],
+            'username'=>$u['username'],
+            'role'=>$u['role'],
+            'balance'=>$u['role'] === 'owner' ? null : (int)$u['balance'],
+            'balance_unlimited'=>$u['role'] === 'owner',
+        ],
+    ];
+}
+
 try {
-    if (!str_starts_with($path, '/api/') && !in_array($path, ['/login','/logout'], true)) {
+    if (!str_starts_with($path, '/api/') && !in_array($path, ['/login','/login/2fa','/login/2fa/resend','/logout'], true)) {
         $sessionUser = Auth::user();
         if (PanelControl::blocked($sessionUser)) {
             http_response_code(503);
@@ -324,116 +398,59 @@ try {
             exit;
         }
     }
-    // Legacy JSON panel-user authentication API.
+    // Legacy JSON panel-user authentication API. Non-2FA users keep the old one-step contract.
     if ($path === '/api/v1/auth/login' && $method === 'POST') {
-        Security::rateLimit('api-login', 10, 600);
-
         $b = jsonBody();
         $username = strtolower(trim((string)($b['username'] ?? '')));
         $password = (string)($b['password'] ?? '');
 
-        if (
-            strlen($username) > 64
-            || strlen($password) > 200
-            || str_contains($username, "\0")
-        ) {
-            jsonOut(['ok'=>false, 'error'=>'Invalid credentials'], 401);
-        }
-
-        if ($username !== '') {
-            Security::rateLimit(
-                'api-login-account',
-                80,
-                900,
-                $username
+        try {
+            $u = Auth::verifyPasswordCredentials(
+                $username,
+                $password,
+                'api-login'
             );
+        } catch (Throwable $e) {
+            jsonOut(['ok'=>false, 'error'=>'Sign-in unavailable'], 503);
         }
-
-        $q = Database::pdo()->prepare(
-            'SELECT * FROM users WHERE username=? LIMIT 1'
-        );
-        $q->execute([$username]);
-        $u = $q->fetch();
-
-        $dummy = '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG';
-
-        $ok = $u
-            && $u['status'] === 'active'
-            && password_verify($password, $u['password_hash']);
 
         if (!$u) {
-            password_verify($password, $dummy);
-        }
-
-        if (!$ok) {
-            Security::audit(
-                $u ? (int)$u['id'] : null,
-                'api_login_failed'
-            );
             jsonOut(['ok'=>false, 'error'=>'Invalid credentials'], 401);
         }
 
-        if ($username !== '') {
-            Security::clearRateLimit('api-login-account', $username);
+        if (TwoFactorService::enabled($u)) {
+            try {
+                $challenge = TwoFactorService::startLoginChallenge($u);
+            } catch (Throwable $e) {
+                jsonOut(['ok'=>false, 'error'=>'2FA delivery failed'], 503);
+            }
+
+            jsonOut([
+                'ok'=>false,
+                'error'=>'2FA_REQUIRED',
+                'challenge_id'=>(int)$challenge['challenge_id'],
+                'user_id'=>(int)$challenge['user_id'],
+                'expires_in'=>300,
+            ], 202);
         }
 
-        $token = rtrim(
-            strtr(base64_encode(random_bytes(48)), '+/', '-_'),
-            '='
-        );
-        if (PanelControl::blocked($u)) jsonOut(['ok'=>false, 'error'=>'Panel under maintenance'], 503);
-        $hash = hash('sha256', $token);
-        $ttl = (int)Config::get('token_ttl');
+        jsonOut(issueApiToken($u));
+    }
 
-        $expiresAt = (new DateTimeImmutable())
-            ->add(new DateInterval('PT'.$ttl.'S'))
-            ->format('Y-m-d H:i:s');
+    if ($path === '/api/v1/auth/2fa' && $method === 'POST') {
+        $b = jsonBody();
 
-        Database::pdo()
-            ->prepare('DELETE FROM api_tokens WHERE expires_at<=NOW()')
-            ->execute();
+        try {
+            $u = TwoFactorService::verifyLoginChallenge(
+                (int)($b['challenge_id'] ?? 0),
+                (int)($b['user_id'] ?? 0),
+                (string)($b['code'] ?? '')
+            );
+        } catch (Throwable $e) {
+            jsonOut(['ok'=>false, 'error'=>'Invalid or expired 2FA code'], 401);
+        }
 
-        Database::pdo()
-            ->prepare(
-                'INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)'
-            )
-            ->execute([$u['id'], $hash, $expiresAt]);
-
-        // Bound token accumulation if credentials are repeatedly used for API login.
-        Database::pdo()
-            ->prepare(
-                "DELETE FROM api_tokens
-                 WHERE user_id=?
-                   AND id NOT IN (
-                       SELECT id FROM (
-                           SELECT id
-                           FROM api_tokens
-                           WHERE user_id=?
-                           ORDER BY id DESC
-                           LIMIT 20
-                       ) AS keep_tokens
-                   )"
-            )
-            ->execute([$u['id'], $u['id']]);
-
-        Security::audit((int)$u['id'], 'api_login_success');
-
-        jsonOut([
-            'ok'=>true,
-            'token'=>$token,
-            'token_type'=>'Bearer',
-            'expires_in'=>$ttl,
-            'user'=>[
-                'id'=>(int)$u['id'],
-                'name'=>$u['name'] ?: $u['username'],
-                'username'=>$u['username'],
-                'role'=>$u['role'],
-                'balance'=>$u['role'] === 'owner'
-                    ? null
-                    : (int)$u['balance'],
-                'balance_unlimited'=>$u['role'] === 'owner',
-            ],
-        ]);
+        jsonOut(issueApiToken($u));
     }
 
     if ($path === '/api/v1/me' && $method === 'GET') {
@@ -506,8 +523,16 @@ try {
     }
 
     if ($path === '/login' && $method === 'GET') {
+        if (isset($_GET['cancel']) && $_GET['cancel'] === '1') {
+            Auth::clearPendingTwoFactor();
+        }
+
         if (Auth::user()) {
             redirectTo('/dashboard');
+        }
+
+        if (Auth::pendingTwoFactor()) {
+            redirectTo('/login/2fa');
         }
 
         $body = '<section class="auth"><div class="card">'
@@ -518,7 +543,7 @@ try {
             .'<h1>Welcome back</h1>'
             .'<p class="muted">Secure access to TeamDark control panel.</p>'
             .takeFlash()
-            .'<form method="post" action="/login" class="stack">'
+            .'<form method="post" action="/login" class="stack" data-busy="Checking account security…">'
             .View::csrf()
             .'<div class="field"><label>Username</label>'
             .'<input name="username" autocomplete="username" required maxlength="32"></div>'
@@ -535,27 +560,174 @@ try {
         Security::verifyCsrf($_POST['csrf'] ?? null);
 
         try {
-            $loggedIn = Auth::login(
+            $candidate = Auth::verifyPasswordCredentials(
                 input('username'),
-                (string)($_POST['password'] ?? '')
+                (string)($_POST['password'] ?? ''),
+                'web-login'
             );
+
+            if (!$candidate) {
+                flash('err', 'Invalid username or password.');
+                redirectTo('/login');
+            }
+
+            if (TwoFactorService::enabled($candidate)) {
+                $challenge = TwoFactorService::startLoginChallenge($candidate);
+                Auth::beginTwoFactorSession($challenge);
+                redirectTo('/login/2fa');
+            }
+
+            Auth::completeLogin($candidate);
         } catch (Throwable $e) {
             flash('err', safeMessage($e, 'Sign-in temporarily unavailable.'));
-            redirectTo('/login');
-        }
-
-        if (!$loggedIn) {
-            flash('err', 'Invalid username or password.');
             redirectTo('/login');
         }
 
         redirectTo('/dashboard');
     }
 
+    if ($path === '/login/2fa' && $method === 'GET') {
+        if (Auth::user()) {
+            redirectTo('/dashboard');
+        }
+
+        $pending = Auth::pendingTwoFactor();
+
+        if (!$pending) {
+            flash('err', 'Your verification session expired. Sign in again.');
+            redirectTo('/login');
+        }
+
+        $remaining = max(1, (int)$pending['expires_ts'] - time());
+
+        $body = '<section class="auth"><div class="card twofa-login-card">'
+            .'<div class="eyebrow">TELEGRAM TWO-FACTOR</div>'
+            .'<h1>Check Telegram</h1>'
+            .'<p class="muted">We sent an 8-digit single-use login code to your linked Telegram account.</p>'
+            .takeFlash()
+            .'<div class="twofa-delivery"><span class="security-orb">2FA</span>'
+            .'<div><strong>Second factor required</strong><small>Code expires in '.View::e(formatDuration($remaining)).'</small></div></div>'
+            .'<form method="post" action="/login/2fa" class="stack" data-busy="Verifying Telegram code…">'
+            .View::csrf()
+            .'<div class="field"><label>8-digit code</label>'
+            .'<input class="otp-input" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required autofocus placeholder="12345678"></div>'
+            .'<button class="primary wide">Verify & sign in</button>'
+            .'</form>'
+            .'<form method="post" action="/login/2fa/resend" class="inline twofa-resend">'
+            .View::csrf()
+            .'<button class="ghost" type="submit">Send a new code</button>'
+            .'<a class="ghost danger" href="/login?cancel=1">Cancel</a>'
+            .'</form>'
+            .'<p class="hint">Only use codes delivered by the Team Dark bot. Never share a login code.</p>'
+            .'</div></section>';
+
+        View::page('Two-factor verification', $body);
+        exit;
+    }
+
+    if ($path === '/login/2fa' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        $pending = Auth::pendingTwoFactor();
+
+        if (!$pending) {
+            flash('err', 'Your verification session expired. Sign in again.');
+            redirectTo('/login');
+        }
+
+        try {
+            $verified = TwoFactorService::verifyLoginChallenge(
+                (int)$pending['challenge_id'],
+                (int)$pending['user_id'],
+                input('code')
+            );
+
+            Auth::completeLogin($verified);
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e, 'Verification failed.'));
+            redirectTo('/login/2fa');
+        }
+
+        redirectTo('/dashboard');
+    }
+
+    if ($path === '/login/2fa/resend' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        $pending = Auth::pendingTwoFactor();
+
+        if (!$pending) {
+            flash('err', 'Your verification session expired. Sign in again.');
+            redirectTo('/login');
+        }
+
+        $q = Database::pdo()->prepare(
+            'SELECT * FROM users WHERE id=? AND status=\'active\' LIMIT 1'
+        );
+        $q->execute([(int)$pending['user_id']]);
+        $candidate = $q->fetch();
+
+        if (!$candidate || !TwoFactorService::enabled($candidate)) {
+            Auth::clearPendingTwoFactor();
+            flash('err', 'Two-factor authentication is no longer active.');
+            redirectTo('/login');
+        }
+
+        try {
+            $challenge = TwoFactorService::startLoginChallenge($candidate);
+            Auth::beginTwoFactorSession($challenge);
+            flash('ok', 'A new 8-digit code was sent to Telegram.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e, 'Could not send another code.'));
+        }
+
+        redirectTo('/login/2fa');
+    }
+
     if ($path === '/logout' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
         Auth::logout();
         redirectTo('/login');
+    }
+
+    if ($path === '/register/success' && $method === 'GET') {
+        if (Auth::user()) {
+            redirectTo('/dashboard');
+        }
+
+        $state = $_SESSION['registration_success'] ?? null;
+
+        if (
+            !is_array($state)
+            || (int)($state['created_ts'] ?? 0) <= time() - 900
+        ) {
+            unset($_SESSION['registration_success']);
+            redirectTo('/register');
+        }
+
+        unset($_SESSION['registration_success']);
+
+        $body = '<section class="auth registration-success"><div class="card">'
+            .'<div class="success-mark">✓</div>'
+            .'<div class="eyebrow">ACCOUNT CREATED</div>'
+            .'<h1>Welcome to Team Dark</h1>'
+            .'<p class="muted">Review your account details before continuing to login.</p>'
+            .'<div class="registration-summary">'
+            .'<div><span>User ID</span><strong>#'.View::e((string)$state['user_id']).'</strong></div>'
+            .'<div><span>Name</span><strong>'.View::e($state['name']).'</strong></div>'
+            .'<div><span>Username</span><strong>@'.View::e($state['username']).'</strong></div>'
+            .'<div><span>Role</span><strong>'.View::e(strtoupper((string)$state['role'])).'</strong></div>'
+            .'<div><span>Referral used</span><strong class="key">'.View::e($state['referral']).'</strong></div>'
+            .'<div><span>Signup balance</span><strong>'.View::e((string)$state['signup_bonus']).' credits</strong></div>'
+            .'<div><span>Created</span><strong>'.View::e((string)$state['created_at']).'</strong></div>'
+            .'<div><span>Password</span><strong>Saved securely • not displayed</strong></div>'
+            .'</div>'
+            .'<div class="countdown-panel"><span class="security-orb">15</span>'
+            .'<div><strong>Security review</strong><small>Continue unlocks after the countdown.</small></div></div>'
+            .'<a class="primary wide countdown-action is-disabled" href="/login" aria-disabled="true" tabindex="-1" data-registration-countdown="15">OK • 15s</a>'
+            .'<p class="hint">After login you can link Telegram and optionally enable Telegram 2FA from Dashboard.</p>'
+            .'</div></section>';
+
+        View::page('Registration complete', $body);
+        exit;
     }
 
     if ($path === '/register' && $method === 'GET') {
@@ -729,8 +901,18 @@ try {
             redirectTo('/register?ref='.urlencode($ref));
         }
 
-        flash('ok', 'Account created. You can sign in now.');
-        redirectTo('/login');
+        $_SESSION['registration_success'] = [
+            'user_id'=>$uid,
+            'name'=>$name,
+            'username'=>$username,
+            'role'=>$invite['role'],
+            'referral'=>$ref,
+            'signup_bonus'=>$signup,
+            'created_at'=>date('Y-m-d H:i:s'),
+            'created_ts'=>time(),
+        ];
+
+        redirectTo('/register/success');
     }
 
     $user = Auth::requireLogin();
@@ -867,6 +1049,37 @@ try {
                 .'</form>'.$verify.'</div>';
         }
 
+        if (!$telegramInfo) {
+            $twoFactorCard = '<div class="card half security-card">'
+                .'<div class="toolbar"><div><div class="eyebrow">LOGIN SECURITY</div><h3>Telegram 2FA</h3></div>'
+                .'<span class="status-chip status-disabled">OFF</span></div>'
+                .'<p class="muted">Link and verify Telegram first. After linking, the bot can generate your one-time 2FA activation key.</p>'
+                .'</div>';
+        } elseif ((int)($user['telegram_2fa_enabled'] ?? 0) === 1) {
+            $twoFactorCard = '<div class="card half security-card spotlight">'
+                .'<div class="toolbar"><div><div class="eyebrow">LOGIN SECURITY</div><h3>Telegram 2FA</h3></div>'
+                .'<span class="status-chip status-active">ENABLED</span></div>'
+                .'<p class="muted">Password login now requires an 8-digit single-use code sent by the Team Dark bot to your linked Telegram.</p>'
+                .'<div class="security-detail"><span>Enabled</span><strong>'.View::e($user['telegram_2fa_enabled_at'] ?: 'Active').'</strong></div>'
+                .'<form method="post" action="/security/2fa/disable" class="stack" data-confirm="Disable Telegram 2FA for your account?" data-busy="Updating login security…">'
+                .View::csrf()
+                .'<div class="field"><label>Current password</label>'
+                .'<input type="password" name="password" autocomplete="current-password" maxlength="200" required placeholder="Confirm with your password"></div>'
+                .'<button class="ghost danger">Disable 2FA</button>'
+                .'</form></div>';
+        } else {
+            $twoFactorCard = '<div class="card half security-card spotlight">'
+                .'<div class="toolbar"><div><div class="eyebrow">LOGIN SECURITY</div><h3>Telegram 2FA</h3></div>'
+                .'<span class="status-chip status-disabled">OPTIONAL</span></div>'
+                .'<p class="muted">Open the linked Team Dark bot and send <span class="key">/2fa</span> or tap <b>2FA Setup</b>. The bot will generate a 10-minute activation key.</p>'
+                .'<form method="post" action="/security/2fa/enable" class="stack" data-busy="Enabling Telegram 2FA…">'
+                .View::csrf()
+                .'<div class="field"><label>Bot activation key</label>'
+                .'<input name="activation_key" autocomplete="one-time-code" pattern="TD2FA-[A-Fa-f0-9]{12}" minlength="18" maxlength="18" required placeholder="TD2FA-XXXXXXXXXXXX"></div>'
+                .'<button class="primary">Activate 2FA</button>'
+                .'</form></div>';
+        }
+
         $body = '<section class="hero hero-dashboard">'
             .'<div><span class="tag">'.View::e(strtoupper($user['role'])).'</span>'
             .'<h1>Hello, '.View::e($displayName).'</h1>'
@@ -885,6 +1098,7 @@ try {
             .$ownerPulse
             .$referralCard
             .$telegramCard
+            .$twoFactorCard
             .'<div class="card half"><div class="eyebrow">PROFILE</div><h3>Account</h3>'
             .'<p class="muted">Username: '.View::e($user['username']).'<br>'
             .'Role: '.View::e($user['role']).'<br>'
@@ -932,6 +1146,35 @@ try {
             TelegramService::unlink($user);
             unset($_SESSION['telegram_link_code']);
             flash('ok', 'Telegram account unlinked.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/dashboard');
+    }
+
+    if ($path === '/security/2fa/enable' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        try {
+            TwoFactorService::activate($user, input('activation_key'));
+            flash('ok', 'Telegram 2FA enabled. Future logins require an 8-digit bot code.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/dashboard');
+    }
+
+    if ($path === '/security/2fa/disable' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        try {
+            TwoFactorService::disable(
+                $user,
+                (string)($_POST['password'] ?? '')
+            );
+            flash('ok', 'Telegram 2FA disabled.');
         } catch (Throwable $e) {
             flash('err', safeMessage($e));
         }
@@ -1401,11 +1644,11 @@ try {
 
         if ($user['role'] === 'owner') {
             $rows = $pdo->query(
-                'SELECT id,name,username,role,balance,telegram_chat_id,status,last_login_at,created_at FROM users ORDER BY id DESC LIMIT 1000'
+                'SELECT id,name,username,role,balance,telegram_chat_id,telegram_2fa_enabled,status,last_login_at,created_at FROM users ORDER BY id DESC LIMIT 1000'
             )->fetchAll();
         } else {
             $q = $pdo->prepare(
-                "SELECT id,name,username,role,balance,telegram_chat_id,status,last_login_at,created_at
+                "SELECT id,name,username,role,balance,telegram_chat_id,telegram_2fa_enabled,status,last_login_at,created_at
                  FROM users
                  WHERE role<>'owner'
                  ORDER BY id DESC
@@ -1424,6 +1667,7 @@ try {
         $activeCount = 0;
         $disabledCount = 0;
         $linkedCount = 0;
+        $twoFactorCount = 0;
         $adminCount = 0;
         $trs = '';
         foreach ($rows as $row) {
@@ -1433,6 +1677,7 @@ try {
 
             $row['status'] === 'active' ? $activeCount++ : $disabledCount++;
             if ($row['telegram_chat_id']) $linkedCount++;
+            if ((int)($row['telegram_2fa_enabled'] ?? 0) === 1) $twoFactorCount++;
             if ($row['role'] === 'admin') $adminCount++;
 
             $canAdjust = Auth::canManageRole($user, $row['role']);
@@ -1455,7 +1700,8 @@ try {
                         .' data-user-role="'.View::e($row['role']).'"'
                         .' data-user-status="'.View::e($row['status']).'"'
                         .' data-user-balance="'.View::e($rowBalance).'"'
-                        .' data-user-telegram="'.View::e($row['telegram_chat_id'] ?: '').'">Manage</button>'
+                        .' data-user-telegram="'.View::e($row['telegram_chat_id'] ?: '').'"'
+                        .' data-user-2fa="'.((int)($row['telegram_2fa_enabled'] ?? 0) === 1 ? 'enabled' : 'off').'">Manage</button>'
                     : '<span class="muted">Protected</span>');
 
             $telegramCell = $row['telegram_chat_id']
@@ -1465,6 +1711,10 @@ try {
                         : '<span class="status-chip status-active">LINKED</span>'
                 )
                 : '<span class="muted">Not linked</span>';
+
+            $twoFactorCell = (int)($row['telegram_2fa_enabled'] ?? 0) === 1
+                ? '<span class="status-chip status-active">2FA ON</span>'
+                : '<span class="status-chip status-disabled">OFF</span>';
 
             $initial = strtoupper(substr((string)($row['name'] ?: $row['username']), 0, 1));
             $checkbox = $isOwnerTarget
@@ -1477,6 +1727,7 @@ try {
                 .'<td><span class="tag">'.View::e($row['role']).'</span></td>'
                 .'<td>'.View::e($rowBalance).'</td>'
                 .'<td>'.$telegramCell.'</td>'
+                .'<td>'.$twoFactorCell.'</td>'
                 .'<td><span class="status-chip status-'.View::e($row['status']).'">'.View::e($row['status']).'</span></td>'
                 .'<td>'.View::e($row['last_login_at'] ?: 'Never').'</td>'
                 .'<td>'.$adjust.'</td>'
@@ -1527,7 +1778,7 @@ try {
                 .'<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="owner-user-title">'
                 .'<div class="modal-head"><div><div class="eyebrow">OWNER CONTROL</div><h3 id="owner-user-title">Manage user</h3></div><button type="button" class="icon-btn" data-close-modal aria-label="Close">×</button></div>'
                 .'<div class="user-summary"><span class="mini-avatar" data-owner-initial>U</span><div><strong data-owner-user-name>User</strong><small data-owner-user-handle>@username</small></div><span class="tag" data-owner-user-role>USER</span></div>'
-                .'<div class="modal-section"><a class="ghost wide" href="/owner/users" data-owner-history>Keys, balance and all history</a><div class="form-row"><div><span class="eyebrow">BALANCE</span><strong data-owner-user-balance>0</strong></div><div><span class="eyebrow">TELEGRAM</span><strong data-owner-user-telegram>Not linked</strong></div></div></div>'
+                .'<div class="modal-section"><a class="ghost wide" href="/owner/users" data-owner-history>Keys, balance and all history</a><div class="form-row"><div><span class="eyebrow">BALANCE</span><strong data-owner-user-balance>0</strong></div><div><span class="eyebrow">TELEGRAM</span><strong data-owner-user-telegram>Not linked</strong></div></div><div class="security-detail"><span>Telegram 2FA</span><strong data-owner-user-2fa>OFF</strong></div></div>'
                 .'<div class="modal-section"><div class="eyebrow">ACCOUNT SETTINGS</div><div class="modal-actions-grid">'
                 .'<form method="post" action="/users/balance" class="stack" data-owner-form data-busy="Updating balance…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Balance adjustment</label><input name="amount" type="number" required placeholder="Use + or - credits"></div><button class="primary" type="submit">Update balance</button></form>'
                 .'<form method="post" action="/users/role" class="stack" data-owner-form data-confirm="Change this user role?" data-busy="Changing account role…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Account role</label><select name="role" data-owner-role-select><option value="admin">Admin</option><option value="reseller">Reseller</option><option value="user">User</option></select></div><button class="ghost" type="submit">Change role</button></form>'
@@ -1535,7 +1786,8 @@ try {
                 .'<div class="modal-section"><div class="eyebrow">SECURITY ACTIONS</div><div class="modal-actions-grid">'
                 .'<form method="post" action="/users/status" data-owner-form data-owner-status-form data-busy="Updating account status…">'.View::csrf().'<input type="hidden" name="user_id"><input type="hidden" name="action"><button class="ghost wide" type="submit">Disable account</button></form>'
                 .'<form method="post" action="/users/revoke-access" data-owner-form data-confirm="Revoke every active API token for this user?" data-busy="Revoking active access…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost warning wide" type="submit">Revoke API access</button></form>'
-                .'<form method="post" action="/users/telegram-reset" data-owner-form data-owner-telegram-form data-confirm="Disconnect this Telegram account?" data-busy="Disconnecting Telegram…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost wide" type="submit">Disconnect Telegram</button></form>'
+                .'<form method="post" action="/users/telegram-reset" data-owner-form data-owner-telegram-form data-confirm="Disconnect this Telegram account? Active 2FA will also be reset." data-busy="Disconnecting Telegram…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost wide" type="submit">Disconnect Telegram</button></form>'
+                .'<form method="post" action="/users/2fa-reset" data-owner-form data-owner-2fa-form data-confirm="Reset Telegram 2FA for this user? Their linked Telegram will stay connected." data-busy="Resetting 2FA…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost warning wide" type="submit">Reset 2FA</button></form>'
                 .'</div></div>'
                 .'<div class="modal-section"><form method="post" action="/users/password" class="stack" data-owner-form data-confirm="Replace this user password and revoke API access?" data-busy="Resetting password…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Temporary password</label><input name="password" type="password" minlength="12" maxlength="200" required autocomplete="new-password" placeholder="12+ chars, number and symbol"></div><button class="ghost danger wide" type="submit">Reset password</button></form></div>'
                 .'</div></div>';
@@ -1549,7 +1801,7 @@ try {
             .'<div class="card quarter metric"><div class="eyebrow">TOTAL USERS</div><div class="stat">'.count($rows).'</div><div class="metric-note">'.$adminCount.' admin accounts</div></div>'
             .'<div class="card quarter metric"><div class="eyebrow">ACTIVE</div><div class="stat">'.$activeCount.'</div><div class="metric-note"><span>●</span> Access enabled</div></div>'
             .'<div class="card quarter metric"><div class="eyebrow">DISABLED</div><div class="stat">'.$disabledCount.'</div><div class="metric-note">Access blocked</div></div>'
-            .'<div class="card quarter metric"><div class="eyebrow">TELEGRAM</div><div class="stat">'.$linkedCount.'</div><div class="metric-note">Verified links</div></div>'
+            .'<div class="card quarter metric"><div class="eyebrow">TELEGRAM</div><div class="stat">'.$linkedCount.'</div><div class="metric-note">'.$twoFactorCount.' with 2FA enabled</div></div>'
             .'<div class="card third spotlight"><div class="eyebrow">CREATE REFERRAL</div>'
             .'<h3>One-time registration invite</h3>'
             .'<p class="muted">'.($user['role'] === 'owner'
@@ -1570,8 +1822,8 @@ try {
             .'<select class="control-select" data-user-status-filter aria-label="Filter by status"><option value="all">Any status</option><option value="active">Active</option><option value="disabled">Disabled</option></select></div></div>'
             .$bulkBar
             .'<div class="table-wrap"><table class="compact-table">'
-            .'<thead><tr><th>'.($user['role'] === 'owner' ? '<input class="row-check" type="checkbox" data-select-all-users aria-label="Select all manageable users">' : 'Select').'</th><th>User</th><th>Role</th><th>Balance</th><th>Telegram</th><th>Status</th><th>Last login</th><th>Control</th></tr></thead>'
-            .'<tbody>'.$trs.'<tr class="table-empty" data-user-empty><td colspan="8">No users match these filters.</td></tr></tbody></table></div></div>'
+            .'<thead><tr><th>'.($user['role'] === 'owner' ? '<input class="row-check" type="checkbox" data-select-all-users aria-label="Select all manageable users">' : 'Select').'</th><th>User</th><th>Role</th><th>Balance</th><th>Telegram</th><th>2FA</th><th>Status</th><th>Last login</th><th>Control</th></tr></thead>'
+            .'<tbody>'.$trs.'<tr class="table-empty" data-user-empty><td colspan="9">No users match these filters.</td></tr></tbody></table></div></div>'
             .'</div>'.$ownerModal;
 
         View::page('Users & invites', $body, $user);
@@ -1700,6 +1952,30 @@ try {
         redirectTo('/users');
     }
 
+    if ($path === '/users/2fa-reset' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+
+        try {
+            $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
+
+            if ((int)($target['telegram_2fa_enabled'] ?? 0) !== 1) {
+                throw new RuntimeException('Telegram 2FA is not enabled for this user.');
+            }
+
+            TwoFactorService::forceDisable(
+                (int)$target['id'],
+                (int)$user['id']
+            );
+
+            flash('ok', 'Telegram 2FA reset for @'.$target['username'].'.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/users');
+    }
+
     if ($path === '/users/telegram-reset' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
         Auth::requireRole($user, 'owner');
@@ -1709,7 +1985,7 @@ try {
             if (!$target['telegram_chat_id']) {
                 throw new RuntimeException('This user has no linked Telegram account.');
             }
-            TelegramService::unlink($target);
+            TelegramService::unlink($target, true);
             Security::audit((int)$user['id'], 'user_telegram_reset', [
                 'target_id'=>(int)$target['id'],
             ]);

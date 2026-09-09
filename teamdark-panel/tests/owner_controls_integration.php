@@ -61,6 +61,31 @@ try {
         }
         check($response['status']===200 && !str_contains($response['body'],'Warning:'),'owner route '.$path);
     }
+    $registerClient = client();
+    $registrationRef = 'TDREGREVIEWTEST';
+    $pdo->prepare(
+        "INSERT INTO referral_invites(code,created_by,role,status)
+         VALUES(?,?,'user','pending')"
+    )->execute([$registrationRef, $owner['id']]);
+
+    $registrationPage = request($registerClient,'/register?ref='.$registrationRef);
+    $registrationPost = request($registerClient,'/register',[
+        'csrf'=>token($registrationPage['body']),
+        'referral'=>$registrationRef,
+        'name'=>'Review Flow User',
+        'username'=>'review-flow-user',
+        'password'=>'ReviewFlow@12345',
+    ]);
+    check($registrationPost['status']===303,'referral registration redirects to review');
+    $registrationReview = request($registerClient,'/register/success');
+    check(
+        $registrationReview['status']===200
+        && str_contains($registrationReview['body'],'data-registration-countdown="15"')
+        && str_contains($registrationReview['body'],'@review-flow-user')
+        && str_contains($registrationReview['body'],$registrationRef),
+        'registration review shows account details and 15 second countdown'
+    );
+
     check(request($guest,'/assets/app.css')['status']===200,'stylesheet served');
     check(request($userClient,'/owner/settings')['status']!==200,'non-owner cannot read controls');
     check(request($userClient,'/activity')['status']!==200,'non-owner cannot read history');

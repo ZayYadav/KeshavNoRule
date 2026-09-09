@@ -91,6 +91,11 @@ final class TelegramBot
                 return;
             }
 
+            if (preg_match('/^\/2fa(?:@\w+)?$/i', $text)) {
+                self::showTwoFactorSetup($chatId, $panelUser);
+                return;
+            }
+
             self::showMenu($chatId, $tg, $panelUser, $isOwner);
         } catch (Throwable $e) {
             self::releaseUpdate($updateId);
@@ -199,6 +204,11 @@ final class TelegramBot
                 return;
             }
             self::showMyKeys($chatId, $panelUser);
+            return;
+        }
+
+        if ($data === 'security:2fa') {
+            self::showTwoFactorSetup($chatId, $panelUser);
             return;
         }
 
@@ -354,6 +364,52 @@ final class TelegramBot
         );
     }
 
+    private static function showTwoFactorSetup(int $chatId, ?array $panelUser): void
+    {
+        if (!$panelUser) {
+            self::send(
+                $chatId,
+                "🛡 <b>Telegram 2FA</b>\n\nLink your panel account first. Then this bot can issue your 2FA activation key.",
+                self::menuKeyboard($chatId, null)
+            );
+            return;
+        }
+
+        if ((int)($panelUser['telegram_2fa_enabled'] ?? 0) === 1) {
+            self::send(
+                $chatId,
+                "✅ <b>Telegram 2FA is enabled</b>\n\nEvery new panel login requires an 8-digit code delivered here.\n\nTo disable it, use Dashboard and confirm with your current password.",
+                self::menuKeyboard($chatId, $panelUser)
+            );
+            return;
+        }
+
+        try {
+            $activation = TwoFactorService::createActivationToken($panelUser);
+
+            self::send(
+                $chatId,
+                "🛡 <b>TEAM DARK 2FA ACTIVATION</b>\n\n"
+                ."Use this one-time key on your Dashboard:\n<code>"
+                .self::h($activation['code'])
+                ."</code>\n\n⏱ Expires in 10 minutes.\n"
+                ."This key only enables 2FA for @".self::h($panelUser['username']).".",
+                self::menuKeyboard($chatId, $panelUser)
+            );
+        } catch (Throwable $e) {
+            $message = $e instanceof RuntimeException
+                ? $e->getMessage()
+                : 'Could not create a 2FA activation key. Try again later.';
+
+            self::send(
+                $chatId,
+                "⚠️ <b>2FA setup unavailable</b>\n"
+                .self::h($message),
+                self::menuKeyboard($chatId, $panelUser)
+            );
+        }
+    }
+
     private static function showAccount(int $chatId, array $user): void
     {
         $keyCountQ = Database::pdo()->prepare(
@@ -369,6 +425,7 @@ final class TelegramBot
             ."\nRole: ".self::h(strtoupper($user['role']))
             ."\nBalance: ".self::h($user['role'] === 'owner' ? '∞' : (string)$user['balance'])
             ."\nChat ID: <code>".$chatId."</code>"
+            ."\n2FA: ".((int)($user['telegram_2fa_enabled'] ?? 0) === 1 ? 'ENABLED ✅' : 'Optional / off')
             ."\nKeys: ".(int)$keyCountQ->fetchColumn(),
             self::menuKeyboard($chatId, $user)
         );
@@ -825,7 +882,8 @@ final class TelegramBot
     private static function ownerActor(): array
     {
         $q = Database::pdo()->query(
-            "SELECT id,name,username,role,balance,telegram_chat_id,status,created_at
+            "SELECT id,name,username,role,balance,telegram_chat_id,
+                    telegram_2fa_enabled,telegram_2fa_enabled_at,status,created_at
              FROM users
              WHERE role='owner' AND status='active'
              ORDER BY id ASC
@@ -874,6 +932,9 @@ final class TelegramBot
                     ['text'=>'🔑 1 Day','callback_data'=>'gen:1'],
                     ['text'=>'🔑 7 Days','callback_data'=>'gen:7'],
                     ['text'=>'🔑 30 Days','callback_data'=>'gen:30'],
+                ],
+                [
+                    ['text'=>'🛡 2FA Setup','callback_data'=>'security:2fa'],
                 ],
             ];
         }

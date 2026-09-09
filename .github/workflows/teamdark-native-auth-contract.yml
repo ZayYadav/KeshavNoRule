@@ -186,6 +186,10 @@ jobs:
           mysql -h127.0.0.1 -uroot -proot teamdark_migration < teamdark-panel/database/schema.sql
 
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_chat_id';" | grep -F 'telegram_chat_id' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_2fa_enabled';" | grep -F 'telegram_2fa_enabled' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_2fa_enabled_at';" | grep -F 'telegram_2fa_enabled_at' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'telegram_2fa_activation_tokens';" | grep -F 'telegram_2fa_activation_tokens' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'login_2fa_challenges';" | grep -F 'login_2fa_challenges' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'key_source';" | grep -F 'key_source' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'telegram_user_id';" | grep -F 'telegram_user_id' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_devices LIKE 'serial';" | grep -F 'serial' >/dev/null

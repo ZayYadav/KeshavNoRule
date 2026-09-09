@@ -261,8 +261,21 @@ final class TelegramService
         }
     }
 
-    public static function unlink(array $panelUser): void
+    public static function unlink(array $panelUser, bool $force = false): void
     {
+        $userId = (int)($panelUser['id'] ?? 0);
+        $q = Database::pdo()->prepare(
+            'SELECT telegram_2fa_enabled FROM users WHERE id=? LIMIT 1'
+        );
+        $q->execute([$userId]);
+        $twoFactorEnabled = (int)$q->fetchColumn() === 1;
+
+        if ($twoFactorEnabled && !$force) {
+            throw new RuntimeException(
+                'Disable Telegram 2FA before unlinking Telegram.'
+            );
+        }
+
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
@@ -271,17 +284,28 @@ final class TelegramService
                 "UPDATE telegram_users
                  SET linked_user_id=NULL
                  WHERE linked_user_id=?"
-            )->execute([$panelUser['id']]);
+            )->execute([$userId]);
 
             $pdo->prepare(
                 "UPDATE users
-                 SET telegram_chat_id=NULL
+                 SET telegram_chat_id=NULL,
+                     telegram_2fa_enabled=0,
+                     telegram_2fa_enabled_at=NULL
                  WHERE id=?"
-            )->execute([$panelUser['id']]);
+            )->execute([$userId]);
 
             $pdo->prepare(
                 "DELETE FROM telegram_link_tokens WHERE user_id=?"
-            )->execute([$panelUser['id']]);
+            )->execute([$userId]);
+            $pdo->prepare(
+                "DELETE FROM telegram_2fa_activation_tokens WHERE user_id=?"
+            )->execute([$userId]);
+            $pdo->prepare(
+                "DELETE FROM login_2fa_challenges WHERE user_id=?"
+            )->execute([$userId]);
+            $pdo->prepare(
+                "DELETE FROM api_tokens WHERE user_id=?"
+            )->execute([$userId]);
 
             $pdo->commit();
 
@@ -295,6 +319,60 @@ final class TelegramService
             }
             throw $e;
         }
+    }
+
+    public static function sendPrivateMessage(int $chatId, string $html): bool
+    {
+        if ($chatId <= 0 || trim($html) === '') {
+            return false;
+        }
+
+        $token = (string)Config::get('telegram_bot_token', '');
+
+        if ($token === '') {
+            throw new RuntimeException('TELEGRAM_BOT_TOKEN is not configured.');
+        }
+
+        $ch = curl_init('https://api.telegram.org/bot'.$token.'/sendMessage');
+
+        if ($ch === false) {
+            throw new RuntimeException('Could not initialize Telegram request.');
+        }
+
+        $payload = json_encode([
+            'chat_id'=>$chatId,
+            'text'=>$html,
+            'parse_mode'=>'HTML',
+            'disable_web_page_preview'=>true,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        curl_setopt_array($ch, [
+            CURLOPT_POST=>true,
+            CURLOPT_POSTFIELDS=>$payload,
+            CURLOPT_HTTPHEADER=>['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_CONNECTTIMEOUT=>4,
+            CURLOPT_TIMEOUT=>10,
+            CURLOPT_SSL_VERIFYPEER=>true,
+            CURLOPT_SSL_VERIFYHOST=>2,
+            CURLOPT_FOLLOWLOCATION=>false,
+        ]);
+
+        $body = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($body === false || $status !== 200) {
+            error_log(
+                'Telegram security message failed HTTP '.$status
+                .($error !== '' ? ' transport-error' : '')
+            );
+            return false;
+        }
+
+        $decoded = json_decode((string)$body, true);
+        return is_array($decoded) && ($decoded['ok'] ?? false) === true;
     }
 
     public static function unregisteredGuests(): array
