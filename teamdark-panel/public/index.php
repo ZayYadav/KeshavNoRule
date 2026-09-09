@@ -969,7 +969,7 @@ try {
                 .'<form method="post" action="/keys/create" class="stack" data-action="Generate key" data-confirm="Generate this key with the selected validity and device limit?" data-busy="Generating secure key…">'
                 .View::csrf()
                 .'<div class="field"><label>Custom key <span class="optional">optional</span></label>'
-                .'<input name="custom_key" maxlength="80" placeholder="Team-Dark-MyVIPKey" autocomplete="off"></div>'
+                .'<input name="custom_key" minlength="12" maxlength="80" placeholder="Team-Dark-MyVIPKey" autocomplete="off"></div>'
                 .'<div class="field"><label>Label <span class="optional">optional</span></label>'
                 .'<input name="label" maxlength="100" placeholder="Customer / plan note"></div>'
                 .'<div class="form-row">'
