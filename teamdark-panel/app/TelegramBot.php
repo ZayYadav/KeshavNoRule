@@ -167,6 +167,16 @@ final class TelegramBot
                 return;
             }
 
+            if (!(bool)Config::get('telegram_linked_key_generation_enabled', false)) {
+                self::send(
+                    $chatId,
+                    "🛡 <b>Bot generation locked</b>\n\n"
+                    ."For account security, generate new keys from the web panel.",
+                    self::menuKeyboard($chatId, $panelUser)
+                );
+                return;
+            }
+
             $days = (int)$m[1];
             $created = KeyManager::create(
                 $panelUser,
@@ -879,8 +889,10 @@ final class TelegramBot
             $next = $target['status'] === 'active' ? 'disabled' : 'active';
 
             $pdo->prepare(
-                "UPDATE users SET status=? WHERE id=?"
+                "UPDATE users SET status=?,auth_version=auth_version+1 WHERE id=?"
             )->execute([$next, $targetId]);
+            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')
+                ->execute([$targetId]);
 
             $pdo->commit();
 
