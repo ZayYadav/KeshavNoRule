@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/cyber_bg_gradient">
+    android:background="@drawable/parallax_bg">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -17,9 +17,9 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="20dp"
-            android:paddingTop="40dp"
+            android:paddingTop="34dp"
             android:paddingEnd="20dp"
-            android:paddingBottom="28dp">
+            android:paddingBottom="30dp">
 
             <LinearLayout
                 android:id="@+id/mainHeader"
@@ -28,76 +28,98 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    app:cardBackgroundColor="#171B28"
+                    app:cardCornerRadius="17dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="#387C8CFF"
+                    app:strokeWidth="1dp">
+
+                    <ImageView
+                        android:layout_width="31dp"
+                        android:layout_height="31dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="Parallax"
+                        android:src="@drawable/icon" />
+                </com.google.android.material.card.MaterialCardView>
+
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="13dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:letterSpacing="0.12"
-                        android:text="SECURE DASHBOARD"
-                        android:textColor="@color/cyber_cyan"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/tvMainTitle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
                         android:fontFamily="sans-serif-black"
-                        android:text="PARALLAX LOADER"
-                        android:textColor="@color/white"
-                        android:textSize="25sp"
+                        android:text="PARALLAX"
+                        android:textColor="@color/parallax_text"
+                        android:textSize="22sp"
                         android:textStyle="bold" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/cyber_badge_green"
-                    android:gravity="center_vertical"
-                    android:paddingStart="11dp"
-                    android:paddingTop="6dp"
-                    android:paddingEnd="11dp"
-                    android:paddingBottom="6dp">
-
-                    <View
-                        android:layout_width="7dp"
-                        android:layout_height="7dp"
-                        android:layout_marginEnd="6dp"
-                        android:background="@drawable/circle_bg"
-                        android:backgroundTint="@color/cyber_emerald" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="ACTIVE"
-                        android:textColor="@color/cyber_emerald"
-                        android:textSize="10sp"
+                        android:layout_marginTop="1dp"
+                        android:letterSpacing="0.16"
+                        android:text="PRIVATE LOADER"
+                        android:textColor="@color/parallax_blue"
+                        android:textSize="9sp"
                         android:textStyle="bold" />
                 </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/parallax_chip"
+                    android:paddingStart="10dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="6dp"
+                    android:text="ACTIVE"
+                    android:textColor="@color/parallax_green"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
             </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="32dp"
+                android:fontFamily="sans-serif-light"
+                android:text="Session control"
+                android:textColor="@color/parallax_text"
+                android:textSize="30sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Everything you need for the current private session."
+                android:textColor="@color/parallax_muted"
+                android:textSize="12sp" />
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/timerCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
-                app:cardBackgroundColor="#E60D1424"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="8dp"
-                app:strokeColor="#3300F0FF"
+                android:layout_marginTop="24dp"
+                app:cardBackgroundColor="#F20D101A"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#2EFFFFFF"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="20dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -105,87 +127,100 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:contentDescription="Expiry timer"
-                            android:src="@drawable/ic_timer"
-                            app:tint="@color/cyber_cyan" />
-
-                        <TextView
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="9dp"
                             android:layout_weight="1"
-                            android:text="LICENSE TIME LEFT"
-                            android:textColor="@color/text_muted"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:letterSpacing="0.12"
+                                android:text="LICENSE WINDOW"
+                                android:textColor="@color/parallax_blue"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:text="Time remaining"
+                                android:textColor="@color/parallax_text"
+                                android:textSize="18sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
 
                         <TextView
                             android:id="@+id/tvExpires"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:background="@drawable/parallax_chip"
+                            android:paddingStart="10dp"
+                            android:paddingTop="6dp"
+                            android:paddingEnd="10dp"
+                            android:paddingBottom="6dp"
                             android:text="Active"
-                            android:textColor="@color/cyber_emerald"
-                            android:textSize="11sp"
+                            android:textColor="@color/parallax_green"
+                            android:textSize="9sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
+                        android:layout_marginTop="20dp"
                         android:orientation="horizontal">
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="74dp"
-                            android:layout_marginEnd="4dp"
+                            android:layout_height="78dp"
+                            android:layout_marginEnd="5dp"
                             android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
+                            android:background="@drawable/parallax_timer_tile"
                             android:gravity="center"
                             android:orientation="vertical">
-                            <TextView android:id="@+id/tvDays" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_purple" android:textSize="22sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="DAYS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
+                            <TextView android:id="@+id/tvDays" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/parallax_text" android:textSize="24sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="DAYS" android:textColor="@color/parallax_muted" android:textSize="8sp" android:textStyle="bold"/>
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="74dp"
-                            android:layout_marginStart="4dp"
-                            android:layout_marginEnd="4dp"
+                            android:layout_height="78dp"
+                            android:layout_marginStart="5dp"
+                            android:layout_marginEnd="5dp"
                             android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
+                            android:background="@drawable/parallax_timer_tile"
                             android:gravity="center"
                             android:orientation="vertical">
-                            <TextView android:id="@+id/tvHours" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_pink" android:textSize="22sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="HOURS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
+                            <TextView android:id="@+id/tvHours" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/parallax_text" android:textSize="24sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="HRS" android:textColor="@color/parallax_muted" android:textSize="8sp" android:textStyle="bold"/>
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="74dp"
-                            android:layout_marginStart="4dp"
-                            android:layout_marginEnd="4dp"
+                            android:layout_height="78dp"
+                            android:layout_marginStart="5dp"
+                            android:layout_marginEnd="5dp"
                             android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
+                            android:background="@drawable/parallax_timer_tile"
                             android:gravity="center"
                             android:orientation="vertical">
-                            <TextView android:id="@+id/tvMins" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_cyan" android:textSize="22sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="MINS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
+                            <TextView android:id="@+id/tvMins" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/parallax_text" android:textSize="24sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="MIN" android:textColor="@color/parallax_muted" android:textSize="8sp" android:textStyle="bold"/>
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="74dp"
-                            android:layout_marginStart="4dp"
+                            android:layout_height="78dp"
+                            android:layout_marginStart="5dp"
                             android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
+                            android:background="@drawable/parallax_timer_tile"
                             android:gravity="center"
                             android:orientation="vertical">
-                            <TextView android:id="@+id/tvSecs" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_emerald" android:textSize="22sp" android:textStyle="bold"/>
-                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="SECS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/>
+                            <TextView android:id="@+id/tvSecs" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/parallax_blue" android:textSize="24sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="SEC" android:textColor="@color/parallax_muted" android:textSize="8sp" android:textStyle="bold"/>
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
@@ -196,17 +231,17 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                app:cardBackgroundColor="#E60D1424"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="8dp"
-                app:strokeColor="#26FFFFFF"
+                app:cardBackgroundColor="#D9131724"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#387C8CFF"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="18dp">
+                    android:padding="20dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -214,47 +249,49 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <ImageView
-                            android:layout_width="34dp"
-                            android:layout_height="34dp"
-                            android:contentDescription="Game"
-                            android:src="@drawable/ic_gamepad"
-                            app:tint="@color/cyber_cyan" />
+                        <FrameLayout
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:background="@drawable/parallax_icon_button">
+
+                            <ImageView
+                                android:layout_width="25dp"
+                                android:layout_height="25dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Application"
+                                android:src="@drawable/ic_gamepad"
+                                app:tint="@color/parallax_blue" />
+                        </FrameLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
+                            android:layout_marginStart="13dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="BGMI secure container"
-                                android:textColor="@color/white"
-                                android:textSize="16sp"
+                                android:text="Workspace"
+                                android:textColor="@color/parallax_text"
+                                android:textSize="17sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="3dp"
-                                android:text="Environment ready • ARM64"
-                                android:textColor="@color/text_muted"
+                                android:text="ARM64 environment • Ready"
+                                android:textColor="@color/parallax_muted"
                                 android:textSize="11sp" />
                         </LinearLayout>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/cyber_badge_green"
-                            android:paddingStart="10dp"
-                            android:paddingTop="5dp"
-                            android:paddingEnd="10dp"
-                            android:paddingBottom="5dp"
                             android:text="READY"
-                            android:textColor="@color/cyber_emerald"
+                            android:textColor="@color/parallax_green"
                             android:textSize="9sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -262,17 +299,17 @@
                     <FrameLayout
                         android:id="@+id/btnStartContainer"
                         android:layout_width="match_parent"
-                        android:layout_height="58dp"
-                        android:layout_marginTop="18dp">
+                        android:layout_height="60dp"
+                        android:layout_marginTop="20dp">
 
                         <androidx.appcompat.widget.AppCompatButton
                             android:id="@+id/btnStart"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:background="@drawable/cyber_btn_primary"
-                            android:letterSpacing="0.08"
-                            android:text="LAUNCH SECURE SESSION"
-                            android:textColor="@color/text_dark"
+                            android:background="@drawable/parallax_primary_btn"
+                            android:letterSpacing="0.07"
+                            android:text="OPEN SESSION"
+                            android:textColor="@color/parallax_text"
                             android:textSize="14sp"
                             android:textStyle="bold" />
                     </FrameLayout>
@@ -284,36 +321,50 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                app:cardBackgroundColor="#C90A1020"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="4dp"
-                app:strokeColor="#269D4EDD"
+                app:cardBackgroundColor="#B80A0D15"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#22FFFFFF"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="17dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="SECURITY CORE"
-                        android:textColor="@color/cyber_purple"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                    <View
+                        android:layout_width="4dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/parallax_accent_bar" />
 
-                    <TextView
-                        android:layout_width="match_parent"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:lineSpacingExtra="3dp"
-                        android:text="Native integrity hook enabled • screenshot protection enabled • optimized release build active."
-                        android:textColor="@color/text_muted"
-                        android:textSize="11sp" />
+                        android:layout_marginStart="13dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="PARALLAX CORE"
+                            android:textColor="@color/parallax_text"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:lineSpacingExtra="2dp"
+                            android:text="Private runtime safeguards are active for this release."
+                            android:textColor="@color/parallax_muted"
+                            android:textSize="10sp" />
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </ScrollView>
-</RelativeLayout>
+</FrameLayout>
