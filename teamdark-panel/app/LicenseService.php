@@ -75,12 +75,12 @@ final class LicenseService
                 "UPDATE license_devices d
                  JOIN license_keys k ON k.id=d.license_key_id
                  SET d.device_label=?
-                 WHERE k.key_hash IN (?,?) AND d.serial=?"
+                 WHERE k.key_hash IN (?,?) AND d.device_hash=?"
             )->execute([
                 substr($deviceLabel, 0, 120),
                 $keyHash,
                 $legacyKeyHash,
-                $deviceId,
+                Crypto::fingerprint($deviceId),
             ]);
         }
 
