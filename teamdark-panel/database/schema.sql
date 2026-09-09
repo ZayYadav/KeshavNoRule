@@ -87,6 +87,14 @@ CALL td_add_column(
   'users','telegram_chat_id',
   'ALTER TABLE users ADD COLUMN telegram_chat_id BIGINT NULL AFTER created_by'
 );
+CALL td_add_column(
+  'users','telegram_2fa_enabled',
+  'ALTER TABLE users ADD COLUMN telegram_2fa_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER telegram_chat_id'
+);
+CALL td_add_column(
+  'users','telegram_2fa_enabled_at',
+  'ALTER TABLE users ADD COLUMN telegram_2fa_enabled_at DATETIME NULL AFTER telegram_2fa_enabled'
+);
 
 ALTER TABLE users
   MODIFY balance BIGINT UNSIGNED NOT NULL DEFAULT 0;
@@ -318,6 +326,33 @@ CREATE TABLE IF NOT EXISTS telegram_link_tokens (
   INDEX idx_tg_link_user(user_id),
   INDEX idx_tg_link_chat(chat_id),
   INDEX idx_tg_link_expiry(expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS telegram_2fa_activation_tokens (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  code_hash CHAR(64) NOT NULL UNIQUE,
+  expires_at DATETIME NOT NULL,
+  used_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_2fa_activation_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_2fa_activation_user(user_id),
+  INDEX idx_2fa_activation_expiry(expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS login_2fa_challenges (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  code_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  created_ip VARCHAR(45) NOT NULL DEFAULT '',
+  used_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_login_2fa_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_login_2fa_user(user_id),
+  INDEX idx_login_2fa_expiry(expires_at),
+  INDEX idx_login_2fa_used(used_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS telegram_update_ids (
