@@ -289,7 +289,7 @@ function bearerUser(): array
 
     $hash = hash('sha256', $m[1]);
 
-    Security::rateLimit('api-bearer-global', 600, 60, 'global');
+    Security::rateLimit('api-bearer-ip', 120, 60);
     Security::rateLimit('api-bearer-token', 240, 60, $hash);
 
     $q = Database::pdo()->prepare(
