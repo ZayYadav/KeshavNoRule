@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/cyber_bg_gradient">
+    android:background="@drawable/baba_bg">
+
+    <View
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="-76dp"
+        android:layout_marginEnd="-64dp"
+        android:alpha="0.18"
+        android:background="@drawable/baba_primary_button" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -15,298 +24,352 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_horizontal"
             android:orientation="vertical"
             android:paddingStart="22dp"
-            android:paddingTop="42dp"
+            android:paddingTop="34dp"
             android:paddingEnd="22dp"
-            android:paddingBottom="26dp">
+            android:paddingBottom="28dp">
 
             <LinearLayout
                 android:id="@+id/headerArea"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
-                android:orientation="vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
                 <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/cyber_badge_green"
-                    android:gravity="center_vertical"
+                    android:layout_height="34dp"
+                    android:background="@drawable/baba_badge"
+                    android:gravity="center"
+                    android:orientation="horizontal"
                     android:paddingStart="12dp"
-                    android:paddingTop="6dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="6dp">
+                    android:paddingEnd="12dp">
 
                     <View
-                        android:layout_width="7dp"
-                        android:layout_height="7dp"
+                        android:layout_width="6dp"
+                        android:layout_height="6dp"
                         android:layout_marginEnd="7dp"
                         android:background="@drawable/circle_bg"
-                        android:backgroundTint="@color/cyber_emerald" />
+                        android:backgroundTint="@color/baba_crimson" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="SECURE SESSION • ONLINE"
-                        android:textColor="@color/cyber_emerald"
+                        android:letterSpacing="0.14"
+                        android:text="PRIVATE NODE"
+                        android:textColor="@color/baba_text"
                         android:textSize="10sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/logoContainer"
-                    android:layout_width="88dp"
-                    android:layout_height="88dp"
-                    android:layout_marginTop="22dp"
-                    app:cardBackgroundColor="#CC11182A"
-                    app:cardCornerRadius="28dp"
-                    app:cardElevation="12dp"
-                    app:strokeColor="@color/cyber_stroke_cyan"
-                    app:strokeWidth="1dp">
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
 
-                    <ImageView
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="BABA DARK LOADER"
-                        android:src="@drawable/icon" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <LinearLayout
-                    android:id="@+id/titleBanner"
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
+                    android:letterSpacing="0.10"
+                    android:text="ONLINE • 256"
+                    android:textColor="@color/baba_success"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/titleBanner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="34dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:id="@+id/logoContainer"
+                    android:layout_width="82dp"
+                    android:layout_height="82dp"
+                    android:background="@drawable/baba_panel_soft"
+                    android:elevation="10dp"
+                    android:padding="15dp">
+
+                    <ImageView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="BABA DARK LOADER"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/icon" />
+                </FrameLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="18dp"
+                    android:layout_weight="1"
                     android:orientation="vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-black"
-                        android:letterSpacing="0.10"
-                        android:text="BABA DARK LOADER"
-                        android:textColor="@color/white"
-                        android:textSize="28sp"
+                        android:letterSpacing="0.01"
+                        android:text="BABA"
+                        android:textColor="@color/baba_text"
+                        android:textSize="34sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:letterSpacing="0.16"
-                        android:text="PRIVATE ACCESS CONSOLE"
-                        android:textColor="@color/cyber_cyan"
-                        android:textSize="10sp"
+                        android:layout_marginTop="-4dp"
+                        android:fontFamily="sans-serif-black"
+                        android:letterSpacing="0.06"
+                        android:text="DARK LOADER"
+                        android:textColor="@color/baba_crimson"
+                        android:textSize="18sp"
                         android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:letterSpacing="0.11"
+                        android:text="CONTROL / ACCESS / LAUNCH"
+                        android:textColor="@color/baba_muted"
+                        android:textSize="9sp" />
                 </LinearLayout>
             </LinearLayout>
 
-            <com.google.android.material.card.MaterialCardView
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="26dp"
+                android:lineSpacingExtra="4dp"
+                android:text="Restricted access gateway for the BABA DARK private runtime."
+                android:textColor="@color/baba_muted"
+                android:textSize="13sp" />
+
+            <LinearLayout
                 android:id="@+id/loginCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                app:cardBackgroundColor="#E60D1424"
-                app:cardCornerRadius="26dp"
-                app:cardElevation="10dp"
-                app:strokeColor="#3300F0FF"
-                app:strokeWidth="1dp">
+                android:layout_marginTop="24dp"
+                android:background="@drawable/baba_panel"
+                android:elevation="12dp"
+                android:orientation="vertical"
+                android:padding="22dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="22dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:contentDescription="License key"
+                        android:src="@drawable/ic_cyber_key"
+                        app:tint="@color/baba_gold" />
 
                     <LinearLayout
-                        android:layout_width="match_parent"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:contentDescription="License"
-                            android:src="@drawable/ic_cyber_key"
-                            app:tint="@color/cyber_cyan" />
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="License verification"
-                                android:textColor="@color/white"
-                                android:textSize="17sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="Authenticate your key with the secure panel."
-                                android:textColor="@color/text_muted"
-                                android:textSize="11sp" />
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="58dp"
-                        android:layout_marginTop="22dp"
-                        android:background="@drawable/cyber_input_bg"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="10dp">
-
-                        <EditText
-                            android:id="@+id/userkey"
-                            android:layout_width="0dp"
-                            android:layout_height="match_parent"
-                            android:layout_weight="1"
-                            android:background="@android:color/transparent"
-                            android:hint="ENTER LICENSE KEY"
-                            android:inputType="textPassword"
-                            android:maxLines="1"
-                            android:paddingStart="2dp"
-                            android:textColor="@color/white"
-                            android:textColorHint="#64748B"
-                            android:textSize="14sp" />
-
-                        <FrameLayout
-                            android:id="@+id/paste"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:background="@drawable/cyber_btn_secondary"
-                            android:clickable="true"
-                            android:focusable="true">
-
-                            <ImageView
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
-                                android:layout_gravity="center"
-                                android:contentDescription="Paste key"
-                                android:src="@drawable/ic_content_paste"
-                                app:tint="@color/cyber_cyan" />
-                        </FrameLayout>
-                    </LinearLayout>
-
-                    <androidx.appcompat.widget.AppCompatButton
-                        android:id="@+id/login"
-                        android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:layout_marginTop="18dp"
-                        android:background="@drawable/cyber_btn_primary"
-                        android:letterSpacing="0.07"
-                        android:text="VERIFY &amp; CONTINUE"
-                        android:textColor="@color/text_dark"
-                        android:textSize="15sp"
-                        android:textStyle="bold" />
-
-                    <LinearLayout
-                        android:id="@+id/GetKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="50dp"
-                        android:layout_marginTop="12dp"
-                        android:background="@drawable/cyber_btn_secondary"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="19dp"
-                            android:layout_height="19dp"
-                            android:contentDescription="Telegram"
-                            android:src="@drawable/ic_telegram"
-                            app:tint="@color/cyber_cyan" />
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:letterSpacing="0.05"
-                            android:text="GET OFFICIAL KEY"
-                            android:textColor="@color/cyber_cyan"
-                            android:textSize="12sp"
+                            android:text="ACCESS CREDENTIAL"
+                            android:textColor="@color/baba_text"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Paste your active license to continue."
+                            android:textColor="@color/baba_muted"
+                            android:textSize="11sp" />
                     </LinearLayout>
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
+                    <TextView
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="18dp"
-                        android:gravity="center"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:text="NATIVE AUTH"
-                            android:textColor="@color/cyber_emerald"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:text="R8 HARDENED"
-                            android:textColor="@color/cyber_purple"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:text="SECURE UI"
-                            android:textColor="@color/cyber_cyan"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
+                        android:background="@drawable/baba_badge"
+                        android:paddingStart="10dp"
+                        android:paddingTop="5dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="5dp"
+                        android:text="V2"
+                        android:textColor="@color/baba_crimson"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="60dp"
+                    android:layout_marginTop="22dp"
+                    android:background="@drawable/baba_input"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="15dp"
+                    android:paddingEnd="9dp">
+
+                    <EditText
+                        android:id="@+id/userkey"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@android:color/transparent"
+                        android:hint="LICENSE-XXXX-XXXX"
+                        android:inputType="textPassword"
+                        android:maxLines="1"
+                        android:paddingStart="0dp"
+                        android:textColor="@color/baba_text"
+                        android:textColorHint="@color/baba_dim"
+                        android:textSize="14sp" />
+
+                    <FrameLayout
+                        android:id="@+id/paste"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/baba_secondary_button"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Paste"
+                            android:src="@drawable/ic_content_paste"
+                            app:tint="@color/baba_gold" />
+                    </FrameLayout>
+                </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/login"
+                    android:layout_width="match_parent"
+                    android:layout_height="58dp"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/baba_primary_button"
+                    android:letterSpacing="0.09"
+                    android:text="UNLOCK CONSOLE"
+                    android:textAllCaps="true"
+                    android:textColor="#160709"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:id="@+id/GetKey"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="11dp"
+                    android:background="@drawable/baba_secondary_button"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="Get key"
+                        android:src="@drawable/ic_telegram"
+                        app:tint="@color/baba_gold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="9dp"
+                        android:letterSpacing="0.08"
+                        android:text="REQUEST ACCESS KEY"
+                        android:textColor="@color/baba_gold"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="20dp"
+                    android:background="#22FFFFFF" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="15dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="start"
+                        android:text="NATIVE AUTH"
+                        android:textColor="@color/baba_muted"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:text="PRIVATE CORE"
+                        android:textColor="@color/baba_muted"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="end"
+                        android:text="SECURE LINK"
+                        android:textColor="@color/baba_muted"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/footerArea"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:gravity="center"
-                android:orientation="vertical">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="28dp"
+                    android:layout_height="2dp"
+                    android:background="@color/baba_crimson" />
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="BABA DARK LOADER SECURITY CORE"
-                    android:textColor="@color/text_muted"
-                    android:textSize="10sp"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:text="BABA DARK // PRIVATE ACCESS"
+                    android:textColor="@color/baba_dim"
+                    android:textSize="9sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Authorized access only"
-                    android:textColor="#526078"
-                    android:textSize="10sp" />
+                    android:text="01"
+                    android:textColor="@color/baba_gold"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
-</RelativeLayout>
+</FrameLayout>
