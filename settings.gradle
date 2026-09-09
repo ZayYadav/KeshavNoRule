@@ -1,5 +1,5 @@
 
-rootProject.name = "JaduLoader"
+rootProject.name = "BabaDarkLoader"
 include ':app'
 //include ':MundoCore'
 
