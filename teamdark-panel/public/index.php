@@ -40,7 +40,9 @@ foreach ([
 }
 
 Config::load($root);
+Security::enforceHttpsWeb();
 Security::headers();
+Crypto::migrateLegacyLicenseHashes(100);
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $path = rawurldecode(
@@ -287,6 +289,9 @@ function bearerUser(): array
 
     $hash = hash('sha256', $m[1]);
 
+    Security::rateLimit('api-bearer-global', 600, 60, 'global');
+    Security::rateLimit('api-bearer-token', 240, 60, $hash);
+
     $q = Database::pdo()->prepare(
         "SELECT u.id,u.name,u.username,u.role,u.balance,u.status,t.id token_id
          FROM api_tokens t
@@ -357,7 +362,7 @@ function issueApiToken(array $u): array
                        FROM api_tokens
                        WHERE user_id=?
                        ORDER BY id DESC
-                       LIMIT 20
+                       LIMIT 10
                    ) AS keep_tokens
                )"
         )->execute([(int)$u['id'], (int)$u['id']]);
@@ -391,7 +396,7 @@ function issueApiToken(array $u): array
 }
 
 try {
-    if (!str_starts_with($path, '/api/') && !in_array($path, ['/login','/login/2fa','/login/2fa/resend','/logout'], true)) {
+    if (!str_starts_with($path, '/api/') && !in_array($path, ['/login','/login/2fa','/login/2fa/resend','/login/2fa/cancel','/logout'], true)) {
         $sessionUser = Auth::user();
         if (PanelControl::blocked($sessionUser)) {
             http_response_code(503);
@@ -422,7 +427,7 @@ try {
 
         if (TwoFactorService::enabled($u)) {
             try {
-                $challenge = TwoFactorService::startLoginChallenge($u);
+                $challenge = TwoFactorService::startLoginChallenge($u, true);
             } catch (Throwable $e) {
                 jsonOut(['ok'=>false, 'error'=>'2FA delivery failed'], 503);
             }
@@ -432,6 +437,7 @@ try {
                 'error'=>'2FA_REQUIRED',
                 'challenge_id'=>(int)$challenge['challenge_id'],
                 'user_id'=>(int)$challenge['user_id'],
+                'continuation_token'=>(string)$challenge['continuation_token'],
                 'expires_in'=>300,
             ], 202);
         }
@@ -446,7 +452,8 @@ try {
             $u = TwoFactorService::verifyLoginChallenge(
                 (int)($b['challenge_id'] ?? 0),
                 (int)($b['user_id'] ?? 0),
-                (string)($b['code'] ?? '')
+                (string)($b['code'] ?? ''),
+                (string)($b['continuation_token'] ?? '')
             );
         } catch (Throwable $e) {
             jsonOut(['ok'=>false, 'error'=>'Invalid or expired 2FA code'], 401);
@@ -538,10 +545,6 @@ try {
     }
 
     if ($path === '/login' && $method === 'GET') {
-        if (isset($_GET['cancel']) && $_GET['cancel'] === '1') {
-            Auth::clearPendingTwoFactor();
-        }
-
         if (Auth::user()) {
             redirectTo('/dashboard');
         }
@@ -631,7 +634,8 @@ try {
             .'<form method="post" action="/login/2fa/resend" class="inline twofa-resend">'
             .View::csrf()
             .'<button class="ghost" type="submit">Send a new code</button>'
-            .'<a class="ghost danger" href="/login?cancel=1">Cancel</a>'
+            .'<form method="post" action="/login/2fa/cancel" class="inline">'.View::csrf()
+            .'<button class="ghost danger" type="submit">Cancel</button></form>'
             .'</form>'
             .'<p class="hint">Only use codes delivered by the Team Dark bot. Never share a login code.</p>'
             .'</div></section>';
@@ -663,6 +667,12 @@ try {
         }
 
         redirectTo('/dashboard');
+    }
+
+    if ($path === '/login/2fa/cancel' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::clearPendingTwoFactor();
+        redirectTo('/login');
     }
 
     if ($path === '/login/2fa/resend' && $method === 'POST') {
@@ -816,17 +826,27 @@ try {
 
         try {
             $q = $pdo->prepare(
-                "SELECT i.id,i.role,i.created_by,u.role creator_role,u.status creator_status
+                "SELECT i.id,i.role,i.created_by,i.expires_at,
+                        u.role creator_role,u.status creator_status
                  FROM referral_invites i
                  JOIN users u ON u.id=i.created_by
-                 WHERE i.code=? AND i.status='pending'
+                 WHERE i.code=?
+                   AND i.status='pending'
+                   AND (i.expires_at IS NULL OR i.expires_at>NOW())
                  LIMIT 1
                  FOR UPDATE"
             );
             $q->execute([$ref]);
             $invite = $q->fetch();
 
-            if (!$invite || $invite['creator_status'] !== 'active') {
+            if (
+                !$invite
+                || $invite['creator_status'] !== 'active'
+                || !ReferralManager::creatorCanIssueRole(
+                    (string)$invite['creator_role'],
+                    (string)$invite['role']
+                )
+            ) {
                 throw new RuntimeException('Invalid or already used referral code.');
             }
 
@@ -872,7 +892,11 @@ try {
                 ]);
             }
 
-            if ($bonus > 0 && $invite['creator_role'] !== 'owner') {
+            if (
+                $bonus > 0
+                && $invite['creator_role'] === 'admin'
+                && (bool)Config::get('admin_referral_bonus_enabled', false)
+            ) {
                 $pdo->prepare(
                     'UPDATE users SET balance=balance+? WHERE id=?'
                 )->execute([
@@ -932,7 +956,7 @@ try {
 
     $user = Auth::requireLogin();
 
-    $ownerFreshAuthRoutes = [
+    $privilegedFreshAuthRoutes = [
         '/owner/settings',
         '/owner/announcements/create',
         '/owner/announcements/clear',
@@ -955,8 +979,8 @@ try {
 
     if (
         $method === 'POST'
-        && ($user['role'] ?? '') === 'owner'
-        && in_array($path, $ownerFreshAuthRoutes, true)
+        && in_array(($user['role'] ?? ''), ['owner','admin'], true)
+        && in_array($path, $privilegedFreshAuthRoutes, true)
         && !Auth::recentlyAuthenticated(300)
     ) {
         Auth::logout();
@@ -1130,8 +1154,10 @@ try {
                 .'Telegram: '.View::e(TelegramService::displayName($telegramInfo))
                 .($telegramInfo['username'] ? ' • @'.View::e($telegramInfo['username']) : '')
                 .'</p>'
-                .'<form method="post" action="/telegram/unlink" class="inline">'
+                .'<form method="post" action="/telegram/unlink" class="stack">'
                 .View::csrf()
+                .'<div class="field"><label>Current password</label>'
+                .'<input type="password" name="password" autocomplete="current-password" maxlength="200" required placeholder="Confirm before unlinking"></div>'
                 .'<button class="ghost danger">Unlink Telegram</button></form>'
                 .'</div>';
         } else {
@@ -1151,6 +1177,8 @@ try {
                 .View::csrf()
                 .'<div class="field"><label>Telegram Chat ID</label>'
                 .'<input name="chat_id" inputmode="numeric" pattern="[0-9]{5,19}" maxlength="19" required placeholder="Example: 1234567890"></div>'
+                .'<div class="field"><label>Current password</label>'
+                .'<input type="password" name="password" autocomplete="current-password" maxlength="200" required placeholder="Confirm account ownership"></div>'
                 .'<button class="primary">Generate verification code</button>'
                 .'</form>'.$verify.'</div>';
         }
@@ -1221,6 +1249,13 @@ try {
         Security::rateLimit('telegram-link-start-'.$user['id'], 8, 3600);
 
         try {
+            if (!Auth::verifyCurrentPassword(
+                (int)$user['id'],
+                (string)($_POST['password'] ?? '')
+            )) {
+                throw new RuntimeException('Current password is incorrect.');
+            }
+
             $challenge = TelegramService::createLinkChallenge(
                 $user,
                 input('chat_id')
@@ -1249,6 +1284,13 @@ try {
         Security::verifyCsrf($_POST['csrf'] ?? null);
 
         try {
+            if (!Auth::verifyCurrentPassword(
+                (int)$user['id'],
+                (string)($_POST['password'] ?? '')
+            )) {
+                throw new RuntimeException('Current password is incorrect.');
+            }
+
             TelegramService::unlink($user);
             unset($_SESSION['telegram_link_code']);
             flash('ok', 'Telegram account unlinked.');
@@ -1322,7 +1364,7 @@ try {
                 .'<form method="post" action="/keys/create" class="stack" data-action="Generate key" data-confirm="Generate this key with the selected validity and device limit?" data-busy="Generating secure key…">'
                 .View::csrf()
                 .'<div class="field"><label>Custom key <span class="optional">optional</span></label>'
-                .'<input name="custom_key" minlength="16" maxlength="80" placeholder="Team-Dark-MyVIPKey9" autocomplete="off"></div>'
+                .'<input name="custom_key" minlength="24" maxlength="80" placeholder="Team-Dark-MyVIPKey9" autocomplete="off"></div>'
                 .'<div class="field"><label>Label <span class="optional">optional</span></label>'
                 .'<input name="label" maxlength="100" placeholder="Customer / plan note"></div>'
                 .'<div class="form-row">'
