@@ -1944,3 +1944,22 @@ body[data-teamdark-ui="5"] .splash-note small{font-size:9px;color:#68778b}
   .td-splash{animation:tdSplashFallback .15s linear forwards}
   .td-splash-grid,.td-splash-orbit,.td-splash-logo::before,.td-splash-glow,.td-splash-progress span{animation:none!important}
 }
+
+
+/* Splash audit safe fixes */
+body[data-teamdark-ui="5"]{--muted-2:#6f8199}
+body[data-teamdark-ui="5"] .nav-label{color:#5f7087}
+body[data-teamdark-ui="5"] .breadcrumb>span{color:#697b92}
+body[data-teamdark-ui="5"] footer{color:#63748a}
+body[data-teamdark-ui="5"] .field input::placeholder,
+body[data-teamdark-ui="5"] textarea::placeholder,
+body[data-teamdark-ui="5"] .control-input::placeholder{color:#61758f}
+body[data-teamdark-ui="5"] .key-card,
+body[data-teamdark-ui="5"] .broadcast-job{
+  content-visibility:auto;
+  contain-intrinsic-size:auto 92px;
+}
+@media(max-width:600px){
+  body[data-teamdark-ui="5"] .profile-chip{display:flex!important}
+  body[data-teamdark-ui="5"] .profile-chip>div{display:none}
+}
