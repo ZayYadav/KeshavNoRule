@@ -22,14 +22,14 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
 @Obfuscate
-public class KeshavOwner6 {
-    private static final String KEY_ALIAS = "KeshavOwnerStoreV1";
+public class NoRuleXCheat6 {
+    private static final String KEY_ALIAS = "NoRuleXCheatStoreV1";
     private static final String PREFIX = "K1:";
 
     public Context context;
     SharedPreferences sp;
 
-    public KeshavOwner6(Context context) {
+    public NoRuleXCheat6(Context context) {
         this.context = context.getApplicationContext();
         sp = this.context.getSharedPreferences("settings", Context.MODE_PRIVATE);
     }

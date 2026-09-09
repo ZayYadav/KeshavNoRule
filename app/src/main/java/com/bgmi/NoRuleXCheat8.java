@@ -8,8 +8,8 @@ import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
 import android.os.Build;
 
-import com.bgmi.utils.KeshavOwner5;
-import com.bgmi.utils.KeshavOwner6;
+import com.bgmi.utils.NoRuleXCheat5;
+import com.bgmi.utils.NoRuleXCheat6;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -25,16 +25,16 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 @Obfuscate
-public final class KeshavOwner8 {
+public final class NoRuleXCheat8 {
 
     private static final Set<String> ALLOWED_NATIVE_LIBS = new HashSet<>();
 
     static {
-        ALLOWED_NATIVE_LIBS.add("libKeshavLoader.so");
+        ALLOWED_NATIVE_LIBS.add("libNoRuleXCheat.so");
         ALLOWED_NATIVE_LIBS.add("libKESHAVXOWNERCore.so");
     }
 
-    private KeshavOwner8() {}
+    private NoRuleXCheat8() {}
 
     public static boolean verify(Context context) {
         if (context == null) return false;
@@ -150,7 +150,7 @@ public final class KeshavOwner8 {
         }
 
         return found.size() == 2
-                && found.contains("libKeshavLoader.so")
+                && found.contains("libNoRuleXCheat.so")
                 && found.contains("libKESHAVXOWNERCore.so");
     }
 
@@ -180,7 +180,7 @@ public final class KeshavOwner8 {
         }
 
         return found.size() == 2
-                && found.contains("libKeshavLoader.so")
+                && found.contains("libNoRuleXCheat.so")
                 && found.contains("libKESHAVXOWNERCore.so");
     }
 
@@ -200,16 +200,16 @@ public final class KeshavOwner8 {
         if (soFiles.size() != 1) return false;
 
         File loader = soFiles.get(0);
-        File expected = KeshavOwner5.trustedLoaderFile(context);
+        File expected = NoRuleXCheat5.trustedLoaderFile(context);
 
-        if (!KeshavOwner5.TRUSTED_LOADER_NAME.equals(loader.getName())) return false;
+        if (!NoRuleXCheat5.TRUSTED_LOADER_NAME.equals(loader.getName())) return false;
         if (!loader.getCanonicalPath().equals(expected.getCanonicalPath())) return false;
         if (!loader.getCanonicalPath().startsWith(loaderRoot)) return false;
         if (!loader.isFile() || loader.length() <= 0) return false;
 
-        KeshavOwner6 secure = new KeshavOwner6(context);
-        String expectedHash = secure.getSt(KeshavOwner5.LOADER_HASH_KEY, "");
-        String expectedSize = secure.getSt(KeshavOwner5.LOADER_SIZE_KEY, "");
+        NoRuleXCheat6 secure = new NoRuleXCheat6(context);
+        String expectedHash = secure.getSt(NoRuleXCheat5.LOADER_HASH_KEY, "");
+        String expectedSize = secure.getSt(NoRuleXCheat5.LOADER_SIZE_KEY, "");
 
         if (expectedHash.isEmpty() || expectedSize.isEmpty()) {
             long age = Math.abs(System.currentTimeMillis() - loader.lastModified());
@@ -230,7 +230,7 @@ public final class KeshavOwner8 {
 
         if (!Long.toString(loader.length()).equals(expectedSize)) return false;
 
-        String actualHash = KeshavOwner5.sha256File(loader);
+        String actualHash = NoRuleXCheat5.sha256File(loader);
         if (actualHash == null || !expectedHash.equalsIgnoreCase(actualHash)) {
             return false;
         }
@@ -243,7 +243,7 @@ public final class KeshavOwner8 {
         }
 
         try {
-            return KeshavOwner2.nativeVerifyServerLoader(
+            return NoRuleXCheat2.nativeVerifyServerLoader(
                     context,
                     expectedHash,
                     boundSize);

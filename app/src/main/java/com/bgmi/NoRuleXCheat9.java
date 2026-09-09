@@ -16,7 +16,7 @@ import org.lsposed.lsparanoid.Obfuscate;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Obfuscate
-public final class KeshavOwner9 {
+public final class NoRuleXCheat9 {
 
     private static final AtomicBoolean SHOWING = new AtomicBoolean(false);
 
@@ -25,7 +25,7 @@ public final class KeshavOwner9 {
     // few seconds; onCreate still performs an immediate full verification.
     private static final long RUNTIME_GUARD_INTERVAL_MS = 30_000L;
 
-    private KeshavOwner9() {}
+    private NoRuleXCheat9() {}
 
     public static void showIntegrityFailure(Activity activity, String detail) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
@@ -81,9 +81,9 @@ public final class KeshavOwner9 {
 
                 boolean ok = false;
                 try {
-                    ok = KeshavOwner8.verify(activity)
-                            && KeshavOwner2.nativeVerifySignature(activity)
-                            && KeshavOwner2.nativeCustomIntegrity(activity);
+                    ok = NoRuleXCheat8.verify(activity)
+                            && NoRuleXCheat2.nativeVerifySignature(activity)
+                            && NoRuleXCheat2.nativeCustomIntegrity(activity);
                 } catch (Throwable ignored) {
                     ok = false;
                 }
