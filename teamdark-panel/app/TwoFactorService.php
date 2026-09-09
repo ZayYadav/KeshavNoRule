@@ -402,8 +402,14 @@ final class TwoFactorService
                 throw new RuntimeException('Verification code is invalid or expired.');
             }
 
-            if (!empty($row['continuation_hash'])) {
-                $providedContinuation = trim($continuationToken);
+            $providedContinuation = trim($continuationToken);
+            if ($providedContinuation !== '' || !empty($row['continuation_hash'])) {
+                if (empty($row['continuation_hash'])) {
+                    throw new RuntimeException(
+                        'Verification continuation is invalid or expired.'
+                    );
+                }
+
                 $expectedContinuation = $providedContinuation === ''
                     ? ''
                     : Crypto::fingerprint(
