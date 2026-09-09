@@ -116,6 +116,7 @@ try {
     }
     $q = $pdo->prepare('SELECT role,status,password_hash FROM users WHERE id=?');$q->execute([$owner['id']]);$saved = $q->fetch();
     check($saved['role']==='owner' && $saved['status']==='active' && password_verify('ContractTest@12345',$saved['password_hash']),'owner account protected from self-lockout');
+    require __DIR__.'/announcements_integration.php';
     echo "Owner controls integration: $checks checks passed.\n";
 } finally {
     $pdo->exec("UPDATE panel_settings SET settings_json=JSON_OBJECT(),revision=revision+1 WHERE id=1");

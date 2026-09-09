@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace TeamDark\Panel;
 
+require_once __DIR__.'/Announcements.php';
+
 final class View
 {
     public static function e(mixed $v): string
@@ -60,7 +62,7 @@ final class View
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             .'<title>'.$safeTitle.' • '.$app.'</title>'
-            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-3">'
+            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-4">'
             .'<meta name="theme-color" content="#05070b">'
             .'<meta name="color-scheme" content="dark"></head>';
 
@@ -72,7 +74,7 @@ final class View
                 .'<span><strong>'.$app.'</strong><small>Secure control plane</small></span></a>'
                 .(in_array($path, ['/login','/register'], true)
                     ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
-                    : $body).'</main><script src="/assets/app.js?v=20260909-3" defer></script></body></html>';
+                    : $body).'</main><script src="/assets/app.js?v=20260909-4" defer></script></body></html>';
             return;
         }
 
@@ -83,6 +85,7 @@ final class View
         $nav = '<div class="nav-group"><span class="nav-label">Workspace</span>'
             .self::navLink('/dashboard', 'Overview', 'dashboard', $path)
             .self::navLink('/keys', 'License keys', 'keys', $path)
+            .self::navLink('/announcements', 'Announcements', 'spark', $path)
             .'</div>';
 
         if (in_array($user['role'], ['owner','admin'], true)) {
@@ -92,13 +95,15 @@ final class View
                 $nav .= self::navLink('/telegram-users', 'Telegram guests', 'telegram', $path)
                     .self::navLink('/activity', 'All activity', 'activity', $path)
                     .self::navLink('/owner/users', 'User insights', 'users', $path)
-                    .self::navLink('/owner/settings', 'Server controls', 'dashboard', $path);
+                    .self::navLink('/owner/settings', 'Server controls', 'dashboard', $path)
+                    .self::navLink('/owner/announcements', 'Announcement center', 'spark', $path);
             }
             $nav .= '</div>';
         }
 
         $settings = PanelControl::settings();
         $notice = $settings['announcement'] !== '' ? '<div class="announcement" role="status">'.self::e($settings['announcement']).'</div>' : '';
+        if (!str_starts_with($path, '/announcements') && !str_starts_with($path, '/owner/announcements')) $notice .= Announcements::banners($user);
         if (!$settings['panel_online']) $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
         echo $head.'<body data-teamdark-ui="3">'
             .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>'
@@ -119,7 +124,7 @@ final class View
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'
             .'<main class="page-content">'.$notice.$body.'</main>'
             .'<footer><span>TeamDark secure control plane</span><span>Session encrypted</span></footer>'
-            .'</div></div><script src="/assets/app.js?v=20260909-3" defer></script></body></html>';
+            .'</div></div><script src="/assets/app.js?v=20260909-4" defer></script></body></html>';
     }
 
     public static function csrf(): string

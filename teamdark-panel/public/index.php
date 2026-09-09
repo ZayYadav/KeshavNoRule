@@ -14,7 +14,7 @@ use TeamDark\Panel\{
     View
 };
 
-use TeamDark\Panel\{PanelControl, OwnerConsole};
+use TeamDark\Panel\{PanelControl, OwnerConsole, Announcements};
 require_once dirname(__DIR__).'/app/OwnerConsole.php';
 
 $root = dirname(__DIR__);
@@ -658,8 +658,49 @@ try {
             'license_id'=>(int)($_POST['key_id'] ?? 0),
         ]);
     }
-    if ($method === 'GET' && in_array($path, ['/dashboard','/keys','/keys/expired','/keys/devices','/users','/telegram-users','/activity','/owner/users','/owner/settings'], true)) {
+    if ($method === 'GET' && in_array($path, ['/dashboard','/keys','/keys/expired','/keys/devices','/users','/telegram-users','/activity','/owner/users','/owner/settings','/announcements','/owner/announcements'], true)) {
         Security::audit((int)$user['id'], 'page_viewed', ['path'=>$path]);
+    }
+    if ($path === '/owner/announcements' && $method === 'GET') {
+        Announcements::manager($user, $_GET, takeFlash());
+        exit;
+    }
+    if ($path === '/owner/announcements/save' && $method === 'POST') {
+        Auth::requireRole($user, 'owner');
+        Security::rateLimit('announcement-save-'.$user['id'], 60, 3600);
+        try {
+            Announcements::save($user, $_POST);
+            flash('ok', 'Announcement saved.');
+        } catch (Throwable $e) {
+            flash('err', $e instanceof PDOException ? 'Could not save announcement. Check the database upgrade and retry.' : $e->getMessage());
+            $draft = array_intersect_key($_POST, array_flip(['id','version','title','body','kind','audience','state','starts_at','ends_at']));
+            $draft = array_filter($draft, 'is_string');
+            $draft['pinned'] = input('pinned') === '1';
+            $draft['dismissible'] = input('dismissible') === '1';
+            http_response_code(422);
+            Announcements::manager($user, ['edit'=>(int)($_POST['id'] ?? 0)], takeFlash(), $draft);
+            exit;
+        }
+        redirectTo('/owner/announcements');
+    }
+    if ($path === '/owner/announcements/archive' && $method === 'POST') {
+        Auth::requireRole($user, 'owner');
+        try {
+            Announcements::archive($user, (int)($_POST['id'] ?? 0), (int)($_POST['version'] ?? 0));
+            flash('ok', 'Announcement archived.');
+        } catch (Throwable $e) { flash('err', $e->getMessage()); }
+        redirectTo('/owner/announcements');
+    }
+    if ($path === '/announcements' && $method === 'GET') {
+        Announcements::inbox($user, (int)($_GET['page'] ?? 1), takeFlash());
+        exit;
+    }
+    if ($path === '/announcements/dismiss' && $method === 'POST') {
+        try {
+            Announcements::dismiss($user, (int)($_POST['id'] ?? 0), (int)($_POST['version'] ?? 0), input('restore') === '1');
+            flash('ok', input('restore') === '1' ? 'Banner restored.' : 'Banner dismissed. The notice is still available here.');
+        } catch (Throwable $e) { flash('err', $e->getMessage()); }
+        redirectTo('/announcements');
     }
     if ($path === '/owner/settings' && $method === 'POST') {
         Auth::requireRole($user, 'owner');

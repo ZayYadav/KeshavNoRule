@@ -66,6 +66,13 @@ body.modal-open{overflow:hidden}.ui-dialog{width:min(450px,100%)}.ui-dialog-icon
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 /* Owner operations and motion. All controls remain usable without animation. */
+.notice{--notice-color:#60a5fa;border:1px solid var(--line-strong);border-left:3px solid var(--notice-color);border-radius:14px;background:var(--surface);padding:20px;margin:16px 0;overflow-wrap:anywhere;animation:td-enter .3s ease both}
+.notice-success{--notice-color:#34d399}.notice-warning{--notice-color:#fbbf24}.notice-critical{--notice-color:#fb7185}
+.notice .eyebrow{color:var(--notice-color)}.notice h3{font-size:18px;margin-bottom:8px}.notice-body{white-space:pre-wrap;line-height:1.7;color:#c9d3e0}
+.notice-footer{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.notice-footer small{color:var(--muted)}.notice-footer form{margin-left:auto}
+.notice-editor{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;margin-top:24px;align-items:start}.notice-editor>.card{grid-column:auto}.notice-preview{position:sticky;top:94px}
+.field textarea{width:100%;resize:vertical;min-height:150px;padding:12px;border:1px solid var(--line-strong);border-radius:11px;background:var(--bg-soft);color:var(--text);font:inherit;line-height:1.6}.field textarea:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+@media(max-width:900px){.notice-editor{grid-template-columns:1fr}.notice-preview{position:static}.notice{padding:16px}}
 body{font-size:16px}
 .sidebar nav a,.nav-logout,.field label,.ghost,.compact,.tag,.status-chip,th,.toolbar-controls,.profile-chip strong{font-size:14px}
 .eyebrow,.nav-label,.metric-note,.hint,.key-meta,.row-user small,.profile-chip small,.sidebar-brand small,.guest-brand small,.secure-pill,.system-state small,.system-state strong{font-size:12px}

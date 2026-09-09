@@ -33,6 +33,35 @@ CREATE TABLE IF NOT EXISTS users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 DROP PROCEDURE IF EXISTS td_add_column;
+CREATE TABLE IF NOT EXISTS announcements (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(100) NOT NULL,
+  body TEXT NOT NULL,
+  kind ENUM('info','success','warning','critical') NOT NULL DEFAULT 'info',
+  audience ENUM('all','owner','admin','reseller','user') NOT NULL DEFAULT 'all',
+  state ENUM('draft','published','archived') NOT NULL DEFAULT 'draft',
+  pinned TINYINT(1) NOT NULL DEFAULT 0,
+  dismissible TINYINT(1) NOT NULL DEFAULT 1,
+  starts_at DATETIME NULL,
+  ends_at DATETIME NULL,
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_by BIGINT UNSIGNED NULL,
+  updated_by BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_announcements_visibility(state,audience,starts_at,ends_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS announcement_dismissals (
+  announcement_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  version INT UNSIGNED NOT NULL,
+  dismissed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (announcement_id,user_id,version),
+  CONSTRAINT fk_announcement_dismissal FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
+  CONSTRAINT fk_announcement_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 DROP PROCEDURE IF EXISTS td_add_index;
 
 DELIMITER $$

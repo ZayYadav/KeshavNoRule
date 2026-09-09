@@ -1,6 +1,11 @@
 name: TeamDark Native Auth Contract
 
 on:
+  pull_request:
+    branches: [TeamDarkLoader]
+    paths:
+      - 'teamdark-panel/**'
+      - '.github/workflows/teamdark-native-auth-contract.yml'
   push:
     branches:
       - TeamDarkLoader

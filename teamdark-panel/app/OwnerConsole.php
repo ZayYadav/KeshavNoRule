@@ -159,7 +159,7 @@ final class OwnerConsole
                 $body .= '<label class="setting-row" for="'.$key.'"><span><strong>'.View::e($copy[0]).'</strong><small>'.View::e($copy[1]).'</small></span><input id="'.$key.'" class="toggle-input" type="checkbox" name="'.$key.'" value="1"'.($settings[$key] ? ' checked' : '').'></label>';
             }
             $body .= '<div class="field"><label for="maintenance-message">Maintenance message</label><input id="maintenance-message" name="message" maxlength="500" value="'.View::e($settings['message']).'"></div>'
-                .'<div class="field"><label for="announcement">Panel announcement (blank to hide)</label><input id="announcement" name="announcement" maxlength="500" value="'.View::e($settings['announcement']).'"></div>'
+                .'<div class="field"><label for="announcement">Legacy banner (blank to hide)</label><input id="announcement" name="announcement" maxlength="500" value="'.View::e($settings['announcement']).'"></div><p><a class="history-link" href="/owner/announcements">Open announcement center</a> for scheduled, role-specific notices.</p>'
                 .'<button class="primary">Save server controls</button><p class="hint">These controls manage application availability, not the hosting machine. Existing Loader /connect and license validation continue working with the same contract.</p></form>';
         }
         View::page('Server controls', $body, $actor);

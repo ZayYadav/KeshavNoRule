@@ -459,4 +459,20 @@
       wrapper.appendChild(toggle);
     }
   });
+
+  var noticeEditor = document.querySelector('[data-notice-editor]');
+  var noticePreview = document.querySelector('[data-notice-preview]');
+  if (noticeEditor && noticePreview) {
+    var updatePreview = function () {
+      noticePreview.querySelector('[data-preview-title]').textContent = noticeEditor.elements.title.value || 'Announcement title';
+      noticePreview.querySelector('[data-preview-body]').textContent = noticeEditor.elements.body.value || 'Your message appears here.';
+      var audience = noticeEditor.elements.audience;
+      noticePreview.querySelector('[data-preview-audience]').textContent = audience.options[audience.selectedIndex].text;
+      var kind = noticeEditor.elements.kind.value;
+      noticePreview.className = 'notice notice-' + (['info','success','warning','critical'].indexOf(kind) >= 0 ? kind : 'info');
+    };
+    noticeEditor.addEventListener('input', updatePreview);
+    noticeEditor.addEventListener('change', updatePreview);
+    updatePreview();
+  }
 })();

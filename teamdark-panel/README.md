@@ -24,6 +24,16 @@ Standalone PHP 8.2+ / MySQL TeamDark control panel with native Loader authentica
 
 ### Owner console upgrade
 
+#### Announcement center
+
+- Owners manage multiple announcements at `/owner/announcements`: plain-text title/message, information/success/warning/critical style, role audience, pinned ordering and optional dismissal.
+- Drafts stay private. Published notices honor optional start/end times entered explicitly in UTC. Archive hides a notice without deleting its history; edit an archived notice to republish it.
+- Each successful edit creates a new version. A stale edit/archive is rejected, and previous dismissals do not hide a newly edited notice.
+- Signed-in users see up to five undismissed active banners and can browse all current notices through `/announcements` pagination. Dismissals are stored per user/version in MySQL, remain consistent across devices, and can be reversed in the inbox.
+- The owner list shows current-version dismissal counts (not views/read receipts). Owner changes and user dismiss/restore actions are audited transactionally. No Telegram broadcasts are sent.
+- Re-import the existing `database/schema.sql` after backing up MySQL to add `announcements` and `announcement_dismissals`. Existing quick-banner text in Server controls is preserved as a legacy banner. Until upgrade, the center explains the missing schema and the legacy banner continues working.
+- The isolated MySQL suite covers scheduling, role isolation, CSRF, safe text rendering, stale writes, required notices, per-version dismissals, archive history and pagination. Both PHP lint and native/owner integration run on PRs targeting `TeamDarkLoader`.
+
 - `/activity`: server-side username/IP, actor-or-target user ID, exact action and date filters; pagination across every retained event, with expandable metadata.
 - `/owner/users`: per-user key creation totals (current records plus retained creation logs), current/active keys, credit debits, key details and paginated balance history.
 - `/owner/settings`: panel maintenance ON/OFF, separate registration and key-generation switches, maintenance text and a site announcement. Settings are shared in MySQL and protected against stale form overwrites.
