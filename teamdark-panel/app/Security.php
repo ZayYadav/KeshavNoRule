@@ -410,9 +410,10 @@ final class Security
 
     public static function audit(?int $userId, string $action, array $meta = []): void
     {
-        $pdo = Database::pdo();
+        $pdo = null;
 
         try {
+            $pdo = Database::pdo();
             $stmt = $pdo->prepare(
                 'INSERT INTO audit_logs(user_id,action,ip_address,user_agent,meta_json) VALUES(?,?,?,?,?)'
             );
@@ -439,7 +440,7 @@ final class Security
             return;
         }
 
-        if (!$pdo->inTransaction()) {
+        if ($pdo instanceof \PDO && !$pdo->inTransaction()) {
             self::housekeepingMaybe();
         }
     }
