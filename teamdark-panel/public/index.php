@@ -968,11 +968,14 @@ try {
     if (PanelControl::blocked($user)) redirectTo('/');
     if ($method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
-        Security::audit((int)$user['id'], 'action_requested', [
-            'path'=>$path,
-            'target_id'=>(int)($_POST['user_id'] ?? 0),
-            'license_id'=>(int)($_POST['key_id'] ?? 0),
-        ]);
+
+        if ($path !== '/owner/announcements/process') {
+            Security::audit((int)$user['id'], 'action_requested', [
+                'path'=>$path,
+                'target_id'=>(int)($_POST['user_id'] ?? 0),
+                'license_id'=>(int)($_POST['key_id'] ?? 0),
+            ]);
+        }
     }
     if ($method === 'GET' && in_array($path, ['/dashboard','/keys','/keys/expired','/keys/devices','/users','/telegram-users','/activity','/owner/users','/owner/settings'], true)) {
         Security::audit((int)$user['id'], 'page_viewed', ['path'=>$path]);
