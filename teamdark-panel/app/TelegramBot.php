@@ -632,7 +632,7 @@ final class TelegramBot
 
         foreach ($rows as $row) {
             $text .= self::h(TelegramService::displayName($row))
-                .' • <code>'.self::h($row['chat_id'])."</code>"
+                .' • <code>'.self::h(self::ownerSecret((string)$row['chat_id']))."</code>"
                 .' • keys '.(int)$row['guest_key_count_db']
                 ."\n";
 
@@ -714,7 +714,7 @@ final class TelegramBot
         foreach ($rows as $row) {
             $source = $row['key_source'] === 'telegram_guest' ? 'TG' : 'PANEL';
             $text .= '#'.(int)$row['id'].' <code>'
-                .self::h(self::plainKey($row))
+                .self::h(self::ownerSecret(self::plainKey($row)))
                 .'</code> • '.self::h(strtoupper($row['status']))
                 .' • '.$source."\n";
             $keyboard[] = [[
@@ -764,7 +764,7 @@ final class TelegramBot
 
         if ($key['tg_chat_id']) {
             $text .= "\nTG Guest: ".self::h(trim(($key['tg_first_name'] ?? '').' '.($key['tg_last_name'] ?? '')))
-                .' • <code>'.self::h($key['tg_chat_id']).'</code>';
+                .' • <code>'.self::h(self::ownerSecret((string)$key['tg_chat_id'])).'</code>';
         }
 
         $keyboard = [];
@@ -917,6 +917,7 @@ final class TelegramBot
                 ->execute([$targetId]);
 
             $pdo->commit();
+            ReferralManager::revokeUnauthorizedPendingForUser($targetId);
 
             try {
                 Security::audit((int)$actor['id'], 'telegram_owner_user_status', [
