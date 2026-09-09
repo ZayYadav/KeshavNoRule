@@ -12,6 +12,11 @@ final class PanelControl
         'message'=>'The panel is temporarily under maintenance. Please try again later.',
         'announcement'=>'',
         'announcement_published_at'=>'',
+        'splash_enabled'=>false,
+        'splash_title'=>'TEAM DARK',
+        'splash_subtitle'=>'Secure control plane',
+        'splash_duration_ms'=>2400,
+        'splash_version'=>1,
     ];
 
     public static function settings(): array
@@ -99,6 +104,48 @@ final class PanelControl
 
         foreach (['panel_online','registration_open','generation_open'] as $key) {
             $settings[$key] = ($input[$key] ?? '') === '1';
+        }
+
+        if (($input['splash_present'] ?? '') === '1') {
+            $splashEnabled = ($input['splash_enabled'] ?? '') === '1';
+            $splashTitle = trim((string)($input['splash_title'] ?? self::DEFAULTS['splash_title']));
+            $splashSubtitle = trim((string)($input['splash_subtitle'] ?? self::DEFAULTS['splash_subtitle']));
+            $splashDuration = (int)($input['splash_duration_ms'] ?? self::DEFAULTS['splash_duration_ms']);
+
+            if ($splashTitle === '' || strlen($splashTitle) > 60) {
+                throw new \RuntimeException('Splash title must be 1–60 bytes.');
+            }
+            if (strlen($splashSubtitle) > 160) {
+                throw new \RuntimeException('Splash subtitle must be 160 bytes or fewer.');
+            }
+            if (!in_array($splashDuration, [1400,2000,2400,3200,4200], true)) {
+                throw new \RuntimeException('Invalid splash duration.');
+            }
+
+            $settings['splash_enabled'] = $splashEnabled;
+            $settings['splash_title'] = $splashTitle;
+            $settings['splash_subtitle'] = $splashSubtitle;
+            $settings['splash_duration_ms'] = $splashDuration;
+
+            $splashChanged =
+                (bool)($current['splash_enabled'] ?? false) !== $splashEnabled
+                || (string)($current['splash_title'] ?? '') !== $splashTitle
+                || (string)($current['splash_subtitle'] ?? '') !== $splashSubtitle
+                || (int)($current['splash_duration_ms'] ?? 0) !== $splashDuration;
+
+            $settings['splash_version'] = $splashChanged
+                ? max(1, (int)($current['splash_version'] ?? 1) + 1)
+                : max(1, (int)($current['splash_version'] ?? 1));
+        } else {
+            foreach ([
+                'splash_enabled',
+                'splash_title',
+                'splash_subtitle',
+                'splash_duration_ms',
+                'splash_version',
+            ] as $key) {
+                $settings[$key] = $current[$key] ?? self::DEFAULTS[$key];
+            }
         }
 
         $message = trim((string)($input['message'] ?? ''));

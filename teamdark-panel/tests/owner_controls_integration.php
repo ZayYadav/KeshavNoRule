@@ -68,8 +68,8 @@ try {
         && str_contains($premiumDashboard['body'],'data-teamdark-ui="5"')
         && str_contains($premiumDashboard['body'],'class="fx-grid"')
         && str_contains($premiumDashboard['body'],'class="cursor-aura"')
-        && str_contains($premiumDashboard['body'],'/assets/app.css?v=20260909-6')
-        && str_contains($premiumDashboard['body'],'/assets/app.js?v=20260909-6'),
+        && str_contains($premiumDashboard['body'],'/assets/app.css?v=20260909-7')
+        && str_contains($premiumDashboard['body'],'/assets/app.js?v=20260909-7'),
         'premium UI v5 shell and asset contract render on dashboard'
     );
 
@@ -79,6 +79,63 @@ try {
         && str_contains($premiumLogin['body'],'data-teamdark-ui="5"')
         && str_contains($premiumLogin['body'],'auth-layout'),
         'premium UI v5 guest authentication shell renders'
+    );
+
+    $splashSettings = PanelControl::settings();
+    $splashSave = request($ownerClient,'/owner/settings',[
+        'csrf'=>$ownerCsrf,
+        'revision'=>$splashSettings['revision'],
+        'panel_online'=>'1',
+        'registration_open'=>'1',
+        'generation_open'=>'1',
+        'message'=>'Contract maintenance',
+        'splash_present'=>'1',
+        'splash_enabled'=>'1',
+        'splash_title'=>'TEAM DARK CONTRACT',
+        'splash_subtitle'=>'Premium opening experience',
+        'splash_duration_ms'=>'1400',
+    ]);
+    check($splashSave['status']===303,'owner can enable global splash');
+
+    $splashGuest = request(client(),'/login');
+    check(
+        $splashGuest['status']===200
+        && str_contains($splashGuest['body'],'data-site-splash')
+        && str_contains($splashGuest['body'],'TEAM DARK CONTRACT')
+        && str_contains($splashGuest['body'],'data-splash-duration="1400"'),
+        'enabled splash renders for guest web pages'
+    );
+
+    $activeSplashSettings = PanelControl::settings();
+    $splashVersion = (string)$activeSplashSettings['splash_version'];
+    $seenSplash = request(
+        client(),
+        '/login',
+        null,
+        ['Cookie: TD_SPLASH='.$splashVersion]
+    );
+    check(
+        !str_contains($seenSplash['body'],'data-site-splash'),
+        'seen splash version does not replay on internal browsing session'
+    );
+
+    $splashSettings = PanelControl::settings();
+    $splashOff = request($ownerClient,'/owner/settings',[
+        'csrf'=>$ownerCsrf,
+        'revision'=>$splashSettings['revision'],
+        'panel_online'=>'1',
+        'registration_open'=>'1',
+        'generation_open'=>'1',
+        'message'=>'Contract maintenance',
+        'splash_present'=>'1',
+        'splash_title'=>'TEAM DARK CONTRACT',
+        'splash_subtitle'=>'Premium opening experience',
+        'splash_duration_ms'=>'1400',
+    ]);
+    check($splashOff['status']===303,'owner can disable global splash');
+    check(
+        !str_contains(request(client(),'/login')['body'],'data-site-splash'),
+        'disabled splash is not rendered'
     );
 
     $pdo->prepare(

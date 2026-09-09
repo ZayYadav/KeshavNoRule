@@ -176,3 +176,18 @@ Deploy the latest TeamDarkLoader server files and run the existing `teamdark-pan
 - `announcement_recipients`
 
 No Loader APK update is required. The native `/connect` endpoint, request fields, token formula and response contract are unchanged.
+
+
+## Owner-controlled site splash
+
+The Owner Command Center includes a **Site Experience → Opening splash** control.
+
+- Owner can turn the splash ON or OFF.
+- Owner can customize the title, subtitle and display duration.
+- Supported durations are 1.4s, 2.0s, 2.4s, 3.2s and 4.2s.
+- The splash is rendered only on human web pages. The Loader `/connect`, JSON APIs and Telegram webhook are unchanged.
+- A non-sensitive browser session cookie stores only the current splash version so the intro does not replay on every internal page.
+- Changing splash state, content or duration increments its version so the updated intro can appear again.
+- If JavaScript fails, a CSS fallback clears the splash instead of permanently blocking the page.
+- Reduced-motion clients skip the long animation.
+- No database migration is required because this uses the existing `panel_settings.settings_json`.

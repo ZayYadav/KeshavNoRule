@@ -47,6 +47,41 @@ final class View
             .($active ? '<i></i>' : '').'</a>';
     }
 
+    private static function splash(array $settings): string
+    {
+        if (!(bool)($settings['splash_enabled'] ?? false)) {
+            return '';
+        }
+
+        $version = (string)max(1, (int)($settings['splash_version'] ?? 1));
+        if ((string)($_COOKIE['TD_SPLASH'] ?? '') === $version) {
+            return '';
+        }
+
+        $duration = (int)($settings['splash_duration_ms'] ?? 2400);
+        if (!in_array($duration, [1400,2000,2400,3200,4200], true)) {
+            $duration = 2400;
+        }
+
+        $title = self::e((string)($settings['splash_title'] ?? 'TEAM DARK'));
+        $subtitle = self::e((string)($settings['splash_subtitle'] ?? 'Secure control plane'));
+
+        return '<div class="td-splash" data-site-splash data-splash-version="'.self::e($version).'" data-splash-duration="'.$duration.'" role="dialog" aria-modal="true" aria-label="Team Dark opening splash">'
+            .'<div class="td-splash-grid" aria-hidden="true"></div>'
+            .'<div class="td-splash-glow td-splash-glow-a" aria-hidden="true"></div>'
+            .'<div class="td-splash-glow td-splash-glow-b" aria-hidden="true"></div>'
+            .'<div class="td-splash-stage">'
+            .'<div class="td-splash-orbit" aria-hidden="true"><i></i><i></i><i></i></div>'
+            .'<div class="td-splash-logo"><span>TD</span><i></i></div>'
+            .'<div class="td-splash-kicker"><i></i> SECURE ACCESS INITIALIZING <i></i></div>'
+            .'<h1>'.$title.'</h1>'
+            .'<p>'.$subtitle.'</p>'
+            .'<div class="td-splash-progress"><span></span></div>'
+            .'<div class="td-splash-foot"><span><i></i> Protected workspace</span>'
+            .'<button type="button" data-splash-skip>Enter now</button></div>'
+            .'</div></div>';
+    }
+
     public static function page(string $title, string $body, ?array $user = null): void
     {
         $app = self::e(Config::get('app_name'));
@@ -56,16 +91,18 @@ final class View
             ?: '/'
         );
         $csrf = self::e(Security::csrfToken());
+        $settings = PanelControl::settings();
+        $splash = self::splash($settings);
 
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             .'<title>'.$safeTitle.' • '.$app.'</title>'
-            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-6">'
+            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-7">'
             .'<meta name="theme-color" content="#05070b">'
             .'<meta name="color-scheme" content="dark"></head>';
 
         if (!$user) {
-            echo $head.'<body data-teamdark-ui="5" class="guest-body">'
+            echo $head.'<body data-teamdark-ui="5" class="guest-body">'.$splash
                 .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
                 .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
                 .'<div class="cursor-aura" aria-hidden="true"></div>'
@@ -74,7 +111,7 @@ final class View
                 .'<span><strong>'.$app.'</strong><small>Secure control plane</small></span></a>'
                 .(in_array($path, ['/login','/login/2fa','/register','/register/success'], true)
                     ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
-                    : $body).'</main><script src="/assets/app.js?v=20260909-6" defer></script></body></html>';
+                    : $body).'</main><script src="/assets/app.js?v=20260909-7" defer></script></body></html>';
             return;
         }
 
@@ -99,7 +136,6 @@ final class View
             $nav .= '</div>';
         }
 
-        $settings = PanelControl::settings();
         $notice = '';
 
         if (($settings['announcement'] ?? '') !== '') {
@@ -114,7 +150,7 @@ final class View
         if (!$settings['panel_online']) {
             $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
         }
-        echo $head.'<body data-teamdark-ui="5">'
+        echo $head.'<body data-teamdark-ui="5">'.$splash
             .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
             .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
             .'<div class="cursor-aura" aria-hidden="true"></div>'
@@ -135,7 +171,7 @@ final class View
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'
             .'<main class="page-content">'.$notice.$body.'</main>'
             .'<footer><span><i class="footer-dot"></i> TeamDark secure control plane</span><span>Session encrypted • Premium UI</span></footer>'
-            .'</div></div><script src="/assets/app.js?v=20260909-6" defer></script></body></html>';
+            .'</div></div><script src="/assets/app.js?v=20260909-7" defer></script></body></html>';
     }
 
     public static function csrf(): string

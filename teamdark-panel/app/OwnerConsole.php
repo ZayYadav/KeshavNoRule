@@ -264,8 +264,38 @@ final class OwnerConsole
             $body .= '<section class="premium-section"><div class="section-heading"><div><span class="eyebrow">SERVER POLICY</span>'
                 .'<h2>Availability controls</h2><p>Infrastructure-safe controls for panel access and generation.</p></div></div>'
                 .'<form method="post" action="/owner/settings" class="card history-card stack premium-settings"'
-                .' data-confirm="Apply these availability settings to all non-owner users?">'
-                .View::csrf().'<input type="hidden" name="revision" value="'.$settings['revision'].'">';
+                .' data-confirm="Save the site experience and server controls?">'
+                .View::csrf().'<input type="hidden" name="revision" value="'.$settings['revision'].'">'
+                .'<input type="hidden" name="splash_present" value="1">'
+                .'<div class="splash-control-block" data-splash-control>'
+                .'<div class="splash-control-head"><div><span class="eyebrow">SITE EXPERIENCE</span><h3>Opening splash</h3>'
+                .'<p>Show a cinematic Team Dark intro when someone opens the website. It appears once per browser session/version.</p></div>'
+                .'<span class="premium-badge">'.((bool)$settings['splash_enabled'] ? 'LIVE' : 'OFF').'</span></div>'
+                .'<div class="splash-mini-preview" data-splash-preview>'
+                .'<div class="splash-mini-orbit"><i></i><i></i></div>'
+                .'<div class="splash-mini-logo">TD</div>'
+                .'<div><span>SECURE ACCESS INITIALIZING</span><strong data-splash-preview-title>'.View::e((string)$settings['splash_title']).'</strong>'
+                .'<small data-splash-preview-subtitle>'.View::e((string)$settings['splash_subtitle']).'</small></div>'
+                .'<div class="splash-mini-progress"><i></i></div></div>'
+                .'<label class="setting-row premium-setting" for="splash_enabled"><span><strong>Splash screen ON / OFF</strong>'
+                .'<small>Applies to guest, login, registration and authenticated panel web pages. APIs and Loader /connect are never affected.</small></span>'
+                .'<input id="splash_enabled" class="toggle-input" type="checkbox" name="splash_enabled" value="1" data-splash-enabled'
+                .((bool)$settings['splash_enabled'] ? ' checked' : '').'></label>'
+                .'<div class="splash-fields">'
+                .'<div class="field"><label for="splash-title">Splash title</label>'
+                .'<input id="splash-title" name="splash_title" maxlength="60" required data-splash-title value="'.View::e((string)$settings['splash_title']).'"></div>'
+                .'<div class="field"><label for="splash-subtitle">Splash subtitle</label>'
+                .'<input id="splash-subtitle" name="splash_subtitle" maxlength="160" data-splash-subtitle value="'.View::e((string)$settings['splash_subtitle']).'"></div>'
+                .'<div class="field"><label for="splash-duration">Display time</label>'
+                .'<select id="splash-duration" name="splash_duration_ms" data-splash-duration>';
+            
+            foreach ([1400=>'Fast • 1.4s',2000=>'Quick • 2.0s',2400=>'Balanced • 2.4s',3200=>'Cinematic • 3.2s',4200=>'Showcase • 4.2s'] as $ms=>$label) {
+                $body .= '<option value="'.$ms.'"'.((int)$settings['splash_duration_ms'] === $ms ? ' selected' : '').'>'.View::e($label).'</option>';
+            }
+
+            $body .= '</select></div></div>'
+                .'<div class="splash-note"><span>◈</span><div><strong>Session-aware</strong><small>Visitors do not see it again on every internal page. Changing splash settings publishes a new splash version.</small></div></div>'
+                .'</div>';
 
             foreach ([
                 'panel_online'=>['Panel ON / OFF','OFF blocks non-owner web panel, panel-account API access and Telegram bot operations. Owner access stays available.'],
