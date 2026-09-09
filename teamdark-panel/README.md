@@ -143,8 +143,10 @@ This hardening layer does not change the native TeamDarkLoader `/connect` URL, f
 - `/api/v1/license/activate` and `/api/v1/license/validate` are disabled by default with `LEGACY_LICENSE_API_ENABLED=false`. The Loader `/connect` endpoint remains available.
 - `/api/v1/licenses` masks decrypted license keys by default. Plaintext API output requires both Owner role and the explicit server setting `API_REVEAL_LICENSE_KEYS=true`.
 - Telegram Owner mutation callbacks are disabled by default. Read-only Owner views remain available. Set `TELEGRAM_OWNER_MUTATIONS_ENABLED=true` only if the increased Telegram account risk is explicitly accepted.
+- Linked-user Telegram key generation is also disabled by default. Account/key viewing and Telegram 2FA setup remain available; set `TELEGRAM_LINKED_KEY_GENERATION_ENABLED=true` only if bot-side generation is intentionally required.
 - Forwarded IP headers are ignored unless the direct peer matches `TRUSTED_PROXY_CIDRS`.
 - New custom license keys require 16–80 characters with both letters and numbers. Existing keys remain valid.
+- Raw Loader device serials and IP addresses are no longer stored. Device matching uses the existing APP_KEY-backed device HMAC, and historical raw serial/IP values are sanitized by the schema upgrade.
 
 ### Upgrade
 
