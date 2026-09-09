@@ -856,8 +856,16 @@ try {
                 throw new RuntimeException('Invalid referral role.');
             }
 
-            $signup = (int)Config::get('signup_bonus');
-            $bonus = (int)Config::get('referrer_bonus');
+            $bonusesEnabled = (bool)Config::get(
+                'registration_bonuses_enabled',
+                false
+            );
+            $signup = $bonusesEnabled
+                ? (int)Config::get('signup_bonus')
+                : 0;
+            $bonus = $bonusesEnabled
+                ? (int)Config::get('referrer_bonus')
+                : 0;
 
             $pdo->prepare(
                 "INSERT INTO users(
