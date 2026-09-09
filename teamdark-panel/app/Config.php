@@ -65,6 +65,12 @@ final class Config
             'telegram_linked_key_generation_enabled' => strtolower($get('TELEGRAM_LINKED_KEY_GENERATION_ENABLED', 'false')) === 'true',
             'legacy_license_api_enabled' => strtolower($get('LEGACY_LICENSE_API_ENABLED', 'false')) === 'true',
             'api_reveal_license_keys' => strtolower($get('API_REVEAL_LICENSE_KEYS', 'false')) === 'true',
+            'telegram_owner_sensitive_reads_enabled' => strtolower($get('TELEGRAM_OWNER_SENSITIVE_READS_ENABLED', 'false')) === 'true',
+            'telegram_guest_free_keys_enabled' => strtolower($get('TELEGRAM_GUEST_FREE_KEYS_ENABLED', 'false')) === 'true',
+            'admin_balance_adjustments_enabled' => strtolower($get('ADMIN_BALANCE_ADJUSTMENTS_ENABLED', 'false')) === 'true',
+            'admin_balance_daily_limit' => max(0, min(1000000, (int)$get('ADMIN_BALANCE_DAILY_LIMIT', '10000'))),
+            'audit_retention_days' => max(7, min(3650, (int)$get('AUDIT_RETENTION_DAYS', '90'))),
+            'broadcast_retention_days' => max(7, min(3650, (int)$get('BROADCAST_RETENTION_DAYS', '30'))),
             'trusted_proxy_cidrs' => trim($get('TRUSTED_PROXY_CIDRS', '')),
             'token_ttl' => max(300, min(604800, (int)$get('API_TOKEN_TTL', '86400'))),
         ];
