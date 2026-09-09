@@ -17,6 +17,7 @@ final class PanelControl
         'splash_subtitle'=>'Secure control plane',
         'splash_duration_ms'=>2400,
         'splash_version'=>1,
+        'telegram_owner_mutation_until'=>'',
     ];
 
     public static function settings(): array
@@ -94,6 +95,79 @@ final class PanelControl
         }
     }
 
+    public static function telegramOwnerMutationsUnlocked(): bool
+    {
+        $until = trim((string)(
+            self::settings()['telegram_owner_mutation_until'] ?? ''
+        ));
+
+        if ($until === '') {
+            return false;
+        }
+
+        $ts = strtotime($until);
+        return $ts !== false && $ts > time();
+    }
+
+    public static function setTelegramOwnerMutationWindow(
+        array $actor,
+        bool $enabled
+    ): void {
+        if (($actor['role'] ?? '') !== 'owner') {
+            throw new \RuntimeException('Owner access required.');
+        }
+
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+
+        try {
+            $q = $pdo->query(
+                'SELECT settings_json FROM panel_settings WHERE id=1 FOR UPDATE'
+            );
+            $row = $q->fetch();
+
+            $settings = array_replace(
+                self::DEFAULTS,
+                $row
+                    ? (json_decode(
+                        (string)$row['settings_json'],
+                        true
+                    ) ?: [])
+                    : []
+            );
+
+            $settings['telegram_owner_mutation_until'] = $enabled
+                ? date('Y-m-d H:i:s', time() + 300)
+                : '';
+
+            $pdo->prepare(
+                'UPDATE panel_settings
+                 SET settings_json=?,revision=revision+1,updated_by=?
+                 WHERE id=1'
+            )->execute([
+                json_encode($settings, JSON_THROW_ON_ERROR),
+                (int)$actor['id'],
+            ]);
+
+            $pdo->commit();
+
+            Security::audit(
+                (int)$actor['id'],
+                $enabled
+                    ? 'telegram_owner_mutations_unlocked'
+                    : 'telegram_owner_mutations_locked',
+                [
+                    'until'=>$settings['telegram_owner_mutation_until'],
+                ]
+            );
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
     public static function save(array $actor, array $input): void
     {
         if (($actor['role'] ?? '') !== 'owner') throw new \RuntimeException('Owner access required.');
@@ -101,6 +175,8 @@ final class PanelControl
         $settings = self::DEFAULTS;
         $settings['announcement'] = (string)($current['announcement'] ?? '');
         $settings['announcement_published_at'] = (string)($current['announcement_published_at'] ?? '');
+        $settings['telegram_owner_mutation_until'] =
+            (string)($current['telegram_owner_mutation_until'] ?? '');
 
         foreach (['panel_online','registration_open','generation_open'] as $key) {
             $settings[$key] = ($input[$key] ?? '') === '1';
