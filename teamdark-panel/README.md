@@ -91,3 +91,41 @@ The current native Loader contract remains `POST /connect` with form fields `gam
 - Generated license keys use high-entropy randomness. New custom keys must be at least 12 characters; generated keys are preferred.
 - Rotate `APP_KEY`, database credentials, Telegram secrets, and the native auth secret if the server `.env` is ever exposed. Rotating `APP_KEY` requires a planned key-data migration because it encrypts stored license material.
 - The existing native Loader `/connect` request and response contract is unchanged by these server-side protections.
+
+
+## Optional Telegram 2FA
+
+Telegram two-factor authentication is optional per user and requires an already verified Telegram link.
+
+### Enable
+1. Link Telegram from Dashboard using the existing `TDLINK` verification flow.
+2. Open the linked Team Dark bot and send `/2fa` or tap **2FA Setup**.
+3. The bot generates a one-time `TD2FA-XXXXXXXXXXXX` activation key valid for 10 minutes.
+4. Enter that activation key in Dashboard → Telegram 2FA → Activate.
+5. Existing panel API bearer tokens are revoked when 2FA becomes active.
+
+### Login
+- Username + password are checked first.
+- A successful password check does **not** create an authenticated web session when 2FA is enabled.
+- The bot sends an 8-digit, single-use code to the linked Telegram account.
+- The code expires after 5 minutes and a challenge allows at most 5 incorrect attempts.
+- New login challenges invalidate earlier unused challenges.
+- OTP hashes are keyed with `APP_KEY`; plaintext OTP values are never stored in MySQL.
+- API password login also returns a 2FA challenge for 2FA-enabled users and requires `POST /api/v1/auth/2fa` before a bearer token is issued.
+
+### Disable / recovery
+- A user can disable 2FA from Dashboard only after confirming the current password.
+- A user cannot unlink Telegram while 2FA is active.
+- Owner controls can reset a user's 2FA or disconnect Telegram for account recovery. Both actions revoke active API tokens.
+
+## Registration review countdown
+
+Successful referral registration now redirects to a TeamDark-themed account review screen. It shows safe account details such as User ID, name, username, assigned role, referral used, signup balance and creation time. Password plaintext is never shown. The **OK / Continue to login** action unlocks after a 15-second countdown.
+
+## Deploying this update
+
+Back up MySQL, deploy the changed PHP/assets, then run the existing single upgrade file again:
+
+`database/schema.sql`
+
+The same SQL is backward-compatible and adds `telegram_2fa_enabled`, `telegram_2fa_enabled_at`, `telegram_2fa_activation_tokens`, and `login_2fa_challenges` without resetting existing users or keys. Existing users start with 2FA disabled. The native Loader `/connect` contract is unchanged.
