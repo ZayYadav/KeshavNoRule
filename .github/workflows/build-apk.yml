@@ -1,10 +1,11 @@
-name: Build APK
+name: Build NoRuleXCheat APK
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
+      - NORULEX
       - connect-api-compatible-20260904
       - keshavowner-security-ui-v1
   pull_request:
