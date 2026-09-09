@@ -111,6 +111,15 @@ try {
     request($guest,'/register',['csrf'=>token($reg['body']),'referral'=>'anything','name'=>'Blocked user','username'=>'blocked-registration','password'=>'ContractTest@12345']);
     check((int)$pdo->query("SELECT COUNT(*) FROM users WHERE username='blocked-registration'")->fetchColumn()===0,'closed registration creates no account');
     saveSettings($ownerClient,$ownerCsrf,[]);
+
+    $reset = request($ownerClient,'/users/password',[
+        'csrf'=>$ownerCsrf,
+        'user_id'=>$uid,
+        'password'=>'Replacement@12345',
+    ]);
+    check($reset['status']===303,'owner password reset accepted');
+    check(request($userClient,'/dashboard')['status']===302,'password reset revokes existing web session');
+
     foreach (['/users/status'=>['action'=>'disable'],'/users/role'=>['role'=>'admin'],'/users/password'=>['password'=>'Replacement@12345']] as $path=>$payload) {
         request($ownerClient,$path,['csrf'=>$ownerCsrf,'user_id'=>$owner['id']]+$payload);
     }
