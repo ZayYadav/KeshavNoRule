@@ -238,6 +238,30 @@ final class KeyManager
             throw new RuntimeException('Owner authority is required.');
         }
 
+        $dailyCap = (int)Config::get(
+            'telegram_guest_daily_cap',
+            100
+        );
+
+        if ($dailyCap <= 0) {
+            throw new RuntimeException(
+                'Free Telegram guest key generation is disabled.'
+            );
+        }
+
+        Security::rateLimit(
+            'telegram-guest-key-global',
+            $dailyCap,
+            86400,
+            'global'
+        );
+        Security::rateLimit(
+            'telegram-guest-key-user',
+            4,
+            3600,
+            (string)$telegramUserId
+        );
+
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
