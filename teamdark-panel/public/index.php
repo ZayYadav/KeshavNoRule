@@ -465,14 +465,23 @@ try {
         $rows = KeyManager::visibleKeys($u, 'all');
         $out = [];
 
+        $allowPlaintextKeys = (bool)Config::get('api_reveal_license_keys', false)
+            && ($u['role'] ?? '') === 'owner';
+
         foreach ($rows as $row) {
+            $plainKey = Crypto::decrypt(
+                $row['key_cipher'],
+                $row['key_iv'],
+                $row['key_tag']
+            );
+            $maskedKey = strlen($plainKey) <= 8
+                ? '********'
+                : substr($plainKey, 0, 6).'…'.substr($plainKey, -4);
+
             $out[] = [
                 'id'=>(int)$row['id'],
-                'key'=>Crypto::decrypt(
-                    $row['key_cipher'],
-                    $row['key_iv'],
-                    $row['key_tag']
-                ),
+                'key'=>$allowPlaintextKeys ? $plainKey : $maskedKey,
+                'key_revealed'=>$allowPlaintextKeys,
                 'game'=>$row['game'],
                 'owner'=>$row['owner_name'],
                 'label'=>$row['label'],
@@ -1251,7 +1260,7 @@ try {
                 .'<form method="post" action="/keys/create" class="stack" data-action="Generate key" data-confirm="Generate this key with the selected validity and device limit?" data-busy="Generating secure key…">'
                 .View::csrf()
                 .'<div class="field"><label>Custom key <span class="optional">optional</span></label>'
-                .'<input name="custom_key" minlength="12" maxlength="80" placeholder="Team-Dark-MyVIPKey" autocomplete="off"></div>'
+                .'<input name="custom_key" minlength="16" maxlength="80" placeholder="Team-Dark-MyVIPKey9" autocomplete="off"></div>'
                 .'<div class="field"><label>Label <span class="optional">optional</span></label>'
                 .'<input name="label" maxlength="100" placeholder="Customer / plan note"></div>'
                 .'<div class="form-row">'
@@ -1974,9 +1983,7 @@ try {
 
         try {
             $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
-            $version = Auth::bumpAuthVersion((int)$target['id'], true);
-            $q = Database::pdo()->prepare('SELECT 0');
-            $q->execute();
+            Auth::bumpAuthVersion((int)$target['id'], true);
             Security::audit((int)$user['id'], 'user_access_revoked', [
                 'target_id'=>(int)$target['id'],
                 'sessions_revoked'=>true,
