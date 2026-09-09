@@ -46,6 +46,12 @@ try {
     }
 
     Config::load($root);
+    Security::headers();
+
+    // Preserve loader-specific CDN cache protection after shared headers.
+    header('Content-Type: application/json; charset=utf-8');
+    header('Surrogate-Control: no-store');
+    header('Cloudflare-CDN-Cache-Control: no-store');
 
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         teamdarkJson([
