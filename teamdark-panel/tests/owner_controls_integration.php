@@ -62,6 +62,25 @@ try {
         check($response['status']===200 && !str_contains($response['body'],'Warning:'),'owner route '.$path);
     }
 
+    $premiumDashboard = request($ownerClient,'/dashboard');
+    check(
+        $premiumDashboard['status']===200
+        && str_contains($premiumDashboard['body'],'data-teamdark-ui="5"')
+        && str_contains($premiumDashboard['body'],'class="fx-grid"')
+        && str_contains($premiumDashboard['body'],'class="cursor-aura"')
+        && str_contains($premiumDashboard['body'],'/assets/app.css?v=20260909-6')
+        && str_contains($premiumDashboard['body'],'/assets/app.js?v=20260909-6'),
+        'premium UI v5 shell and asset contract render on dashboard'
+    );
+
+    $premiumLogin = request(client(),'/login');
+    check(
+        $premiumLogin['status']===200
+        && str_contains($premiumLogin['body'],'data-teamdark-ui="5"')
+        && str_contains($premiumLogin['body'],'auth-layout'),
+        'premium UI v5 guest authentication shell renders'
+    );
+
     $pdo->prepare(
         "INSERT INTO telegram_users(
             chat_id,first_name,last_name,username,language_code,linked_user_id,
