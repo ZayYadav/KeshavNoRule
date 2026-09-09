@@ -120,8 +120,17 @@ final class TwoFactorService
             $pdo->prepare(
                 'UPDATE users
                  SET telegram_2fa_enabled=1,
-                     telegram_2fa_enabled_at=NOW()
+                     telegram_2fa_enabled_at=NOW(),
+                     auth_version=auth_version+1
                  WHERE id=? AND telegram_chat_id IS NOT NULL'
+            )->execute([$userId]);
+
+            if ($pdo->lastInsertId() === false) {
+                throw new RuntimeException('Could not update 2FA state.');
+            }
+
+            $pdo->prepare(
+                'DELETE FROM api_tokens WHERE user_id=?'
             )->execute([$userId]);
 
             $pdo->prepare(
@@ -135,9 +144,14 @@ final class TwoFactorService
                  WHERE user_id=? AND id<>?'
             )->execute([$userId, $tokenId]);
 
+            $q = $pdo->prepare(
+                'SELECT auth_version FROM users WHERE id=? LIMIT 1'
+            );
+            $q->execute([$userId]);
+            $newVersion = max(1, (int)$q->fetchColumn());
+
             $pdo->commit();
 
-            $newVersion = Auth::bumpAuthVersion($userId, true);
             Auth::refreshCurrentSessionVersion($userId, $newVersion);
 
             Security::clearRateLimit('2fa-activation-verify-user', (string)$userId);
@@ -186,8 +200,13 @@ final class TwoFactorService
             $pdo->prepare(
                 'UPDATE users
                  SET telegram_2fa_enabled=0,
-                     telegram_2fa_enabled_at=NULL
+                     telegram_2fa_enabled_at=NULL,
+                     auth_version=auth_version+1
                  WHERE id=?'
+            )->execute([$userId]);
+
+            $pdo->prepare(
+                'DELETE FROM api_tokens WHERE user_id=?'
             )->execute([$userId]);
 
             $pdo->prepare(
@@ -198,9 +217,14 @@ final class TwoFactorService
                 'DELETE FROM login_2fa_challenges WHERE user_id=?'
             )->execute([$userId]);
 
+            $q = $pdo->prepare(
+                'SELECT auth_version FROM users WHERE id=? LIMIT 1'
+            );
+            $q->execute([$userId]);
+            $newVersion = max(1, (int)$q->fetchColumn());
+
             $pdo->commit();
 
-            $newVersion = Auth::bumpAuthVersion($userId, true);
             Auth::refreshCurrentSessionVersion($userId, $newVersion);
 
             try {
@@ -228,16 +252,26 @@ final class TwoFactorService
             $pdo->prepare(
                 'UPDATE users
                  SET telegram_2fa_enabled=0,
-                     telegram_2fa_enabled_at=NULL
+                     telegram_2fa_enabled_at=NULL,
+                     auth_version=auth_version+1
                  WHERE id=?'
             )->execute([$userId]);
             $pdo->prepare('DELETE FROM telegram_2fa_activation_tokens WHERE user_id=?')
                 ->execute([$userId]);
             $pdo->prepare('DELETE FROM login_2fa_challenges WHERE user_id=?')
                 ->execute([$userId]);
+            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')
+                ->execute([$userId]);
+
+            $q = $pdo->prepare(
+                'SELECT auth_version FROM users WHERE id=? LIMIT 1'
+            );
+            $q->execute([$userId]);
+            $newVersion = max(1, (int)$q->fetchColumn());
+
             $pdo->commit();
 
-            Auth::bumpAuthVersion($userId, true);
+            Auth::refreshCurrentSessionVersion($userId, $newVersion);
 
             try {
                 Security::audit($actorUserId, '2fa_owner_reset', [
@@ -290,7 +324,11 @@ final class TwoFactorService
             )->execute([
                 $userId,
                 $hash,
-                Security::clientIp(),
+                'h:'.substr(
+                    Crypto::fingerprint('2fa-ip|'.Security::clientIp()),
+                    0,
+                    43
+                ),
             ]);
 
             $challengeId = (int)$pdo->lastInsertId();
