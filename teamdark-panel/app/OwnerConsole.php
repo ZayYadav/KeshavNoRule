@@ -146,22 +146,142 @@ final class OwnerConsole
     {
         Auth::requireRole($actor, 'owner');
         $settings = PanelControl::settings();
-        $body = '<section class="hero"><div><div class="eyebrow">OWNER OPERATIONS</div><h1>Server controls</h1><p class="muted">Control panel availability, registration and key generation.</p></div><span class="status-chip status-'.($settings['panel_online'] ? 'active' : 'disabled').'">Panel '.($settings['panel_online'] ? 'ON' : 'OFF').'</span></section>'.$flash;
+        $pdo = Database::pdo();
+
+        $panelUsers = (int)$pdo->query(
+            "SELECT COUNT(*) FROM users WHERE status='active'"
+        )->fetchColumn();
+        $linkedTelegram = (int)$pdo->query(
+            'SELECT COUNT(*) FROM telegram_users WHERE linked_user_id IS NOT NULL'
+        )->fetchColumn();
+        $guestTelegram = (int)$pdo->query(
+            'SELECT COUNT(*) FROM telegram_users WHERE linked_user_id IS NULL'
+        )->fetchColumn();
+
+        $broadcastRows = '';
+        foreach (BroadcastService::recent(12) as $job) {
+            $total = (int)$job['total_recipients'];
+            $sent = (int)$job['sent_count'];
+            $failed = (int)$job['failed_count'];
+            $done = $sent + $failed;
+            $percent = $total > 0
+                ? min(100, (int)floor(($done / $total) * 100))
+                : 100;
+
+            $audience = [];
+            if ((int)$job['panel_enabled'] === 1) $audience[] = 'Panel';
+            if ((int)$job['target_linked'] === 1) $audience[] = 'Linked TG';
+            if ((int)$job['target_guests'] === 1) $audience[] = 'Free TG';
+
+            $statusClass = match ($job['status']) {
+                'completed' => 'status-active',
+                'partial' => 'status-warning',
+                'sending' => 'status-live',
+                default => 'status-disabled',
+            };
+
+            $broadcastRows .= '<article class="broadcast-job"'
+                .' data-broadcast-job="'.(int)$job['id'].'"'
+                .' data-broadcast-status="'.View::e($job['status']).'">'
+                .'<div class="broadcast-job-head"><div>'
+                .'<span class="eyebrow">BROADCAST #'.(int)$job['id'].'</span>'
+                .'<strong>'.View::e(implode(' • ', $audience) ?: 'No audience').'</strong>'
+                .'</div><span class="status-chip '.$statusClass.'" data-broadcast-status-text>'
+                .View::e(strtoupper((string)$job['status'])).'</span></div>'
+                .'<p>'.View::e((string)$job['message']).'</p>'
+                .'<div class="broadcast-progress"><i style="width:'.$percent.'%" data-broadcast-bar></i></div>'
+                .'<div class="broadcast-meta">'
+                .'<span><b data-broadcast-sent>'.$sent.'</b> sent</span>'
+                .'<span><b data-broadcast-failed>'.$failed.'</b> failed</span>'
+                .'<span><b data-broadcast-total>'.$total.'</b> Telegram</span>'
+                .'<span>'.View::e((string)$job['created_at']).'</span>'
+                .'</div></article>';
+        }
+
+        if ($broadcastRows === '') {
+            $broadcastRows = '<div class="empty-state premium-empty"><span>📣</span><strong>No broadcasts yet</strong><p>Your announcement delivery history will appear here.</p></div>';
+        }
+
+        $activeAnnouncement = trim((string)($settings['announcement'] ?? ''));
+        $activePanel = $activeAnnouncement !== ''
+            ? '<div class="live-announcement-preview">'
+                .'<div class="announcement-signal"><span></span></div>'
+                .'<div><span class="eyebrow">LIVE PANEL ANNOUNCEMENT</span>'
+                .'<h3>'.View::e($activeAnnouncement).'</h3>'
+                .'<small>Published '.View::e((string)($settings['announcement_published_at'] ?: 'recently')).'</small></div>'
+                .'<form method="post" action="/owner/announcements/clear" data-confirm="Clear the live panel announcement?" data-busy="Clearing announcement…">'
+                .View::csrf().'<button class="ghost danger" type="submit">Clear panel banner</button></form>'
+                .'</div>'
+            : '<div class="live-announcement-preview is-empty"><div class="announcement-signal"><span></span></div>'
+                .'<div><span class="eyebrow">PANEL ANNOUNCEMENT</span><h3>No live panel announcement</h3><small>Publish one below when needed.</small></div></div>';
+
+        $body = '<section class="hero premium-hero"><div><div class="eyebrow">OWNER OPERATIONS</div>'
+            .'<h1>Command Center</h1><p class="muted">Server controls, secure broadcasts and audience delivery from one place.</p></div>'
+            .'<span class="status-chip status-'.($settings['panel_online'] ? 'active' : 'disabled').'">Panel '.($settings['panel_online'] ? 'ON' : 'OFF').'</span></section>'
+            .$flash;
+
         if (!$settings['installed']) {
-            $body .= '<div class="alert">Import database/schema.sql to enable server controls. Existing panel access remains available.</div>';
+            $body .= '<div class="alert">Import database/schema.sql to enable server controls and broadcasts.</div>';
         } else {
-            $body .= '<form method="post" action="/owner/settings" class="card history-card stack" data-confirm="Apply these availability settings to all non-owner users?">'.View::csrf().'<input type="hidden" name="revision" value="'.$settings['revision'].'">';
+            $body .= '<section id="announcements" class="premium-section">'
+                .'<div class="section-heading"><div><span class="eyebrow">BROADCAST CENTER</span><h2>Official announcements</h2>'
+                .'<p>Publish to the web panel, linked Telegram accounts, free Telegram users, or all audiences together.</p></div>'
+                .'<div class="audience-stats">'
+                .'<span><b>'.$panelUsers.'</b> Panel</span>'
+                .'<span><b>'.$linkedTelegram.'</b> Linked TG</span>'
+                .'<span><b>'.$guestTelegram.'</b> Free TG</span>'
+                .'</div></div>'
+                .$activePanel
+                .'<div class="announcement-layout">'
+                .'<form method="post" action="/owner/announcements/create" class="card broadcast-composer"'
+                .' data-confirm="Publish this official announcement to the selected audiences?"'
+                .' data-busy="Creating secure broadcast…">'
+                .View::csrf()
+                .'<div class="composer-top"><div><span class="eyebrow">NEW BROADCAST</span><h3>Write once. Deliver everywhere.</h3></div>'
+                .'<span class="premium-badge">OWNER ONLY</span></div>'
+                .'<div class="field"><label for="broadcast-message">Announcement</label>'
+                .'<textarea id="broadcast-message" name="announcement" maxlength="1000" rows="7" required'
+                .' placeholder="Write the official Team Dark announcement…"></textarea>'
+                .'<div class="field-foot"><span>Plain text is safely escaped before Telegram delivery.</span><span data-char-count>0 / 1000</span></div></div>'
+                .'<div class="audience-picker">'
+                .'<label class="audience-card"><input type="checkbox" name="audience_panel" value="1" checked>'
+                .'<span class="audience-icon">◈</span><span><strong>Panel users</strong><small>'.$panelUsers.' active accounts • premium banner</small></span></label>'
+                .'<label class="audience-card"><input type="checkbox" name="audience_linked" value="1" checked>'
+                .'<span class="audience-icon">✈</span><span><strong>Linked Telegram</strong><small>'.$linkedTelegram.' verified panel-linked chats</small></span></label>'
+                .'<label class="audience-card"><input type="checkbox" name="audience_guests" value="1" checked>'
+                .'<span class="audience-icon">✦</span><span><strong>Free Telegram users</strong><small>'.$guestTelegram.' guest/free bot chats</small></span></label>'
+                .'</div>'
+                .'<button class="primary premium-primary wide" type="submit">Publish announcement</button>'
+                .'<p class="hint">Telegram recipients are snapshotted into a durable queue. Reloading this page does not duplicate already-sent messages.</p>'
+                .'</form>'
+                .'<div class="card broadcast-history" data-broadcast-queue data-broadcast-csrf="'.View::e(Security::csrfToken()).'">'
+                .'<div class="toolbar"><div><span class="eyebrow">DELIVERY HISTORY</span><h3>Recent broadcasts</h3></div>'
+                .'<span class="queue-live"><i></i> Auto delivery</span></div>'
+                .'<div class="broadcast-list">'.$broadcastRows.'</div>'
+                .'</div></div></section>';
+
+            $body .= '<section class="premium-section"><div class="section-heading"><div><span class="eyebrow">SERVER POLICY</span>'
+                .'<h2>Availability controls</h2><p>Infrastructure-safe controls for panel access and generation.</p></div></div>'
+                .'<form method="post" action="/owner/settings" class="card history-card stack premium-settings"'
+                .' data-confirm="Apply these availability settings to all non-owner users?">'
+                .View::csrf().'<input type="hidden" name="revision" value="'.$settings['revision'].'">';
+
             foreach ([
                 'panel_online'=>['Panel ON / OFF','OFF blocks non-owner web panel, panel-account API access and Telegram bot operations. Owner access stays available.'],
                 'registration_open'=>['New registrations','Allow new accounts to redeem referral invites.'],
                 'generation_open'=>['User key generation','Allow non-owner and Telegram guest key generation. Owners can still generate keys.'],
             ] as $key=>$copy) {
-                $body .= '<label class="setting-row" for="'.$key.'"><span><strong>'.View::e($copy[0]).'</strong><small>'.View::e($copy[1]).'</small></span><input id="'.$key.'" class="toggle-input" type="checkbox" name="'.$key.'" value="1"'.($settings[$key] ? ' checked' : '').'></label>';
+                $body .= '<label class="setting-row premium-setting" for="'.$key.'"><span><strong>'.View::e($copy[0]).'</strong>'
+                    .'<small>'.View::e($copy[1]).'</small></span><input id="'.$key.'" class="toggle-input" type="checkbox" name="'.$key.'" value="1"'
+                    .($settings[$key] ? ' checked' : '').'></label>';
             }
-            $body .= '<div class="field"><label for="maintenance-message">Maintenance message</label><input id="maintenance-message" name="message" maxlength="500" value="'.View::e($settings['message']).'"></div>'
-                .'<div class="field"><label for="announcement">Panel announcement (blank to hide)</label><input id="announcement" name="announcement" maxlength="500" value="'.View::e($settings['announcement']).'"></div>'
-                .'<button class="primary">Save server controls</button><p class="hint">These controls manage application availability, not the hosting machine. Existing Loader /connect and license validation continue working with the same contract.</p></form>';
+
+            $body .= '<div class="field"><label for="maintenance-message">Maintenance message</label>'
+                .'<input id="maintenance-message" name="message" maxlength="500" value="'.View::e($settings['message']).'"></div>'
+                .'<button class="primary">Save server controls</button>'
+                .'<p class="hint">These settings do not change the native Loader /connect contract.</p></form></section>';
         }
-        View::page('Server controls', $body, $actor);
+
+        View::page('Owner Command Center', $body, $actor);
     }
 }
