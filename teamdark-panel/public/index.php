@@ -37,7 +37,6 @@ foreach ([
 
 Config::load($root);
 Security::headers();
-Security::startSession();
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $path = rawurldecode(
@@ -47,6 +46,11 @@ $path = rawurldecode(
     )
 );
 $path = '/' . ltrim(preg_replace('#/+#', '/', $path) ?? '/', '/');
+
+// Bearer APIs are stateless; only browser routes need a PHP session cookie.
+if (!str_starts_with($path, '/api/')) {
+    Security::startSession();
+}
 
 function redirectTo(string $path): never
 {
