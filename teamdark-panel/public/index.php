@@ -127,9 +127,9 @@ function jsonOut(array $data, int $status = 200): never
 
 function safeMessage(Throwable $e, string $fallback = 'Request failed.'): string
 {
-    if ($e instanceof PDOException) {
+    if (!$e instanceof RuntimeException) {
         error_log(
-            'TeamDark database request failure: '
+            'TeamDark internal request failure: '
             .get_class($e)
             .' at '
             .basename($e->getFile())
@@ -140,7 +140,9 @@ function safeMessage(Throwable $e, string $fallback = 'Request failed.'): string
     }
 
     $message = trim($e->getMessage());
-    return $message === '' ? $fallback : substr($message, 0, 300);
+    return $message === ''
+        ? $fallback
+        : substr($message, 0, 300);
 }
 
 function roleRank(string $role): int
