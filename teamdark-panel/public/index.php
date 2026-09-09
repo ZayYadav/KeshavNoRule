@@ -1302,11 +1302,21 @@ try {
             .$referralCard
             .$telegramCard
             .$twoFactorCard
-            .'<div class="card half"><div class="eyebrow">PROFILE</div><h3>Account</h3>'
+            .'<div class="card half"><div class="eyebrow">PROFILE & PASSWORD</div><h3>Account</h3>'
             .'<p class="muted">Username: '.View::e($user['username']).'<br>'
             .'Role: '.View::e($user['role']).'<br>'
             .'Balance policy: '.(ownerUnlimited($user) ? 'Unlimited' : 'Credit based').'<br>'
-            .'Created: '.View::e($user['created_at']).'</p></div></div>';
+            .'Created: '.View::e($user['created_at']).'</p>'
+            .'<form method="post" action="/security/password/change" class="stack"'
+            .' data-confirm="Change your password and revoke other active sessions?"'
+            .' data-busy="Rotating account credentials…">'
+            .View::csrf()
+            .'<div class="field"><label>Current password</label>'
+            .'<input type="password" name="current_password" autocomplete="current-password" maxlength="200" required></div>'
+            .'<div class="field"><label>New password</label>'
+            .'<input type="password" name="new_password" autocomplete="new-password" minlength="12" maxlength="200" required placeholder="12+ chars, number and symbol"></div>'
+            .'<button class="ghost warning" type="submit">Change password</button></form>'
+            .'</div></div>';
 
         View::page('Dashboard', $body, $user);
         exit;
@@ -1391,6 +1401,86 @@ try {
             );
             flash('ok', 'Telegram 2FA disabled.');
         } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/dashboard');
+    }
+
+    if ($path === '/security/password/change' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        try {
+            $currentPassword = (string)($_POST['current_password'] ?? '');
+            $newPassword = (string)($_POST['new_password'] ?? '');
+
+            Auth::verifyCurrentPassword(
+                $user,
+                $currentPassword,
+                'password-change'
+            );
+
+            if (!validPassword($newPassword)) {
+                throw new RuntimeException(
+                    'New password needs 12+ characters with a letter, number and symbol.'
+                );
+            }
+
+            if (hash_equals($currentPassword, $newPassword)) {
+                throw new RuntimeException(
+                    'New password must be different from the current password.'
+                );
+            }
+
+            $pdo = Database::pdo();
+            $pdo->beginTransaction();
+
+            $pdo->prepare(
+                'UPDATE users
+                 SET password_hash=?,auth_version=auth_version+1
+                 WHERE id=? AND status=\'active\''
+            )->execute([
+                Security::passwordHash($newPassword),
+                $user['id'],
+            ]);
+
+            $pdo->prepare(
+                'DELETE FROM api_tokens WHERE user_id=?'
+            )->execute([$user['id']]);
+            $pdo->prepare(
+                'DELETE FROM login_2fa_challenges WHERE user_id=?'
+            )->execute([$user['id']]);
+
+            $q = $pdo->prepare(
+                'SELECT auth_version FROM users WHERE id=? LIMIT 1'
+            );
+            $q->execute([$user['id']]);
+            $newVersion = max(1, (int)$q->fetchColumn());
+
+            $pdo->commit();
+
+            Auth::refreshCurrentSessionVersion(
+                (int)$user['id'],
+                $newVersion
+            );
+
+            Security::audit(
+                (int)$user['id'],
+                'password_changed_self',
+                [
+                    'sessions_revoked'=>true,
+                    'api_tokens_revoked'=>true,
+                ]
+            );
+
+            flash(
+                'ok',
+                'Password changed. Other active sessions and API tokens were revoked.'
+            );
+        } catch (Throwable $e) {
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             flash('err', safeMessage($e));
         }
 
