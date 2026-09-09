@@ -10,7 +10,8 @@ use TeamDark\Panel\{
     ReferralManager,
     Security,
     TelegramBot,
-    TelegramService
+    TelegramService,
+    TwoFactorService
 };
 
 ini_set('display_errors', '0');
@@ -32,6 +33,7 @@ foreach ([
     'Auth',
     'ReferralManager',
     'TelegramService',
+    'TwoFactorService',
     'KeyManager',
     'TelegramBot',
 ] as $file) {
