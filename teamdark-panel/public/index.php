@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 use TeamDark\Panel\{
     Auth,
+    BroadcastService,
     Config,
     Crypto,
     Database,
@@ -32,6 +33,7 @@ foreach ([
     'LicenseService',
     'ReferralManager',
     'TelegramService',
+    'BroadcastService',
     'TwoFactorService',
 ] as $file) {
     require $root.'/app/'.$file.'.php';
@@ -932,6 +934,8 @@ try {
 
     $ownerFreshAuthRoutes = [
         '/owner/settings',
+        '/owner/announcements/create',
+        '/owner/announcements/clear',
         '/telegram/unlink',
         '/keys/create',
         '/keys/action',
@@ -964,15 +968,73 @@ try {
     if (PanelControl::blocked($user)) redirectTo('/');
     if ($method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
-        Security::audit((int)$user['id'], 'action_requested', [
-            'path'=>$path,
-            'target_id'=>(int)($_POST['user_id'] ?? 0),
-            'license_id'=>(int)($_POST['key_id'] ?? 0),
-        ]);
+
+        if ($path !== '/owner/announcements/process') {
+            Security::audit((int)$user['id'], 'action_requested', [
+                'path'=>$path,
+                'target_id'=>(int)($_POST['user_id'] ?? 0),
+                'license_id'=>(int)($_POST['key_id'] ?? 0),
+            ]);
+        }
     }
     if ($method === 'GET' && in_array($path, ['/dashboard','/keys','/keys/expired','/keys/devices','/users','/telegram-users','/activity','/owner/users','/owner/settings'], true)) {
         Security::audit((int)$user['id'], 'page_viewed', ['path'=>$path]);
     }
+    if ($path === '/owner/announcements/create' && $method === 'POST') {
+        Auth::requireRole($user, 'owner');
+
+        try {
+            $job = BroadcastService::create(
+                $user,
+                input('announcement'),
+                isset($_POST['audience_panel']),
+                isset($_POST['audience_linked']),
+                isset($_POST['audience_guests'])
+            );
+
+            flash(
+                'ok',
+                'Announcement published. Telegram queue: '
+                .$job['total'].' recipient(s).'
+            );
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/owner/settings#announcements');
+    }
+
+    if ($path === '/owner/announcements/process' && $method === 'POST') {
+        Auth::requireRole($user, 'owner');
+
+        try {
+            jsonOut(
+                ['ok'=>true] + BroadcastService::processBatch(
+                    $user,
+                    (int)($_POST['broadcast_id'] ?? 0)
+                )
+            );
+        } catch (Throwable $e) {
+            jsonOut([
+                'ok'=>false,
+                'error'=>safeMessage($e, 'Broadcast processing failed.'),
+            ], 400);
+        }
+    }
+
+    if ($path === '/owner/announcements/clear' && $method === 'POST') {
+        Auth::requireRole($user, 'owner');
+
+        try {
+            BroadcastService::clearPanel($user);
+            flash('ok', 'Panel announcement cleared.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+
+        redirectTo('/owner/settings#announcements');
+    }
+
     if ($path === '/owner/settings' && $method === 'POST') {
         Auth::requireRole($user, 'owner');
         Security::verifyCsrf($_POST['csrf'] ?? null);

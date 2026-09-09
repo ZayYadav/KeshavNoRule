@@ -61,6 +61,62 @@ try {
         }
         check($response['status']===200 && !str_contains($response['body'],'Warning:'),'owner route '.$path);
     }
+
+    $pdo->prepare(
+        "INSERT INTO telegram_users(
+            chat_id,first_name,last_name,username,language_code,linked_user_id,
+            first_seen_at,last_seen_at
+         ) VALUES(7000001111,'Linked','Broadcast','linked-broadcast','en',?,NOW(),NOW())
+         ON DUPLICATE KEY UPDATE linked_user_id=VALUES(linked_user_id),last_seen_at=NOW()"
+    )->execute([$uid]);
+
+    $pdo->exec(
+        "INSERT INTO telegram_users(
+            chat_id,first_name,last_name,username,language_code,linked_user_id,
+            first_seen_at,last_seen_at
+         ) VALUES(7000002222,'Guest','Broadcast','guest-broadcast','en',NULL,NOW(),NOW())
+         ON DUPLICATE KEY UPDATE linked_user_id=NULL,last_seen_at=NOW()"
+    );
+
+    $broadcast = request($ownerClient,'/owner/announcements/create',[
+        'csrf'=>$ownerCsrf,
+        'announcement'=>'Contract broadcast announcement',
+        'audience_panel'=>'1',
+        'audience_linked'=>'1',
+        'audience_guests'=>'1',
+    ]);
+    check($broadcast['status']===303,'owner announcement publish accepted');
+
+    $broadcastId = (int)$pdo->query(
+        "SELECT id FROM announcement_broadcasts ORDER BY id DESC LIMIT 1"
+    )->fetchColumn();
+    check($broadcastId>0,'announcement broadcast persisted');
+
+    $recipientQ = $pdo->prepare(
+        "SELECT COUNT(*) FROM announcement_recipients
+         WHERE broadcast_id=? AND chat_id IN (7000001111,7000002222)"
+    );
+    $recipientQ->execute([$broadcastId]);
+    check((int)$recipientQ->fetchColumn()===2,'linked and free Telegram audiences queued');
+
+    check(
+        PanelControl::settings()['announcement']==='Contract broadcast announcement',
+        'panel audience receives live announcement banner'
+    );
+
+    $settingsPage = request($ownerClient,'/owner/settings#announcements');
+    check(
+        $settingsPage['status']===200
+        && str_contains($settingsPage['body'],'BROADCAST CENTER')
+        && str_contains($settingsPage['body'],'Contract broadcast announcement'),
+        'premium broadcast center renders live announcement and history'
+    );
+
+    $clearAnnouncement = request($ownerClient,'/owner/announcements/clear',[
+        'csrf'=>$ownerCsrf,
+    ]);
+    check($clearAnnouncement['status']===303,'owner can clear panel announcement');
+    check(PanelControl::settings()['announcement']==='','panel announcement clear persisted');
     $registerClient = client();
     $registrationRef = 'TDREGREVIEWTEST';
     $pdo->prepare(

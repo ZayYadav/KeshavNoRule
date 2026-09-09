@@ -201,6 +201,8 @@ jobs:
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'telegram_user_id';" | grep -F 'telegram_user_id' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_devices LIKE 'serial';" | grep -F 'serial' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'telegram_users';" | grep -F 'telegram_users' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'announcement_broadcasts';" | grep -F 'announcement_broadcasts' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'announcement_recipients';" | grep -F 'announcement_recipients' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW INDEX FROM license_devices WHERE Key_name='uq_key_serial';" | grep -F 'uq_key_serial' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW INDEX FROM license_devices WHERE Key_name='uq_key_device_hash';" | grep -F 'uq_key_device_hash' >/dev/null
       - name: Start isolated PHP endpoint

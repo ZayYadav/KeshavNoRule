@@ -151,3 +151,28 @@ This hardening layer does not change the native TeamDarkLoader `/connect` URL, f
 ### Upgrade
 
 Back up the database and run the same `database/schema.sql` once after deploying. It adds `auth_version` and `login_not_before` without deleting existing accounts or keys. Existing authenticated browser sessions created before this upgrade will be asked to sign in again because they do not contain an auth-version value.
+
+
+## Owner announcement broadcasts
+
+The Owner Command Center can publish one announcement to any combination of:
+
+- **Panel users** — shows the announcement as a premium official banner across the authenticated web panel.
+- **Linked Telegram users** — sends the announcement to Telegram users whose bot identity is linked to a panel account.
+- **Free / guest Telegram users** — sends the announcement to Telegram bot users that are not linked to a panel account.
+- Select all three to reach every supported audience.
+
+Telegram delivery is queued in `announcement_broadcasts` and `announcement_recipients`. Recipients are snapshotted when the Owner publishes, so retries or page reloads do not create duplicate recipient rows. Delivery runs in small resumable batches from the Owner Command Center and tracks sent/failed counts. Interrupted `sending` recipients are recovered and retry up to three times before being marked failed.
+
+Publishing and clearing announcements require the normal Owner CSRF protection and a fresh Owner authentication window. Processing an already-approved queue only requires the authenticated Owner session and CSRF, allowing large approved broadcasts to continue after the five-minute step-up window.
+
+The panel announcement remains live until the Owner clears it. Telegram messages are plain text escaped before being placed inside Telegram HTML formatting.
+
+### Upgrade
+
+Deploy the latest TeamDarkLoader server files and run the existing `teamdark-panel/database/schema.sql` once. It adds:
+
+- `announcement_broadcasts`
+- `announcement_recipients`
+
+No Loader APK update is required. The native `/connect` endpoint, request fields, token formula and response contract are unchanged.
