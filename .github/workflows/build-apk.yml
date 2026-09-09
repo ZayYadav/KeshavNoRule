@@ -77,7 +77,7 @@ jobs:
           printf 'Found libs:\n'
           printf '  %s\n' "${LIBS[@]}"
 
-          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libKeshavLoader.so' | sort)"
+          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libBabaDarkLoader.so' | sort)"
           ACTUAL="$(printf '%s\n' "${LIBS[@]}" | sort)"
           test "$ACTUAL" = "$EXPECTED"
 
