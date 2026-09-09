@@ -72,7 +72,7 @@ Java_com_bgmi_BabaDark2_nativeCustomIntegrity(
         JNIEnv *env,
         jclass,
         jobject context) {
-    return keshav_integrity::run(env, context) ? JNI_TRUE : JNI_FALSE;
+    return babadark_integrity::run(env, context) ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C"
@@ -91,7 +91,7 @@ Java_com_bgmi_BabaDark2_nativeVerifyServerLoader(
     const char *hashChars = env->GetStringUTFChars(expectedHash, nullptr);
     if (!hashChars) return JNI_FALSE;
 
-    const bool ok = keshav_integrity::verify_server_loader(
+    const bool ok = babadark_integrity::verify_server_loader(
             env,
             context,
             hashChars,
