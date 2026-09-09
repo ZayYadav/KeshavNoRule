@@ -175,6 +175,7 @@ final class Auth
         $q = Database::pdo()->prepare(
             'SELECT id,name,username,role,balance,telegram_chat_id,
                     telegram_2fa_enabled,telegram_2fa_enabled_at,
+                    auth_version,login_not_before,
                     status,password_hash,created_at
              FROM users
              WHERE id=?
