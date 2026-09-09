@@ -447,13 +447,18 @@ try {
 
     if ($path === '/api/v1/auth/2fa' && $method === 'POST') {
         $b = jsonBody();
+        $continuation = trim((string)($b['continuation_token'] ?? ''));
+
+        if (!preg_match('/^[A-Za-z0-9_-]{40,64}$/', $continuation)) {
+            jsonOut(['ok'=>false, 'error'=>'Invalid or expired 2FA code'], 401);
+        }
 
         try {
             $u = TwoFactorService::verifyLoginChallenge(
                 (int)($b['challenge_id'] ?? 0),
                 (int)($b['user_id'] ?? 0),
                 (string)($b['code'] ?? ''),
-                (string)($b['continuation_token'] ?? '')
+                $continuation
             );
         } catch (Throwable $e) {
             jsonOut(['ok'=>false, 'error'=>'Invalid or expired 2FA code'], 401);
