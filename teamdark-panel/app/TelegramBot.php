@@ -397,10 +397,14 @@ final class TelegramBot
                 self::menuKeyboard($chatId, $panelUser)
             );
         } catch (Throwable $e) {
+            $message = $e instanceof RuntimeException
+                ? $e->getMessage()
+                : 'Could not create a 2FA activation key. Try again later.';
+
             self::send(
                 $chatId,
                 "⚠️ <b>2FA setup unavailable</b>\n"
-                .self::h($e->getMessage()),
+                .self::h($message),
                 self::menuKeyboard($chatId, $panelUser)
             );
         }
