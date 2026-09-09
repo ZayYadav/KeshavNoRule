@@ -7,6 +7,7 @@ require_once __DIR__.'/PanelControl.php';
 
 final class Security
 {
+    private static bool $housekeepingAttempted = false;
     public static function startSession(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -305,16 +306,90 @@ final class Security
 
     public static function audit(?int $userId, string $action, array $meta = []): void
     {
-        $stmt = Database::pdo()->prepare(
-            'INSERT INTO audit_logs(user_id,action,ip_address,user_agent,meta_json) VALUES(?,?,?,?,?)'
-        );
-        $stmt->execute([
-            $userId,
-            substr($action, 0, 100),
-            self::clientIp(),
-            substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
-            json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-        ]);
+        try {
+            $stmt = Database::pdo()->prepare(
+                'INSERT INTO audit_logs(user_id,action,ip_address,user_agent,meta_json) VALUES(?,?,?,?,?)'
+            );
+            $stmt->execute([
+                $userId,
+                substr($action, 0, 100),
+                self::clientIp(),
+                substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+                json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            ]);
+        } catch (\Throwable $e) {
+            // Security logging must never become an availability kill-switch.
+            error_log(
+                'TeamDark audit write failed: '
+                .get_class($e)
+                .' action='
+                .substr($action, 0, 100)
+            );
+            return;
+        }
+
+        self::housekeepingMaybe();
+    }
+
+    private static function housekeepingMaybe(): void
+    {
+        if (self::$housekeepingAttempted) {
+            return;
+        }
+
+        self::$housekeepingAttempted = true;
+
+        try {
+            if (random_int(1, 200) !== 1) {
+                return;
+            }
+
+            $pdo = Database::pdo();
+
+            $pdo->exec(
+                "DELETE FROM audit_logs
+                 WHERE created_at<DATE_SUB(NOW(), INTERVAL 180 DAY)
+                 LIMIT 1000"
+            );
+            $pdo->exec(
+                "DELETE FROM rate_limits
+                 WHERE touched_at<DATE_SUB(NOW(), INTERVAL 2 DAY)
+                 LIMIT 1000"
+            );
+            $pdo->exec(
+                "DELETE FROM api_tokens
+                 WHERE expires_at<NOW()
+                 LIMIT 1000"
+            );
+            $pdo->exec(
+                "DELETE FROM telegram_link_tokens
+                 WHERE expires_at<DATE_SUB(NOW(), INTERVAL 1 DAY)
+                    OR used_at<DATE_SUB(NOW(), INTERVAL 1 DAY)
+                 LIMIT 1000"
+            );
+            $pdo->exec(
+                "DELETE FROM telegram_2fa_activation_tokens
+                 WHERE expires_at<DATE_SUB(NOW(), INTERVAL 1 DAY)
+                    OR used_at<DATE_SUB(NOW(), INTERVAL 1 DAY)
+                 LIMIT 1000"
+            );
+            $pdo->exec(
+                "DELETE FROM login_2fa_challenges
+                 WHERE expires_at<DATE_SUB(NOW(), INTERVAL 1 DAY)
+                    OR used_at<DATE_SUB(NOW(), INTERVAL 1 DAY)
+                 LIMIT 1000"
+            );
+            $pdo->exec(
+                "DELETE FROM announcement_broadcasts
+                 WHERE status IN ('completed','partial','cancelled')
+                   AND created_at<DATE_SUB(NOW(), INTERVAL 90 DAY)
+                 LIMIT 100"
+            );
+        } catch (\Throwable $e) {
+            error_log(
+                'TeamDark housekeeping failed: '.get_class($e)
+            );
+        }
     }
 
     private static function isHttps(): bool
@@ -329,6 +404,7 @@ final class Security
             return true;
         }
 
-        return (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        return self::trustedProxy($remote)
+            && strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
     }
 }
