@@ -67,6 +67,28 @@ final class Config
         if (self::$data['app_key'] === '') {
             throw new \RuntimeException('APP_KEY is required. Generate 32 random bytes and store as base64 in .env.');
         }
+
+        $decodedAppKey = base64_decode((string)self::$data['app_key'], true);
+        if ($decodedAppKey === false || strlen($decodedAppKey) < 32) {
+            throw new \RuntimeException('APP_KEY must be valid base64 containing at least 32 random bytes.');
+        }
+
+        $nativeSecret = (string)self::$data['teamdark_auth_secret'];
+        if ($nativeSecret !== '' && strlen($nativeSecret) < 24) {
+            throw new \RuntimeException('TEAMDARK_AUTH_SECRET is too short.');
+        }
+
+        $webhookSecret = (string)self::$data['telegram_webhook_secret'];
+        if (
+            $webhookSecret !== ''
+            && (
+                strlen($webhookSecret) < 24
+                || strlen($webhookSecret) > 256
+                || !preg_match('/^[A-Za-z0-9_-]+$/', $webhookSecret)
+            )
+        ) {
+            throw new \RuntimeException('TELEGRAM_WEBHOOK_SECRET must be 24-256 characters using A-Z, a-z, 0-9, underscore or dash.');
+        }
     }
 
     public static function get(string $key, $default = null)
