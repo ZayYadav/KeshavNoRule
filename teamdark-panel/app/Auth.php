@@ -93,30 +93,19 @@ final class Auth
             return null;
         }
 
-        if ($normalizedUsername !== '') {
-            Security::rateLimit(
-                $ratePrefix.'-account',
-                12,
-                900,
-                $normalizedUsername
-            );
-        }
-
         $q = Database::pdo()->prepare(
             'SELECT * FROM users WHERE username=? LIMIT 1'
         );
         $q->execute([$normalizedUsername]);
         $u = $q->fetch();
 
-        $dummy = '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG';
-
-        if (!$u) {
-            password_verify($password, $dummy);
-        }
-
-        $ok = $u
-            && $u['status'] === 'active'
-            && password_verify($password, (string)$u['password_hash']);
+        // Keep missing, disabled and active accounts on the same Argon2id verification path.
+        $dummy = '$argon2id$v=19$m=65536,t=4,p=1$b1E4Q0tMM1pacUxwVkovMA$/X40szipuNg1RTdnxJnZppqKebCsj0QdtO2LokHSdSo';
+        $verifyHash = $u && !empty($u['password_hash'])
+            ? (string)$u['password_hash']
+            : $dummy;
+        $passwordOk = password_verify($password, $verifyHash);
+        $ok = $u && $u['status'] === 'active' && $passwordOk;
 
         if (
             $ok
@@ -130,6 +119,17 @@ final class Auth
         }
 
         if (!$ok) {
+            if ($normalizedUsername !== '') {
+                // Consume the account bucket only after a failed credential check.
+                // A correct password is never blocked by failures from another attacker/IP.
+                Security::rateLimit(
+                    $ratePrefix.'-account-failures',
+                    12,
+                    900,
+                    $normalizedUsername
+                );
+            }
+
             Security::audit(
                 $u ? (int)$u['id'] : null,
                 $ratePrefix === 'api-login' ? 'api_login_failed' : 'login_failed',
@@ -155,7 +155,7 @@ final class Auth
         }
 
         if ($normalizedUsername !== '') {
-            Security::clearRateLimit($ratePrefix.'-account', $normalizedUsername);
+            Security::clearRateLimit($ratePrefix.'-account-failures', $normalizedUsername);
         }
 
         try {
@@ -166,6 +166,37 @@ final class Auth
         }
 
         return $u;
+    }
+
+    public static function verifyCurrentPassword(int $userId, string $password): bool
+    {
+        if ($userId <= 0 || strlen($password) > 200) {
+            return false;
+        }
+
+        Security::rateLimit('current-password-ip', 12, 900);
+        Security::rateLimit('current-password-user', 8, 900, (string)$userId);
+
+        $q = Database::pdo()->prepare(
+            'SELECT password_hash,status FROM users WHERE id=? LIMIT 1'
+        );
+        $q->execute([$userId]);
+        $row = $q->fetch();
+
+        $dummy = '$argon2id$v=19$m=65536,t=4,p=1$b1E4Q0tMM1pacUxwVkovMA$/X40szipuNg1RTdnxJnZppqKebCsj0QdtO2LokHSdSo';
+        $valid = password_verify(
+            $password,
+            $row && !empty($row['password_hash']) ? (string)$row['password_hash'] : $dummy
+        );
+
+        if (!$row || $row['status'] !== 'active' || !$valid) {
+            Security::audit($row ? $userId : null, 'current_password_failed');
+            return false;
+        }
+
+        Security::clearRateLimit('current-password-user', (string)$userId);
+        self::markRecentAuth();
+        return true;
     }
 
     public static function completeLogin(array $user): void
