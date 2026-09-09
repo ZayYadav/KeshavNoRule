@@ -129,26 +129,27 @@ final class PanelControl
             );
         }
 
-        if ($enabled) {
-            $q = Database::pdo()->prepare(
-                'SELECT telegram_2fa_enabled
-                 FROM users
-                 WHERE id=? AND role=\'owner\' AND status=\'active\'
-                 LIMIT 1'
-            );
-            $q->execute([(int)$actor['id']]);
-
-            if ((int)$q->fetchColumn() !== 1) {
-                throw new \RuntimeException(
-                    'Enable Telegram 2FA on the Owner account before approving bot mutations.'
-                );
-            }
-        }
-
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
         try {
+            if ($enabled) {
+                $q = $pdo->prepare(
+                    'SELECT telegram_2fa_enabled
+                     FROM users
+                     WHERE id=? AND role=\'owner\' AND status=\'active\'
+                     LIMIT 1
+                     FOR UPDATE'
+                );
+                $q->execute([(int)$actor['id']]);
+
+                if ((int)$q->fetchColumn() !== 1) {
+                    throw new \RuntimeException(
+                        'Enable Telegram 2FA on the Owner account before approving bot mutations.'
+                    );
+                }
+            }
+
             $q = $pdo->query(
                 'SELECT settings_json FROM panel_settings WHERE id=1 FOR UPDATE'
             );
