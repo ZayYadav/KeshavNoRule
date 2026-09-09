@@ -935,7 +935,6 @@ try {
     $ownerFreshAuthRoutes = [
         '/owner/settings',
         '/owner/announcements/create',
-        '/owner/announcements/process',
         '/owner/announcements/clear',
         '/telegram/unlink',
         '/keys/create',
