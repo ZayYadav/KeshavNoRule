@@ -303,11 +303,10 @@ final class TelegramService
             $pdo->prepare(
                 "DELETE FROM login_2fa_challenges WHERE user_id=?"
             )->execute([$userId]);
-            $pdo->prepare(
-                "DELETE FROM api_tokens WHERE user_id=?"
-            )->execute([$userId]);
-
             $pdo->commit();
+
+            $newVersion = Auth::bumpAuthVersion($userId, true);
+            Auth::refreshCurrentSessionVersion($userId, $newVersion);
 
             try {
                 Security::audit((int)$panelUser['id'], 'telegram_unlinked');
