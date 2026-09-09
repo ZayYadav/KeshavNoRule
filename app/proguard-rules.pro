@@ -1,15 +1,15 @@
-# KeshavOwner release hardening
+# BabaDark release hardening
 # Component/native class names are intentionally stable because JNI exports are name-based.
--keepnames class com.bgmi.KeshavOwner1
--keepnames class com.bgmi.KeshavOwner2
--keepnames class com.bgmi.KeshavOwner3
--keepnames class com.bgmi.utils.KeshavOwner4
-# KeshavOwner5 performs network/archive/integrity work and must stay verifier-stable.
+-keepnames class com.bgmi.BabaDark1
+-keepnames class com.bgmi.BabaDark2
+-keepnames class com.bgmi.BabaDark3
+-keepnames class com.bgmi.utils.BabaDark4
+# BabaDark5 performs network/archive/integrity work and must stay verifier-stable.
 # Keep its bytecode shape intact on Android 16; native Version()/Link() bindings remain unchanged.
--keep class com.bgmi.utils.KeshavOwner5 { *; }
--keepnames class com.bgmi.utils.KeshavOwner6
--keepnames class com.bgmi.utils.KeshavOwner7
--keepnames class com.bgmi.KeshavOwner8
+-keep class com.bgmi.utils.BabaDark5 { *; }
+-keepnames class com.bgmi.utils.BabaDark6
+-keepnames class com.bgmi.utils.BabaDark7
+-keepnames class com.bgmi.BabaDark8
 
 # Preserve JNI method names/descriptors while allowing normal R8 optimization elsewhere.
 -keepclasseswithmembernames,includedescriptorclasses class * {
@@ -37,4 +37,4 @@
 }
 
 # Do not retain source/debug metadata in the release artifact.
--renamesourcefileattribute Keshav
+-renamesourcefileattribute BabaDark
