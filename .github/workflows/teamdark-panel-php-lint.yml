@@ -45,5 +45,5 @@ jobs:
           node --check teamdark-panel/public/assets/app.js
           grep -F 'TeamDark Premium UI v5' teamdark-panel/public/assets/app.css >/dev/null
           grep -F 'data-teamdark-ui="5"' teamdark-panel/app/View.php >/dev/null
-          grep -F '/assets/app.css?v=20260909-6' teamdark-panel/app/View.php >/dev/null
-          grep -F '/assets/app.js?v=20260909-6' teamdark-panel/app/View.php >/dev/null
+          grep -F '/assets/app.css?v=20260909-7' teamdark-panel/app/View.php >/dev/null
+          grep -F '/assets/app.js?v=20260909-7' teamdark-panel/app/View.php >/dev/null
