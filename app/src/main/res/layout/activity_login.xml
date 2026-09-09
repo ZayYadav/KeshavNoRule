@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/cyber_bg_gradient">
+    android:background="@drawable/parallax_bg">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -15,94 +15,103 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_horizontal"
             android:orientation="vertical"
             android:paddingStart="22dp"
-            android:paddingTop="42dp"
+            android:paddingTop="34dp"
             android:paddingEnd="22dp"
-            android:paddingBottom="26dp">
+            android:paddingBottom="28dp">
 
             <LinearLayout
                 android:id="@+id/headerArea"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_horizontal"
                 android:orientation="vertical">
 
                 <LinearLayout
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/cyber_badge_green"
                     android:gravity="center_vertical"
-                    android:paddingStart="12dp"
-                    android:paddingTop="6dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="6dp">
+                    android:orientation="horizontal">
 
-                    <View
-                        android:layout_width="7dp"
-                        android:layout_height="7dp"
-                        android:layout_marginEnd="7dp"
-                        android:background="@drawable/circle_bg"
-                        android:backgroundTint="@color/cyber_emerald" />
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/logoContainer"
+                        android:layout_width="62dp"
+                        android:layout_height="62dp"
+                        app:cardBackgroundColor="#161B2A"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#447C8CFF"
+                        app:strokeWidth="1dp">
+
+                        <ImageView
+                            android:layout_width="38dp"
+                            android:layout_height="38dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="PARALLAX LOADER"
+                            android:src="@drawable/icon" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <LinearLayout
+                        android:id="@+id/titleBanner"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="14dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="sans-serif-black"
+                            android:letterSpacing="0.04"
+                            android:text="PARALLAX"
+                            android:textColor="@color/parallax_text"
+                            android:textSize="27sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="-2dp"
+                            android:letterSpacing="0.20"
+                            android:text="LOADER / PRIVATE BUILD"
+                            android:textColor="@color/parallax_blue"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.08"
-                        android:text="SECURE SESSION • ONLINE"
-                        android:textColor="@color/cyber_emerald"
-                        android:textSize="10sp"
+                        android:background="@drawable/parallax_chip"
+                        android:paddingStart="10dp"
+                        android:paddingTop="6dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="6dp"
+                        android:text="ONLINE"
+                        android:textColor="@color/parallax_green"
+                        android:textSize="9sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/logoContainer"
-                    android:layout_width="88dp"
-                    android:layout_height="88dp"
-                    android:layout_marginTop="22dp"
-                    app:cardBackgroundColor="#CC11182A"
-                    app:cardCornerRadius="28dp"
-                    app:cardElevation="12dp"
-                    app:strokeColor="@color/cyber_stroke_cyan"
-                    app:strokeWidth="1dp">
-
-                    <ImageView
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="PARALLAX LOADER"
-                        android:src="@drawable/icon" />
-                </com.google.android.material.card.MaterialCardView>
-
-                <LinearLayout
-                    android:id="@+id/titleBanner"
-                    android:layout_width="wrap_content"
+                <TextView
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="18dp"
-                    android:gravity="center"
-                    android:orientation="vertical">
+                    android:layout_marginTop="34dp"
+                    android:fontFamily="sans-serif-light"
+                    android:lineSpacingExtra="2dp"
+                    android:text="Access the next layer."
+                    android:textColor="@color/parallax_text"
+                    android:textSize="33sp" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-black"
-                        android:letterSpacing="0.10"
-                        android:text="PARALLAX LOADER"
-                        android:textColor="@color/white"
-                        android:textSize="28sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:letterSpacing="0.16"
-                        android:text="PRIVATE ACCESS CONSOLE"
-                        android:textColor="@color/cyber_cyan"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:lineSpacingExtra="3dp"
+                    android:text="Authenticate your private license to unlock the loader workspace."
+                    android:textColor="@color/parallax_muted"
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
@@ -110,10 +119,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="30dp"
-                app:cardBackgroundColor="#E60D1424"
-                app:cardCornerRadius="26dp"
-                app:cardElevation="10dp"
-                app:strokeColor="#3300F0FF"
+                app:cardBackgroundColor="#F20D101A"
+                app:cardCornerRadius="30dp"
+                app:cardElevation="0dp"
+                app:strokeColor="#2EFFFFFF"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -128,67 +137,77 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <ImageView
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:contentDescription="License"
-                            android:src="@drawable/ic_cyber_key"
-                            app:tint="@color/cyber_cyan" />
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/parallax_number_badge"
+                            android:gravity="center"
+                            android:text="01"
+                            android:textColor="@color/parallax_text"
+                            android:textSize="11sp"
+                            android:textStyle="bold" />
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
+                            android:layout_marginStart="12dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="License verification"
-                                android:textColor="@color/white"
-                                android:textSize="17sp"
+                                android:text="License access"
+                                android:textColor="@color/parallax_text"
+                                android:textSize="18sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="Authenticate your key with the secure panel."
-                                android:textColor="@color/text_muted"
+                                android:text="Encrypted session verification"
+                                android:textColor="@color/parallax_muted"
                                 android:textSize="11sp" />
                         </LinearLayout>
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="58dp"
-                        android:layout_marginTop="22dp"
-                        android:background="@drawable/cyber_input_bg"
+                        android:layout_height="62dp"
+                        android:layout_marginTop="24dp"
+                        android:background="@drawable/parallax_input"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:paddingStart="14dp"
+                        android:paddingStart="16dp"
                         android:paddingEnd="10dp">
+
+                        <ImageView
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:contentDescription="License"
+                            android:src="@drawable/ic_cyber_key"
+                            app:tint="@color/parallax_blue" />
 
                         <EditText
                             android:id="@+id/userkey"
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
+                            android:layout_marginStart="11dp"
                             android:layout_weight="1"
                             android:background="@android:color/transparent"
-                            android:hint="ENTER LICENSE KEY"
+                            android:hint="PASTE ACCESS KEY"
                             android:inputType="textPassword"
                             android:maxLines="1"
-                            android:paddingStart="2dp"
-                            android:textColor="@color/white"
-                            android:textColorHint="#64748B"
-                            android:textSize="14sp" />
+                            android:textColor="@color/parallax_text"
+                            android:textColorHint="#5F6B82"
+                            android:textSize="13sp" />
 
                         <FrameLayout
                             android:id="@+id/paste"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
-                            android:background="@drawable/cyber_btn_secondary"
+                            android:layout_width="42dp"
+                            android:layout_height="42dp"
+                            android:background="@drawable/parallax_icon_button"
                             android:clickable="true"
                             android:focusable="true">
 
@@ -198,85 +217,77 @@
                                 android:layout_gravity="center"
                                 android:contentDescription="Paste key"
                                 android:src="@drawable/ic_content_paste"
-                                app:tint="@color/cyber_cyan" />
+                                app:tint="@color/parallax_text" />
                         </FrameLayout>
                     </LinearLayout>
 
                     <androidx.appcompat.widget.AppCompatButton
                         android:id="@+id/login"
                         android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:layout_marginTop="18dp"
-                        android:background="@drawable/cyber_btn_primary"
-                        android:letterSpacing="0.07"
-                        android:text="VERIFY &amp; CONTINUE"
-                        android:textColor="@color/text_dark"
-                        android:textSize="15sp"
+                        android:layout_height="58dp"
+                        android:layout_marginTop="16dp"
+                        android:background="@drawable/parallax_primary_btn"
+                        android:letterSpacing="0.06"
+                        android:text="ENTER PARALLAX"
+                        android:textColor="@color/parallax_text"
+                        android:textSize="14sp"
                         android:textStyle="bold" />
 
                     <LinearLayout
                         android:id="@+id/GetKey"
                         android:layout_width="match_parent"
-                        android:layout_height="50dp"
+                        android:layout_height="54dp"
                         android:layout_marginTop="12dp"
-                        android:background="@drawable/cyber_btn_secondary"
+                        android:background="@drawable/parallax_outline_btn"
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
                         android:orientation="horizontal">
 
                         <ImageView
-                            android:layout_width="19dp"
-                            android:layout_height="19dp"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
                             android:contentDescription="Telegram"
                             android:src="@drawable/ic_telegram"
-                            app:tint="@color/cyber_cyan" />
+                            app:tint="@color/parallax_blue" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:letterSpacing="0.05"
-                            android:text="GET OFFICIAL KEY"
-                            android:textColor="@color/cyber_cyan"
+                            android:layout_marginStart="9dp"
+                            android:letterSpacing="0.06"
+                            android:text="GET ACCESS KEY"
+                            android:textColor="@color/parallax_text"
                             android:textSize="12sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="22dp"
+                        android:background="#18FFFFFF" />
+
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="18dp"
-                        android:gravity="center"
+                        android:layout_marginTop="16dp"
                         android:orientation="horizontal">
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:gravity="center"
                             android:text="NATIVE AUTH"
-                            android:textColor="@color/cyber_emerald"
+                            android:textColor="@color/parallax_muted"
                             android:textSize="9sp"
                             android:textStyle="bold" />
 
                         <TextView
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:text="R8 HARDENED"
-                            android:textColor="@color/cyber_purple"
-                            android:textSize="9sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:gravity="center"
-                            android:text="SECURE UI"
-                            android:textColor="@color/cyber_cyan"
+                            android:text="PRIVATE • ARM64"
+                            android:textColor="@color/parallax_violet"
                             android:textSize="9sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -287,26 +298,32 @@
                 android:id="@+id/footerArea"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:gravity="center"
-                android:orientation="vertical">
+                android:layout_marginTop="22dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="8dp"
+                    android:background="@drawable/parallax_live_dot" />
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="PARALLAX LOADER SECURITY CORE"
-                    android:textColor="@color/text_muted"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:text="PARALLAX SECURITY CORE"
+                    android:textColor="@color/parallax_muted"
                     android:textSize="10sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="Authorized access only"
-                    android:textColor="#526078"
-                    android:textSize="10sp" />
+                    android:text="AUTHORIZED ONLY"
+                    android:textColor="#536075"
+                    android:textSize="9sp" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
-</RelativeLayout>
+</FrameLayout>
