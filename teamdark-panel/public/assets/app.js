@@ -141,9 +141,11 @@
       var dialogSurface = dialog.querySelector('.ui-dialog');
       var dialogText = ((options.title || '') + ' ' + (options.message || '')).toLowerCase();
       var tone = options.tone || (
-        /(delete|disable|disconnect|revoke|remove|clear|reset)/.test(dialogText)
-          ? 'danger'
-          : (/(warning|expire|block|offline|stop)/.test(dialogText) ? 'warning' : 'default')
+        options.icon === '✓' || /(^|\\s)(success|completed|delivered)(\\s|$)/.test(dialogText)
+          ? 'success'
+          : (/(delete|disable|disconnect|revoke|remove|clear|reset|failed|error)/.test(dialogText)
+              ? 'danger'
+              : (/(warning|expire|block|offline|stop)/.test(dialogText) ? 'warning' : 'default'))
       );
 
       if (dialogSurface) dialogSurface.setAttribute('data-tone', tone);
