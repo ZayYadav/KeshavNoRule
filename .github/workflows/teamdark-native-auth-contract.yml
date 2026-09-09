@@ -70,6 +70,12 @@ jobs:
           grep -F 'data["rng"].is_number_integer()' app/src/main/jni/main.cpp >/dev/null
           grep -F 'rng < now - 60 || rng > now + 60' app/src/main/jni/main.cpp >/dev/null
 
+          # Server hardening must never alter the native request/response contract.
+          grep -F "teamdarkJson($" teamdark-panel/public/connect.php >/dev/null
+          grep -F "'status'=>true" teamdark-panel/app/LoaderAuthService.php >/dev/null
+          grep -F "'token'=>self::makeToken(" teamdark-panel/app/LoaderAuthService.php >/dev/null
+          grep -F "'rng'=>$rng" teamdark-panel/app/LoaderAuthService.php >/dev/null
+
           SECRET="$(python3 - <<'PY'
           import re
           from pathlib import Path
@@ -127,6 +133,7 @@ jobs:
           php teamdark-panel/tests/seed_native_auth.php > /tmp/teamdark-fixture.json
           jq -e 'type=="object"' /tmp/teamdark-fixture.json >/dev/null
           php teamdark-panel/tests/telegram_contract.php
+          php teamdark-panel/tests/server_hardening_contract.php
 
       - name: Verify single SQL install and upgrade contract
         shell: bash
