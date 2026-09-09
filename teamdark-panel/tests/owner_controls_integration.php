@@ -50,10 +50,104 @@ if (!$owner) throw new RuntimeException('Run seed_native_auth.php first.');
 $pdo->prepare("INSERT INTO users(name,username,password_hash,role,balance,referral_code,status) VALUES('History Test','history-test',?,'user',100,'TDHISTORYTEST','active')")->execute([Security::passwordHash('ContractTest@12345')]);
 $uid = (int)$pdo->lastInsertId();
 $q = $pdo->prepare('SELECT * FROM users WHERE id=?'); $q->execute([$uid]); $user = $q->fetch();
-$ownerClient = client(); $userClient = client(); $guest = client();
+
+$pdo->prepare("INSERT INTO users(name,username,password_hash,role,balance,referral_code,status) VALUES('Hardening Admin','hardening-admin-web',?,'admin',100,'TDHARDENINGADMINWEB','active')")->execute([Security::passwordHash('ContractTest@12345')]);
+$adminId = (int)$pdo->lastInsertId();
+
+$ownerClient = client();
+$userClient = client();
+$adminClient = client();
+$guest = client();
 try {
     $ownerCsrf = login($ownerClient,'contract-owner');
     $userCsrf = login($userClient,'history-test');
+    $adminCsrf = login($adminClient,'hardening-admin-web');
+
+    $adminUsers = request($adminClient,'/users');
+    check(
+        $adminUsers['status']===200
+        && !str_contains($adminUsers['body'],'history-test'),
+        'admin directory is scoped to self and direct referrals'
+    );
+
+    $beforeBalance = (int)$pdo->query(
+        'SELECT balance FROM users WHERE id='.$uid
+    )->fetchColumn();
+    request($adminClient,'/users/balance',[
+        'csrf'=>$adminCsrf,
+        'user_id'=>$uid,
+        'amount'=>'5000',
+    ]);
+    $afterBalance = (int)$pdo->query(
+        'SELECT balance FROM users WHERE id='.$uid
+    )->fetchColumn();
+    check(
+        $beforeBalance===$afterBalance,
+        'admin cannot mint balance for arbitrary users'
+    );
+
+    $adminReferral = request($adminClient,'/referrals/create',[
+        'csrf'=>$adminCsrf,
+        'role'=>'user',
+    ]);
+    check($adminReferral['status']===303,'admin can create scoped user referral');
+
+    $q = $pdo->prepare(
+        "SELECT id,code,status
+         FROM referral_invites
+         WHERE created_by=?
+         ORDER BY id DESC
+         LIMIT 1"
+    );
+    $q->execute([$adminId]);
+    $adminInvite = $q->fetch();
+    check(
+        is_array($adminInvite)
+        && preg_match('/^TD-REF-[A-F0-9]{24}$/',(string)$adminInvite['code'])===1,
+        'new referral token uses hardened 96-bit format'
+    );
+
+    request($ownerClient,'/users/role',[
+        'csrf'=>$ownerCsrf,
+        'user_id'=>$adminId,
+        'role'=>'user',
+    ]);
+    $q = $pdo->prepare(
+        'SELECT status FROM referral_invites WHERE id=?'
+    );
+    $q->execute([$adminInvite['id']]);
+    check(
+        $q->fetchColumn()==='revoked',
+        'role downgrade revokes stale pending referrals'
+    );
+    $linkTokenCount = (int)$pdo->query(
+        'SELECT COUNT(*) FROM telegram_link_tokens WHERE user_id='.$uid
+    )->fetchColumn();
+
+    request($userClient,'/telegram/link/start',[
+        'csrf'=>$userCsrf,
+        'chat_id'=>'7000004444',
+        'password'=>'WrongPassword@12345',
+    ]);
+    check(
+        (int)$pdo->query(
+            'SELECT COUNT(*) FROM telegram_link_tokens WHERE user_id='.$uid
+        )->fetchColumn()===$linkTokenCount,
+        'Telegram link start rejects wrong current password'
+    );
+
+    request($userClient,'/telegram/link/start',[
+        'csrf'=>$userCsrf,
+        'chat_id'=>'7000004444',
+        'password'=>'ContractTest@12345',
+    ]);
+    check(
+        (int)$pdo->query(
+            'SELECT COUNT(*) FROM telegram_link_tokens WHERE user_id='.$uid
+        )->fetchColumn()===$linkTokenCount+1,
+        'Telegram link start requires and accepts correct current password'
+    );
+
     foreach (['/users','/keys','/owner/users','/owner/settings','/activity','/telegram-users'] as $path) {
         $response = request($ownerClient,$path);
         if ($response['status'] !== 200 && preg_match('/class="alert">(.*?)<\/div>/s', $response['body'], $error)) {
@@ -310,6 +404,29 @@ try {
     request($guest,'/register',['csrf'=>token($reg['body']),'referral'=>'anything','name'=>'Blocked user','username'=>'blocked-registration','password'=>'ContractTest@12345']);
     check((int)$pdo->query("SELECT COUNT(*) FROM users WHERE username='blocked-registration'")->fetchColumn()===0,'closed registration creates no account');
     saveSettings($ownerClient,$ownerCsrf,[]);
+
+    $selfChange = request($userClient,'/security/password/change',[
+        'csrf'=>$userCsrf,
+        'current_password'=>'ContractTest@12345',
+        'new_password'=>'SelfChanged@12345',
+    ]);
+    check($selfChange['status']===303,'self-service password change accepted');
+    check(
+        request($userClient,'/dashboard')['status']===200,
+        'current session survives its own secure password rotation'
+    );
+
+    $oldPasswordClient = client();
+    $oldLoginPage = request($oldPasswordClient,'/login');
+    request($oldPasswordClient,'/login',[
+        'csrf'=>token($oldLoginPage['body']),
+        'username'=>'history-test',
+        'password'=>'ContractTest@12345',
+    ]);
+    check(
+        request($oldPasswordClient,'/dashboard')['status']!==200,
+        'old password is rejected after self-service rotation'
+    );
 
     $reset = request($ownerClient,'/users/password',[
         'csrf'=>$ownerCsrf,
