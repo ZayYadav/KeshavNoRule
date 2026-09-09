@@ -388,7 +388,7 @@ function issueApiToken(array $u): array
 }
 
 try {
-    if (!str_starts_with($path, '/api/') && !in_array($path, ['/login','/logout'], true)) {
+    if (!str_starts_with($path, '/api/') && !in_array($path, ['/login','/login/2fa','/login/2fa/resend','/logout'], true)) {
         $sessionUser = Auth::user();
         if (PanelControl::blocked($sessionUser)) {
             http_response_code(503);
@@ -397,116 +397,59 @@ try {
             exit;
         }
     }
-    // Legacy JSON panel-user authentication API.
+    // Legacy JSON panel-user authentication API. Non-2FA users keep the old one-step contract.
     if ($path === '/api/v1/auth/login' && $method === 'POST') {
-        Security::rateLimit('api-login', 10, 600);
-
         $b = jsonBody();
         $username = strtolower(trim((string)($b['username'] ?? '')));
         $password = (string)($b['password'] ?? '');
 
-        if (
-            strlen($username) > 64
-            || strlen($password) > 200
-            || str_contains($username, "\0")
-        ) {
-            jsonOut(['ok'=>false, 'error'=>'Invalid credentials'], 401);
-        }
-
-        if ($username !== '') {
-            Security::rateLimit(
-                'api-login-account',
-                80,
-                900,
-                $username
+        try {
+            $u = Auth::verifyPasswordCredentials(
+                $username,
+                $password,
+                'api-login'
             );
+        } catch (Throwable $e) {
+            jsonOut(['ok'=>false, 'error'=>'Sign-in unavailable'], 503);
         }
-
-        $q = Database::pdo()->prepare(
-            'SELECT * FROM users WHERE username=? LIMIT 1'
-        );
-        $q->execute([$username]);
-        $u = $q->fetch();
-
-        $dummy = '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG';
-
-        $ok = $u
-            && $u['status'] === 'active'
-            && password_verify($password, $u['password_hash']);
 
         if (!$u) {
-            password_verify($password, $dummy);
-        }
-
-        if (!$ok) {
-            Security::audit(
-                $u ? (int)$u['id'] : null,
-                'api_login_failed'
-            );
             jsonOut(['ok'=>false, 'error'=>'Invalid credentials'], 401);
         }
 
-        if ($username !== '') {
-            Security::clearRateLimit('api-login-account', $username);
+        if (TwoFactorService::enabled($u)) {
+            try {
+                $challenge = TwoFactorService::startLoginChallenge($u);
+            } catch (Throwable $e) {
+                jsonOut(['ok'=>false, 'error'=>'2FA delivery failed'], 503);
+            }
+
+            jsonOut([
+                'ok'=>false,
+                'error'=>'2FA_REQUIRED',
+                'challenge_id'=>(int)$challenge['challenge_id'],
+                'user_id'=>(int)$challenge['user_id'],
+                'expires_in'=>300,
+            ], 202);
         }
 
-        $token = rtrim(
-            strtr(base64_encode(random_bytes(48)), '+/', '-_'),
-            '='
-        );
-        if (PanelControl::blocked($u)) jsonOut(['ok'=>false, 'error'=>'Panel under maintenance'], 503);
-        $hash = hash('sha256', $token);
-        $ttl = (int)Config::get('token_ttl');
+        jsonOut(issueApiToken($u));
+    }
 
-        $expiresAt = (new DateTimeImmutable())
-            ->add(new DateInterval('PT'.$ttl.'S'))
-            ->format('Y-m-d H:i:s');
+    if ($path === '/api/v1/auth/2fa' && $method === 'POST') {
+        $b = jsonBody();
 
-        Database::pdo()
-            ->prepare('DELETE FROM api_tokens WHERE expires_at<=NOW()')
-            ->execute();
+        try {
+            $u = TwoFactorService::verifyLoginChallenge(
+                (int)($b['challenge_id'] ?? 0),
+                (int)($b['user_id'] ?? 0),
+                (string)($b['code'] ?? '')
+            );
+        } catch (Throwable $e) {
+            jsonOut(['ok'=>false, 'error'=>'Invalid or expired 2FA code'], 401);
+        }
 
-        Database::pdo()
-            ->prepare(
-                'INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)'
-            )
-            ->execute([$u['id'], $hash, $expiresAt]);
-
-        // Bound token accumulation if credentials are repeatedly used for API login.
-        Database::pdo()
-            ->prepare(
-                "DELETE FROM api_tokens
-                 WHERE user_id=?
-                   AND id NOT IN (
-                       SELECT id FROM (
-                           SELECT id
-                           FROM api_tokens
-                           WHERE user_id=?
-                           ORDER BY id DESC
-                           LIMIT 20
-                       ) AS keep_tokens
-                   )"
-            )
-            ->execute([$u['id'], $u['id']]);
-
-        Security::audit((int)$u['id'], 'api_login_success');
-
-        jsonOut([
-            'ok'=>true,
-            'token'=>$token,
-            'token_type'=>'Bearer',
-            'expires_in'=>$ttl,
-            'user'=>[
-                'id'=>(int)$u['id'],
-                'name'=>$u['name'] ?: $u['username'],
-                'username'=>$u['username'],
-                'role'=>$u['role'],
-                'balance'=>$u['role'] === 'owner'
-                    ? null
-                    : (int)$u['balance'],
-                'balance_unlimited'=>$u['role'] === 'owner',
-            ],
-        ]);
+        jsonOut(issueApiToken($u));
     }
 
     if ($path === '/api/v1/me' && $method === 'GET') {
