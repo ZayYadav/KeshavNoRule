@@ -66,6 +66,16 @@ final class LoaderAuthService
             );
         }
 
+        // Global ceiling protects PHP/MySQL during distributed abuse.
+        // The existing per-IP /connect limiter remains in place and all
+        // Loader response fields/token logic remain unchanged.
+        Security::rateLimit(
+            'teamdark-loader-global',
+            20000,
+            60,
+            'global'
+        );
+
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
