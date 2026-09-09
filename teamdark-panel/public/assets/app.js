@@ -480,6 +480,111 @@
     timer = setInterval(renderCountdown, 250);
   }
 
+  var broadcastMessage = document.querySelector('#broadcast-message');
+  var charCount = document.querySelector('[data-char-count]');
+  if (broadcastMessage && charCount) {
+    var syncCount = function () {
+      charCount.textContent = String(broadcastMessage.value.length) + ' / 1000';
+    };
+    broadcastMessage.addEventListener('input', syncCount);
+    syncCount();
+  }
+
+  var broadcastQueue = document.querySelector('[data-broadcast-queue]');
+  if (broadcastQueue) {
+    var broadcastCsrf = broadcastQueue.getAttribute('data-broadcast-csrf') || '';
+    var broadcastBusy = false;
+
+    var statusClass = function (node, status) {
+      if (!node) return;
+      node.classList.remove('status-active', 'status-warning', 'status-live', 'status-disabled');
+      if (status === 'completed') node.classList.add('status-active');
+      else if (status === 'partial') node.classList.add('status-warning');
+      else if (status === 'sending') node.classList.add('status-live');
+      else node.classList.add('status-disabled');
+    };
+
+    var updateBroadcastCard = function (card, data) {
+      if (!card || !data) return;
+      var sent = card.querySelector('[data-broadcast-sent]');
+      var failed = card.querySelector('[data-broadcast-failed]');
+      var total = card.querySelector('[data-broadcast-total]');
+      var bar = card.querySelector('[data-broadcast-bar]');
+      var status = card.querySelector('[data-broadcast-status-text]');
+      var done = Number(data.sent || 0) + Number(data.failed || 0);
+      var count = Number(data.total || 0);
+      var percent = count > 0 ? Math.min(100, Math.floor((done / count) * 100)) : 100;
+
+      if (sent) sent.textContent = String(data.sent || 0);
+      if (failed) failed.textContent = String(data.failed || 0);
+      if (total) total.textContent = String(data.total || 0);
+      if (bar) bar.style.width = percent + '%';
+      if (status) {
+        status.textContent = String(data.status || '').toUpperCase();
+        statusClass(status, data.status);
+      }
+      card.setAttribute('data-broadcast-status', data.status || '');
+    };
+
+    var nextBroadcastCard = function () {
+      return broadcastQueue.querySelector(
+        '[data-broadcast-job][data-broadcast-status="queued"],' +
+        '[data-broadcast-job][data-broadcast-status="sending"]'
+      );
+    };
+
+    var drainBroadcastQueue = function () {
+      if (broadcastBusy) return;
+      var card = nextBroadcastCard();
+      if (!card) return;
+
+      var id = card.getAttribute('data-broadcast-job');
+      if (!id || !broadcastCsrf) return;
+
+      broadcastBusy = true;
+      var bodyData = new URLSearchParams();
+      bodyData.set('csrf', broadcastCsrf);
+      bodyData.set('broadcast_id', id);
+
+      fetch('/owner/announcements/process', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: bodyData.toString()
+      })
+      .then(function (response) {
+        if (!response.ok) throw new Error('Broadcast request failed');
+        return response.json();
+      })
+      .then(function (data) {
+        if (!data.ok) throw new Error(data.error || 'Broadcast processing failed');
+        updateBroadcastCard(card, data);
+        broadcastBusy = false;
+
+        if (Number(data.pending || 0) > 0) {
+          setTimeout(drainBroadcastQueue, 450);
+        } else {
+          showToast(
+            Number(data.failed || 0) > 0
+              ? 'Broadcast finished with some failed deliveries'
+              : 'Broadcast delivered'
+          );
+          setTimeout(drainBroadcastQueue, 250);
+        }
+      })
+      .catch(function () {
+        broadcastBusy = false;
+        var live = broadcastQueue.querySelector('.queue-live');
+        if (live) live.textContent = 'Delivery paused • reload to retry';
+      });
+    };
+
+    setTimeout(drainBroadcastQueue, 700);
+  }
+
   window.addEventListener('pageshow', function () {
     hideBusy();
     document.querySelectorAll('[data-confirmed]').forEach(function (form) { form.removeAttribute('data-confirmed'); });
