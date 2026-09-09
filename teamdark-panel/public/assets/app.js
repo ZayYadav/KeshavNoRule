@@ -192,6 +192,7 @@
     put('[data-owner-user-role]', (data.userRole || '').toUpperCase());
     put('[data-owner-user-balance]', data.userBalance);
     put('[data-owner-user-telegram]', data.userTelegram || 'Not linked');
+    put('[data-owner-user-2fa]', data.user2fa === 'enabled' ? 'ENABLED' : 'OFF');
     put('[data-owner-initial]', initial);
 
     modal.querySelectorAll('[data-owner-form]').forEach(function (form) {
@@ -220,6 +221,8 @@
 
     var telegramForm = modal.querySelector('[data-owner-telegram-form]');
     if (telegramForm) telegramForm.hidden = !data.userTelegram;
+    var twoFactorForm = modal.querySelector('[data-owner-2fa-form]');
+    if (twoFactorForm) twoFactorForm.hidden = data.user2fa !== 'enabled';
   }
 
   document.addEventListener('click', function (event) {
