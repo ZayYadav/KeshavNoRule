@@ -69,6 +69,7 @@ final class Config
             'telegram_guest_free_keys_enabled' => strtolower($get('TELEGRAM_GUEST_FREE_KEYS_ENABLED', 'false')) === 'true',
             'admin_balance_adjustments_enabled' => strtolower($get('ADMIN_BALANCE_ADJUSTMENTS_ENABLED', 'false')) === 'true',
             'admin_balance_daily_limit' => max(0, min(1000000, (int)$get('ADMIN_BALANCE_DAILY_LIMIT', '10000'))),
+            'admin_referral_bonus_enabled' => strtolower($get('ADMIN_REFERRAL_BONUS_ENABLED', 'false')) === 'true',
             'audit_retention_days' => max(7, min(3650, (int)$get('AUDIT_RETENTION_DAYS', '90'))),
             'broadcast_retention_days' => max(7, min(3650, (int)$get('BROADCAST_RETENTION_DAYS', '30'))),
             'trusted_proxy_cidrs' => trim($get('TRUSTED_PROXY_CIDRS', '')),
