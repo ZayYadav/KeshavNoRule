@@ -117,6 +117,18 @@ final class PanelControl
             throw new \RuntimeException('Owner access required.');
         }
 
+        if (
+            $enabled
+            && !(bool)Config::get(
+                'telegram_owner_mutations_enabled',
+                false
+            )
+        ) {
+            throw new \RuntimeException(
+                'Telegram Owner mutations are disabled by the server master switch.'
+            );
+        }
+
         $pdo = Database::pdo();
         $pdo->beginTransaction();
 
