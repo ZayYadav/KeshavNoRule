@@ -264,16 +264,76 @@ final class Security
         return hash('sha256', $bucket.'|'.$identity);
     }
 
+    private static function apcuRateLimit(
+        string $identity,
+        int $max,
+        int $windowSeconds
+    ): bool {
+        if (
+            !function_exists('apcu_add')
+            || !function_exists('apcu_inc')
+            || (
+                function_exists('apcu_enabled')
+                && !apcu_enabled()
+            )
+        ) {
+            return false;
+        }
+
+        $cacheKey = 'tdrl:'.$identity;
+        $windowSeconds = max(1, $windowSeconds);
+
+        if (@apcu_add($cacheKey, 1, $windowSeconds)) {
+            return true;
+        }
+
+        $success = false;
+        $hits = @apcu_inc(
+            $cacheKey,
+            1,
+            $success,
+            $windowSeconds
+        );
+
+        if (!$success) {
+            @apcu_store($cacheKey, 1, $windowSeconds);
+            return true;
+        }
+
+        if ((int)$hits > $max) {
+            throw new \RuntimeException(
+                'Too many requests. Try again later.'
+            );
+        }
+
+        return true;
+    }
+
     public static function rateLimit(
         string $bucket,
         int $max,
         int $windowSeconds,
         ?string $subject = null
     ): void {
-        $pdo = Database::pdo();
         $identity = self::rateLimitHash($bucket, $subject);
         $max = max(1, $max);
-        $start = time() - max(1, $windowSeconds);
+        $windowSeconds = max(1, $windowSeconds);
+
+        // APCu is a cheap shared FPM cache and prevents abusive requests from
+        // reaching MySQL when available. Existing DB locking stays the secure
+        // fallback on hosts without APCu.
+        if (
+            self::apcuRateLimit(
+                $identity,
+                $max,
+                $windowSeconds
+            )
+        ) {
+            return;
+        }
+
+        $pdo = Database::pdo();
+        $start = time() - $windowSeconds;
 
         $pdo->beginTransaction();
         try {
