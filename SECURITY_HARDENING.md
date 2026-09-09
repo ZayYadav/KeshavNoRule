@@ -1,16 +1,16 @@
-# KeshavOwner Security Hardening
+# NoRuleXCheat Security Hardening
 
 Branch: `keshavowner-security-ui-v1`
 
 ## Class map
 
-- `KeshavOwner1` — Application / BlackBox bootstrap
-- `KeshavOwner2` — Login / license activity
-- `KeshavOwner3` — Main dashboard / launcher activity
-- `KeshavOwner4` — App/OBB manager
-- `KeshavOwner5` — Secure downloader / extractor
-- `KeshavOwner6` — AES-GCM Keystore-backed preferences
-- `KeshavOwner7` — UI sound/touch manager
+- `NoRuleXCheat1` — Application / BlackBox bootstrap
+- `NoRuleXCheat2` — Login / license activity
+- `NoRuleXCheat3` — Main dashboard / launcher activity
+- `NoRuleXCheat4` — App/OBB manager
+- `NoRuleXCheat5` — Secure downloader / extractor
+- `NoRuleXCheat6` — AES-GCM Keystore-backed preferences
+- `NoRuleXCheat7` — UI sound/touch manager
 
 ## Custom integrity
 
@@ -28,7 +28,7 @@ must return `true` to allow the login activity to continue.
 
 - R8 full mode + resource shrinking
 - LSParanoid string obfuscation on app-owned Java classes
-- Java class renaming to KeshavOwner1..7
+- Java class renaming to NoRuleXCheat1..7
 - Release screenshot / screen-record protection
 - Debugger gate on login and dashboard
 - APK signing-certificate verification before login

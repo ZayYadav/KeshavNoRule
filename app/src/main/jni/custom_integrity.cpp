@@ -27,7 +27,7 @@ static std::string baseName(const std::string &path) {
 }
 
 static bool isAllowedPackagedLibName(const std::string &name) {
-    return name == std::string(oxorany("libKeshavLoader.so"))
+    return name == std::string(oxorany("libNoRuleXCheat.so"))
         || name == std::string(oxorany("libKESHAVXOWNERCore.so"));
 }
 
@@ -147,7 +147,7 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
             break;
         }
 
-        if (name == std::string(oxorany("libKeshavLoader.so"))) foundLoader = true;
+        if (name == std::string(oxorany("libNoRuleXCheat.so"))) foundLoader = true;
         if (name == std::string(oxorany("libKESHAVXOWNERCore.so"))) foundCore = true;
     }
 
@@ -432,7 +432,7 @@ bool run(JNIEnv *env, jobject context) {
      * Put your private integrity code below.
      *
      * Built-in checks above enforce:
-     * - libKeshavLoader + KESHAVXOWNERCore packaged allowlist
+     * - libNoRuleXCheat + KESHAVXOWNERCore packaged allowlist
      * - exact encrypted-bound files/loader/libbgmi.so exception
      * - exact KESHAVXOWNER SDK no_backup/native runtime compatibility
      * - owner-only/ELF checks for SDK-staged native artifacts

@@ -77,7 +77,7 @@ jobs:
           printf 'Found libs:\n'
           printf '  %s\n' "${LIBS[@]}"
 
-          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libKeshavLoader.so' | sort)"
+          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libNoRuleXCheat.so' | sort)"
           ACTUAL="$(printf '%s\n' "${LIBS[@]}" | sort)"
           test "$ACTUAL" = "$EXPECTED"
 
@@ -86,12 +86,12 @@ jobs:
             exit 1
           fi
 
-          if unzip -Z1 "$APK" | grep -q 'libKeshavOwner\.so'; then
-            echo "Legacy libKeshavOwner.so unexpectedly present"
+          if unzip -Z1 "$APK" | grep -q 'libNoRuleXCheat\.so'; then
+            echo "Legacy libNoRuleXCheat.so unexpectedly present"
             exit 1
           fi
 
-          cp "$APK" app/build/outputs/apk/release/JADU-LOADER.apk
+          cp "$APK" app/build/outputs/apk/release/NoRuleXCheat.apk
 
       - name: Show APK output
         if: always()
@@ -107,7 +107,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: JADU-LOADER-release
-          path: app/build/outputs/apk/release/JADU-LOADER.apk
+          name: NoRuleXCheat-release
+          path: app/build/outputs/apk/release/NoRuleXCheat.apk
           if-no-files-found: error
           retention-days: 14
