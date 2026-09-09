@@ -73,6 +73,29 @@ final class TelegramService
         $chatId = self::chatId($rawChatId);
         $pdo = Database::pdo();
 
+        $fresh = $pdo->prepare(
+            'SELECT telegram_chat_id,telegram_2fa_enabled,status
+             FROM users WHERE id=? LIMIT 1'
+        );
+        $fresh->execute([(int)$panelUser['id']]);
+        $state = $fresh->fetch();
+
+        if (!$state || $state['status'] !== 'active') {
+            throw new RuntimeException('Account is unavailable.');
+        }
+
+        if (!empty($state['telegram_chat_id'])) {
+            throw new RuntimeException(
+                'Telegram is already linked. Unlink it securely before linking another account.'
+            );
+        }
+
+        if ((int)$state['telegram_2fa_enabled'] === 1) {
+            throw new RuntimeException(
+                'Disable Telegram 2FA before changing the linked Telegram account.'
+            );
+        }
+
         $q = $pdo->prepare(
             "SELECT id,username
              FROM users
@@ -93,8 +116,8 @@ final class TelegramService
         )->execute([$panelUser['id']]);
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            $code = 'TDLINK-'.strtoupper(bin2hex(random_bytes(4)));
-            $hash = hash('sha256', $code);
+            $code = 'TDLINK-'.strtoupper(bin2hex(random_bytes(12)));
+            $hash = Crypto::fingerprint('telegram-link|'.$code);
 
             try {
                 $pdo->prepare(
@@ -129,7 +152,7 @@ final class TelegramService
     ): array {
         $code = strtoupper(trim($code));
 
-        if (!preg_match('/^TDLINK-[A-F0-9]{8}$/', $code)) {
+        if (!preg_match('/^TDLINK-[A-F0-9]{24}$/', $code)) {
             throw new RuntimeException('Invalid verification code.');
         }
 
@@ -138,7 +161,7 @@ final class TelegramService
 
         try {
             $q = $pdo->prepare(
-                "SELECT t.*,u.username,u.status
+                "SELECT t.*,u.username,u.status,u.telegram_chat_id,u.telegram_2fa_enabled
                  FROM telegram_link_tokens t
                  JOIN users u ON u.id=t.user_id
                  WHERE t.code_hash=?
@@ -149,12 +172,17 @@ final class TelegramService
                  FOR UPDATE"
             );
             $q->execute([
-                hash('sha256', $code),
+                Crypto::fingerprint('telegram-link|'.$code),
                 $chatId,
             ]);
             $token = $q->fetch();
 
-            if (!$token || $token['status'] !== 'active') {
+            if (
+                !$token
+                || $token['status'] !== 'active'
+                || !empty($token['telegram_chat_id'])
+                || (int)$token['telegram_2fa_enabled'] === 1
+            ) {
                 throw new RuntimeException(
                     'Verification code is invalid or expired.'
                 );
@@ -209,12 +237,15 @@ final class TelegramService
 
             $pdo->prepare(
                 "UPDATE users
-                 SET telegram_chat_id=?
+                 SET telegram_chat_id=?,
+                     auth_version=auth_version+1
                  WHERE id=?"
             )->execute([
                 $chatId,
                 $token['user_id'],
             ]);
+            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')
+                ->execute([$token['user_id']]);
 
             $pdo->prepare(
                 "UPDATE telegram_users
