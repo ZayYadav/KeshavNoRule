@@ -21,6 +21,7 @@ final class Auth
         $q = Database::pdo()->prepare(
             'SELECT id,name,username,role,balance,telegram_chat_id,
                     telegram_2fa_enabled,telegram_2fa_enabled_at,
+                    auth_version,login_not_before,
                     status,password_hash,created_at
              FROM users WHERE id=? LIMIT 1'
         );
@@ -34,10 +35,13 @@ final class Auth
 
         $sessionFingerprint = (string)($_SESSION['auth_password_fingerprint'] ?? '');
         $currentFingerprint = self::passwordFingerprint((string)$u['password_hash']);
+        $sessionVersion = (int)($_SESSION['auth_version'] ?? 0);
+        $currentVersion = max(1, (int)($u['auth_version'] ?? 1));
 
         if (
             $sessionFingerprint === ''
             || !hash_equals($currentFingerprint, $sessionFingerprint)
+            || $sessionVersion !== $currentVersion
         ) {
             Security::invalidateSession();
             return null;
@@ -92,7 +96,7 @@ final class Auth
         if ($normalizedUsername !== '') {
             Security::rateLimit(
                 $ratePrefix.'-account',
-                60,
+                12,
                 900,
                 $normalizedUsername
             );
@@ -113,6 +117,17 @@ final class Auth
         $ok = $u
             && $u['status'] === 'active'
             && password_verify($password, (string)$u['password_hash']);
+
+        if (
+            $ok
+            && !empty($u['login_not_before'])
+            && strtotime((string)$u['login_not_before']) > time()
+        ) {
+            Security::audit((int)$u['id'], 'login_delayed', [
+                'not_before'=>$u['login_not_before'],
+            ]);
+            throw new \RuntimeException('Account activation delay is still active. Try again shortly.');
+        }
 
         if (!$ok) {
             Security::audit(
@@ -185,6 +200,8 @@ final class Auth
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
         $_SESSION['auth_password_fingerprint'] =
             self::passwordFingerprint((string)$u['password_hash']);
+        $_SESSION['auth_version'] = max(1, (int)($u['auth_version'] ?? 1));
+        $_SESSION['recent_auth_at'] = time();
         $_SESSION['session_started_at'] = time();
         $_SESSION['session_rotated_at'] = time();
         $_SESSION['last_activity'] = time();
@@ -196,6 +213,67 @@ final class Auth
         Security::audit($userId, 'login_success', [
             'two_factor'=>(int)$u['telegram_2fa_enabled'] === 1,
         ]);
+    }
+
+    public static function bumpAuthVersion(
+        int $userId,
+        bool $revokeApiTokens = true
+    ): int {
+        if ($userId <= 0) {
+            throw new \RuntimeException('Invalid user.');
+        }
+
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+
+        try {
+            $pdo->prepare(
+                'UPDATE users SET auth_version=auth_version+1 WHERE id=?'
+            )->execute([$userId]);
+
+            if ($revokeApiTokens) {
+                $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')
+                    ->execute([$userId]);
+            }
+
+            $q = $pdo->prepare(
+                'SELECT auth_version FROM users WHERE id=? LIMIT 1'
+            );
+            $q->execute([$userId]);
+            $version = max(1, (int)$q->fetchColumn());
+            $pdo->commit();
+
+            return $version;
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    public static function refreshCurrentSessionVersion(int $userId, int $version): void
+    {
+        Security::startSession();
+        if ((int)($_SESSION['uid'] ?? 0) === $userId) {
+            $_SESSION['auth_version'] = max(1, $version);
+            $_SESSION['recent_auth_at'] = time();
+            session_regenerate_id(true);
+        }
+    }
+
+    public static function markRecentAuth(): void
+    {
+        Security::startSession();
+        $_SESSION['recent_auth_at'] = time();
+        session_regenerate_id(true);
+    }
+
+    public static function recentlyAuthenticated(int $seconds = 300): bool
+    {
+        Security::startSession();
+        $ts = (int)($_SESSION['recent_auth_at'] ?? 0);
+        return $ts > 0 && (time() - $ts) <= max(60, $seconds);
     }
 
     public static function beginTwoFactorSession(array $challenge): void
