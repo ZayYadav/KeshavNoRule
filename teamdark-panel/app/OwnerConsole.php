@@ -107,9 +107,9 @@ final class OwnerConsole
             (SELECT COUNT(*) FROM license_keys k WHERE k.owner_user_id=u.id AND k.status=\'active\') active_keys,
             (SELECT COUNT(*) FROM audit_logs a WHERE a.user_id=u.id) events,
             (SELECT COALESCE(SUM(-b.amount),0) FROM balance_ledger b WHERE b.user_id=u.id AND b.amount<0) debits,
-            COALESCE(g.generated,0) generated
+            COALESCE(g.generated_count,0) generated_count
             FROM users u LEFT JOIN (
-                SELECT creator,COUNT(*) generated FROM (
+                SELECT creator,COUNT(*) generated_count FROM (
                     SELECT created_by creator,id license_id FROM license_keys WHERE key_source<>\'telegram_guest\'
                     UNION SELECT user_id creator,CAST(JSON_UNQUOTE(JSON_EXTRACT(meta_json,\'$.license_id\')) AS UNSIGNED) license_id
                     FROM audit_logs WHERE action=\'license_created\' AND JSON_EXTRACT(meta_json,\'$.license_id\') IS NOT NULL
@@ -119,7 +119,7 @@ final class OwnerConsole
         $rows = [];
         foreach ($records as $record) {
             $rows[] = ['<a class="history-link" href="/owner/users?user_id='.(int)$record['id'].'">'.View::e($record['name'] ?: $record['username']).'<br>@'.View::e($record['username']).'</a>',
-                View::e($record['role'].' / '.$record['status']), View::e($record['generated']), View::e($record['owned_keys']), View::e($record['active_keys']), View::e($record['debits']), View::e($record['events']), View::e($record['last_login_at'] ?: 'Never'),
+                View::e($record['role'].' / '.$record['status']), View::e($record['generated_count']), View::e($record['owned_keys']), View::e($record['active_keys']), View::e($record['debits']), View::e($record['events']), View::e($record['last_login_at'] ?: 'Never'),
                 '<a class="ghost compact" href="/activity?user_id='.(int)$record['id'].'">All history</a>'];
         }
         $body = '<section class="hero"><div><div class="eyebrow">USER INTELLIGENCE</div><h1>User insights</h1><p class="muted">See who created keys, used credits and performed each action.</p></div><a class="ghost" href="/users">Manage accounts</a></section>'

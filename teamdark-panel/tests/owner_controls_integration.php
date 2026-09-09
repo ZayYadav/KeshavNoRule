@@ -56,6 +56,9 @@ try {
     $userCsrf = login($userClient,'history-test');
     foreach (['/users','/keys','/owner/users','/owner/settings','/activity','/telegram-users'] as $path) {
         $response = request($ownerClient,$path);
+        if ($response['status'] !== 200 && preg_match('/class="alert">(.*?)<\/div>/s', $response['body'], $error)) {
+            echo 'Route error: '.html_entity_decode(strip_tags($error[1]))."\n";
+        }
         check($response['status']===200 && !str_contains($response['body'],'Warning:'),'owner route '.$path);
     }
     check(request($guest,'/assets/app.css')['status']===200,'stylesheet served');
