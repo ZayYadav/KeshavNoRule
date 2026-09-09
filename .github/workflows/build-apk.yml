@@ -1,4 +1,4 @@
-name: Build APK
+name: Build BABA DARK LOADER APK
 
 on:
   workflow_dispatch:
@@ -91,7 +91,7 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" app/build/outputs/apk/release/JADU-LOADER.apk
+          cp "$APK" app/build/outputs/apk/release/BABA-DARK-LOADER.apk
 
       - name: Show APK output
         if: always()
@@ -107,7 +107,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: JADU-LOADER-release
-          path: app/build/outputs/apk/release/JADU-LOADER.apk
+          name: BABA-DARK-LOADER-release
+          path: app/build/outputs/apk/release/BABA-DARK-LOADER.apk
           if-no-files-found: error
           retention-days: 14
