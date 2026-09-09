@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS users (
   telegram_chat_id BIGINT NULL,
   telegram_2fa_enabled TINYINT(1) NOT NULL DEFAULT 0,
   telegram_2fa_enabled_at DATETIME NULL,
+  auth_version INT UNSIGNED NOT NULL DEFAULT 1,
+  login_not_before DATETIME NULL,
   status ENUM('active','disabled') NOT NULL DEFAULT 'active',
   last_login_at DATETIME NULL,
   last_login_ip VARCHAR(45) NULL,
@@ -96,6 +98,14 @@ CALL td_add_column(
 CALL td_add_column(
   'users','telegram_2fa_enabled_at',
   'ALTER TABLE users ADD COLUMN telegram_2fa_enabled_at DATETIME NULL AFTER telegram_2fa_enabled'
+);
+CALL td_add_column(
+  'users','auth_version',
+  'ALTER TABLE users ADD COLUMN auth_version INT UNSIGNED NOT NULL DEFAULT 1 AFTER telegram_2fa_enabled_at'
+);
+CALL td_add_column(
+  'users','login_not_before',
+  'ALTER TABLE users ADD COLUMN login_not_before DATETIME NULL AFTER auth_version'
 );
 
 ALTER TABLE users
