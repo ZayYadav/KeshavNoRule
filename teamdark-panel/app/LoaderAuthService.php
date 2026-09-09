@@ -70,17 +70,19 @@ final class LoaderAuthService
         $pdo->beginTransaction();
 
         try {
-            $keyHash = hash('sha256', $userKey);
+            [$keyHash, $legacyKeyHash] =
+                Crypto::licenseLookupHashes($userKey);
 
             $q = $pdo->prepare(
                 "SELECT k.*, u.status AS account_status
                  FROM license_keys k
                  JOIN users u ON u.id=k.owner_user_id
-                 WHERE k.key_hash=?
+                 WHERE k.key_hash IN (?,?)
+                 ORDER BY CASE WHEN k.key_hash=? THEN 0 ELSE 1 END
                  LIMIT 1
                  FOR UPDATE"
             );
-            $q->execute([$keyHash]);
+            $q->execute([$keyHash, $legacyKeyHash, $keyHash]);
             $key = $q->fetch();
 
             if (!$key) {
