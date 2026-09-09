@@ -305,30 +305,102 @@ final class Security
 
     public static function audit(?int $userId, string $action, array $meta = []): void
     {
-        $stmt = Database::pdo()->prepare(
-            'INSERT INTO audit_logs(user_id,action,ip_address,user_agent,meta_json) VALUES(?,?,?,?,?)'
-        );
-        $stmt->execute([
-            $userId,
-            substr($action, 0, 100),
-            self::clientIp(),
-            substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
-            json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
-        ]);
+        try {
+            $stmt = Database::pdo()->prepare(
+                'INSERT INTO audit_logs(user_id,action,ip_address,user_agent,meta_json) VALUES(?,?,?,?,?)'
+            );
+            $stmt->execute([
+                $userId,
+                substr($action, 0, 100),
+                self::clientIp(),
+                substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255),
+                json_encode($meta, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
+            ]);
+
+            if (random_int(1, 100) === 1) {
+                self::cleanupSecurityState();
+            }
+        } catch (\Throwable $e) {
+            error_log(
+                'TeamDark audit write failed: '.get_class($e)
+                .' at '.basename($e->getFile()).':'.$e->getLine()
+            );
+        }
     }
 
-    private static function isHttps(): bool
+    public static function cleanupSecurityState(): void
+    {
+        try {
+            $pdo = Database::pdo();
+            $auditDays = (int)Config::get('audit_retention_days', 90);
+            $broadcastDays = (int)Config::get('broadcast_retention_days', 30);
+
+            $pdo->exec(
+                'DELETE FROM audit_logs
+                 WHERE created_at<DATE_SUB(NOW(),INTERVAL '.max(7,$auditDays).' DAY)
+                 LIMIT 1000'
+            );
+            $pdo->exec(
+                "DELETE FROM announcement_broadcasts
+                 WHERE status IN ('completed','partial','cancelled')
+                   AND created_at<DATE_SUB(NOW(),INTERVAL ".max(7,$broadcastDays)." DAY)
+                 LIMIT 200"
+            );
+            $pdo->exec(
+                'DELETE FROM api_tokens WHERE expires_at<=NOW() LIMIT 500'
+            );
+            $pdo->exec(
+                'DELETE FROM telegram_link_tokens
+                 WHERE expires_at<=DATE_SUB(NOW(),INTERVAL 1 DAY) OR used_at IS NOT NULL
+                 LIMIT 500'
+            );
+            $pdo->exec(
+                'DELETE FROM telegram_2fa_activation_tokens
+                 WHERE expires_at<=DATE_SUB(NOW(),INTERVAL 1 DAY) OR used_at IS NOT NULL
+                 LIMIT 500'
+            );
+            $pdo->exec(
+                'DELETE FROM login_2fa_challenges
+                 WHERE expires_at<=DATE_SUB(NOW(),INTERVAL 1 DAY)
+                 LIMIT 500'
+            );
+        } catch (\Throwable) {
+            // Retention cleanup must never make a user request fail.
+        }
+    }
+
+    public static function isHttpsRequest(): bool
     {
         if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
             return true;
         }
 
-        // APP_URL is server-controlled and avoids relying only on a spoofable proxy header.
-        $appUrl = strtolower((string)Config::get('app_url', ''));
-        if (str_starts_with($appUrl, 'https://')) {
-            return true;
+        $remote = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+        return $remote !== ''
+            && self::trustedProxy($remote)
+            && strtolower(trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))) === 'https';
+    }
+
+    public static function enforceHttpsWeb(): void
+    {
+        $appUrl = rtrim((string)Config::get('app_url', ''), '/');
+
+        if (!str_starts_with(strtolower($appUrl), 'https://') || self::isHttpsRequest()) {
+            return;
         }
 
-        return (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+        if ($uri === '' || $uri[0] !== '/') {
+            $uri = '/';
+        }
+
+        header('Location: '.$appUrl.$uri, true, 308);
+        exit;
+    }
+
+    private static function isHttps(): bool
+    {
+        return self::isHttpsRequest()
+            || str_starts_with(strtolower((string)Config::get('app_url', '')), 'https://');
     }
 }
