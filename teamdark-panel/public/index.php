@@ -505,10 +505,17 @@ try {
     if ($path === '/login' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
 
-        if (!Auth::login(
-            input('username'),
-            (string)($_POST['password'] ?? '')
-        )) {
+        try {
+            $loggedIn = Auth::login(
+                input('username'),
+                (string)($_POST['password'] ?? '')
+            );
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e, 'Sign-in temporarily unavailable.'));
+            redirectTo('/login');
+        }
+
+        if (!$loggedIn) {
             flash('err', 'Invalid username or password.');
             redirectTo('/login');
         }
@@ -1879,13 +1886,6 @@ try {
         Auth::user()
     );
 } catch (Throwable $e) {
-    if (str_starts_with($path, '/api/')) {
-        jsonOut([
-            'ok'=>false,
-            'error'=>'Request failed',
-        ], 400);
-    }
-
     $incident = bin2hex(random_bytes(6));
     error_log(
         'TeamDark request failure ['.$incident.']: '
@@ -1896,15 +1896,38 @@ try {
         .$e->getLine()
     );
 
-    http_response_code(400);
-    $u = Auth::user();
+    $rateLimited = $e instanceof RuntimeException
+        && $e->getMessage() === 'Too many requests. Try again later.';
+
+    if (str_starts_with($path, '/api/')) {
+        if ($rateLimited) {
+            header('Retry-After: 600');
+        }
+        jsonOut([
+            'ok'=>false,
+            'error'=>$rateLimited ? 'Too many requests' : 'Request failed',
+        ], $rateLimited ? 429 : 400);
+    }
+
+    http_response_code($rateLimited ? 429 : 400);
+    if ($rateLimited) {
+        header('Retry-After: 600');
+    }
+
+    try {
+        $u = Auth::user();
+    } catch (Throwable) {
+        $u = null;
+    }
 
     View::page(
         'Request failed',
         '<section class="auth"><div class="card">'
             .'<h1>Request failed</h1>'
-            .'<div class="alert">The request could not be completed. Reference: '
-            .View::e($incident)
+            .'<div class="alert">'
+            .($rateLimited
+                ? 'Too many requests. Try again later.'
+                : 'The request could not be completed. Reference: '.View::e($incident))
             .'</div>'
             .'<a class="btn" href="/">Go back</a>'
             .'</div></section>',
