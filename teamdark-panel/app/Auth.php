@@ -294,6 +294,25 @@ final class Auth
         }
     }
 
+    public static function refreshCurrentSessionCredentials(
+        int $userId,
+        int $version,
+        string $passwordHash
+    ): void {
+        Security::startSession();
+
+        if ((int)($_SESSION['uid'] ?? 0) !== $userId) {
+            return;
+        }
+
+        $_SESSION['auth_version'] = max(1, $version);
+        $_SESSION['auth_password_fingerprint'] =
+            self::passwordFingerprint($passwordHash);
+        $_SESSION['recent_auth_at'] = time();
+        $_SESSION['csrf'] = bin2hex(random_bytes(32));
+        session_regenerate_id(true);
+    }
+
     public static function markRecentAuth(): void
     {
         Security::startSession();
