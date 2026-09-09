@@ -121,6 +121,38 @@ final class Security
         }
     }
 
+    public static function enforceHttpsWebRequest(): void
+    {
+        $appUrl = rtrim((string)Config::get('app_url', ''), '/');
+
+        if (!str_starts_with(strtolower($appUrl), 'https://')) {
+            return;
+        }
+
+        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            return;
+        }
+
+        // Reverse proxies terminate TLS before PHP. This header is used only
+        // to prevent a redirect loop; the redirect destination itself comes
+        // from server-controlled APP_URL, never from Host/X-Forwarded-Host.
+        if (
+            strtolower(
+                trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))
+            ) === 'https'
+        ) {
+            return;
+        }
+
+        $uri = (string)($_SERVER['REQUEST_URI'] ?? '/');
+        if ($uri === '' || $uri[0] !== '/') {
+            $uri = '/';
+        }
+
+        header('Location: '.$appUrl.$uri, true, 308);
+        exit;
+    }
+
     public static function csrfToken(): string
     {
         self::startSession();
