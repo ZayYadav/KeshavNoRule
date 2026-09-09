@@ -600,12 +600,14 @@ final class KeyManager
 
         if ($customKey !== '') {
             if (
-                strlen($customKey) < 12
+                strlen($customKey) < 16
                 || strlen($customKey) > 80
                 || !preg_match('/^[A-Za-z0-9._-]+$/', $customKey)
+                || !preg_match('/[A-Za-z]/', $customKey)
+                || !preg_match('/[0-9]/', $customKey)
             ) {
                 throw new RuntimeException(
-                    'Custom key must be 12–80 characters using letters, numbers, dot, dash or underscore.'
+                    'Custom key must be 16–80 characters and include both letters and numbers.'
                 );
             }
 
