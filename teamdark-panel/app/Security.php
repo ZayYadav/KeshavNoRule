@@ -108,6 +108,7 @@ final class Security
         header('Cross-Origin-Opener-Policy: same-origin');
         header('Cross-Origin-Resource-Policy: same-origin');
         header('X-Permitted-Cross-Domain-Policies: none');
+        header('X-Robots-Tag: noindex, nofollow, noarchive, nosnippet');
         header("Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'");
         if (self::isHttps()) {
             header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
