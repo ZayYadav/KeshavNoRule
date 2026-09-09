@@ -242,6 +242,26 @@ final class TelegramBot
             return;
         }
 
+        $ownerMutation = $data === 'owner:gen30'
+            || str_starts_with($data, 'owner:ref:')
+            || str_starts_with($data, 'owner:bal:')
+            || str_starts_with($data, 'owner:status:')
+            || str_starts_with($data, 'owner:keyact:');
+
+        if (
+            $ownerMutation
+            && !(bool)Config::get('telegram_owner_mutations_enabled', false)
+        ) {
+            self::send(
+                $chatId,
+                "🛡 <b>Owner mutation blocked</b>\n\n"
+                ."High-risk Telegram changes are disabled server-side. "
+                ."Use the web Owner Console with fresh authentication.",
+                self::ownerKeyboard()
+            );
+            return;
+        }
+
         if ($data === 'owner:gen30') {
             $created = KeyManager::create(
                 self::ownerActor(),
