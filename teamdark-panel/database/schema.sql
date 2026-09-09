@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS referral_invites (
   created_by BIGINT UNSIGNED NOT NULL,
   role ENUM('admin','reseller','user') NOT NULL DEFAULT 'user',
   status ENUM('pending','used','revoked') NOT NULL DEFAULT 'pending',
+  expires_at DATETIME NULL,
   used_by BIGINT UNSIGNED NULL,
   used_at DATETIME NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -133,6 +134,15 @@ CREATE TABLE IF NOT EXISTS referral_invites (
   INDEX idx_invite_status(status),
   INDEX idx_invite_role(role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CALL td_add_column(
+  'referral_invites','expires_at',
+  'ALTER TABLE referral_invites ADD COLUMN expires_at DATETIME NULL AFTER status'
+);
+
+UPDATE referral_invites
+SET expires_at=DATE_ADD(created_at,INTERVAL 7 DAY)
+WHERE expires_at IS NULL AND status='pending';
 
 CREATE TABLE IF NOT EXISTS telegram_users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -157,6 +167,7 @@ CREATE TABLE IF NOT EXISTS license_keys (
   owner_user_id BIGINT UNSIGNED NOT NULL,
   created_by BIGINT UNSIGNED NOT NULL,
   key_hash CHAR(64) NOT NULL UNIQUE,
+  key_hash_version TINYINT UNSIGNED NOT NULL DEFAULT 2,
   key_cipher TEXT NOT NULL,
   key_iv VARCHAR(64) NOT NULL,
   key_tag VARCHAR(64) NOT NULL,
@@ -185,6 +196,10 @@ CREATE TABLE IF NOT EXISTS license_keys (
   INDEX idx_keys_source(key_source)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CALL td_add_column(
+  'license_keys','key_hash_version',
+  'ALTER TABLE license_keys ADD COLUMN key_hash_version TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER key_hash'
+);
 CALL td_add_column(
   'license_keys','game',
   'ALTER TABLE license_keys ADD COLUMN game VARCHAR(16) NOT NULL DEFAULT ''PUBG'' AFTER label'
@@ -369,6 +384,7 @@ CREATE TABLE IF NOT EXISTS login_2fa_challenges (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
   code_hash CHAR(64) NOT NULL,
+  continuation_hash CHAR(64) NULL,
   expires_at DATETIME NOT NULL,
   attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
   created_ip VARCHAR(45) NOT NULL DEFAULT '',
@@ -379,6 +395,11 @@ CREATE TABLE IF NOT EXISTS login_2fa_challenges (
   INDEX idx_login_2fa_expiry(expires_at),
   INDEX idx_login_2fa_used(used_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CALL td_add_column(
+  'login_2fa_challenges','continuation_hash',
+  'ALTER TABLE login_2fa_challenges ADD COLUMN continuation_hash CHAR(64) NULL AFTER code_hash'
+);
 
 CREATE TABLE IF NOT EXISTS telegram_update_ids (
   update_id BIGINT PRIMARY KEY,
