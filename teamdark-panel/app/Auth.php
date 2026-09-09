@@ -92,7 +92,14 @@ final class Auth
     ): ?array {
         $normalizedUsername = strtolower(trim($username));
 
-        // IP throttling protects the expensive password hash operation.
+        // Global + IP throttling protect the expensive password hash
+        // operation from distributed and single-source guessing.
+        Security::rateLimit(
+            $ratePrefix.'-global',
+            600,
+            60,
+            'global'
+        );
         Security::rateLimit($ratePrefix, 8, 600);
 
         if (
