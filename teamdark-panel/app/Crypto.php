@@ -46,6 +46,53 @@ final class Crypto
         ];
     }
 
+    public static function migrateLegacyLicenseHashes(int $limit = 100): int
+    {
+        $limit = max(1, min(500, $limit));
+
+        try {
+            $pdo = Database::pdo();
+            $rows = $pdo->query(
+                "SELECT id,key_cipher,key_iv,key_tag
+                 FROM license_keys
+                 WHERE key_hash_version<2
+                 ORDER BY id
+                 LIMIT ".$limit
+            )->fetchAll() ?: [];
+        } catch (\Throwable) {
+            // Allows code deployment before the schema upgrade is run.
+            return 0;
+        }
+
+        $changed = 0;
+
+        foreach ($rows as $row) {
+            try {
+                $plain = self::decrypt(
+                    (string)$row['key_cipher'],
+                    (string)$row['key_iv'],
+                    (string)$row['key_tag']
+                );
+                $hash = self::licenseLookupHash($plain);
+
+                $q = $pdo->prepare(
+                    'UPDATE license_keys
+                     SET key_hash=?,key_hash_version=2
+                     WHERE id=? AND key_hash_version<2'
+                );
+                $q->execute([$hash, (int)$row['id']]);
+                $changed += $q->rowCount();
+            } catch (\Throwable $e) {
+                error_log(
+                    'TeamDark license hash migration skipped key '
+                    .(int)($row['id'] ?? 0).' '.get_class($e)
+                );
+            }
+        }
+
+        return $changed;
+    }
+
     public static function decrypt(string $cipherB64, string $ivB64, string $tagB64): string
     {
         $plain = openssl_decrypt(
