@@ -6,6 +6,41 @@
   var lastFocused = null;
   var dialogFocused = null;
 
+  var siteSplash = document.querySelector('[data-site-splash]');
+  if (siteSplash) {
+    var splashDuration = parseInt(siteSplash.getAttribute('data-splash-duration') || '2400', 10);
+    var splashVersion = siteSplash.getAttribute('data-splash-version') || '1';
+    var splashSkip = siteSplash.querySelector('[data-splash-skip]');
+    var splashClosed = false;
+    var secureCookie = window.location.protocol === 'https:' ? '; Secure' : '';
+
+    splashDuration = Math.max(900, Math.min(5000, splashDuration));
+    siteSplash.style.setProperty('--splash-duration', splashDuration + 'ms');
+    body.classList.add('splash-open');
+
+    var closeSiteSplash = function () {
+      if (splashClosed) return;
+      splashClosed = true;
+
+      try {
+        document.cookie =
+          'TD_SPLASH=' + encodeURIComponent(splashVersion)
+          + '; Path=/; SameSite=Lax' + secureCookie;
+      } catch (e) {}
+
+      siteSplash.classList.add('is-leaving');
+      siteSplash.setAttribute('aria-hidden', 'true');
+      body.classList.remove('splash-open');
+
+      setTimeout(function () {
+        if (siteSplash.parentNode) siteSplash.remove();
+      }, 560);
+    };
+
+    if (splashSkip) splashSkip.addEventListener('click', closeSiteSplash);
+    setTimeout(closeSiteSplash, splashDuration);
+  }
+
   var toast = document.createElement('div');
   toast.className = 'toast';
   toast.setAttribute('role', 'status');
@@ -505,6 +540,39 @@
     });
     audienceOptions.forEach(function (item) { item.addEventListener('change', syncAudienceAll); });
     syncAudienceAll();
+  }
+
+  var splashControl = document.querySelector('[data-splash-control]');
+  if (splashControl) {
+    var splashEnabled = splashControl.querySelector('[data-splash-enabled]');
+    var splashTitle = splashControl.querySelector('[data-splash-title]');
+    var splashSubtitle = splashControl.querySelector('[data-splash-subtitle]');
+    var splashDurationControl = splashControl.querySelector('[data-splash-duration]');
+    var splashPreview = splashControl.querySelector('[data-splash-preview]');
+    var splashPreviewTitle = splashControl.querySelector('[data-splash-preview-title]');
+    var splashPreviewSubtitle = splashControl.querySelector('[data-splash-preview-subtitle]');
+    var splashBadge = splashControl.querySelector('.premium-badge');
+
+    var syncSplashPreview = function () {
+      var enabled = splashEnabled ? splashEnabled.checked : false;
+      if (splashPreview) splashPreview.classList.toggle('is-off', !enabled);
+      if (splashPreviewTitle && splashTitle) {
+        splashPreviewTitle.textContent = splashTitle.value.trim() || 'TEAM DARK';
+      }
+      if (splashPreviewSubtitle && splashSubtitle) {
+        splashPreviewSubtitle.textContent = splashSubtitle.value.trim() || 'Secure control plane';
+      }
+      if (splashBadge) splashBadge.textContent = enabled ? 'LIVE' : 'OFF';
+      if (splashPreview && splashDurationControl) {
+        splashPreview.style.setProperty('--preview-duration', splashDurationControl.value + 'ms');
+      }
+    };
+
+    [splashEnabled,splashTitle,splashSubtitle,splashDurationControl].forEach(function (control) {
+      if (!control) return;
+      control.addEventListener(control.tagName === 'INPUT' && control.type !== 'checkbox' ? 'input' : 'change', syncSplashPreview);
+    });
+    syncSplashPreview();
   }
 
   var broadcastMessage = document.querySelector('#broadcast-message');
