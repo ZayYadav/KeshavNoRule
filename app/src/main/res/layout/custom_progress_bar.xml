@@ -1,44 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="260dp"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="270dp"
     android:layout_height="wrap_content"
-    android:gravity="center"
-    android:background="@drawable/cyber_dialog_bg"
-    android:padding="26dp"
-    android:elevation="14dp"
-    android:orientation="vertical">
+    android:background="@drawable/baba_dialog"
+    android:elevation="16dp"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="24dp">
 
     <ProgressBar
         android:id="@+id/progressBar"
-        android:layout_width="54dp"
-        android:layout_height="54dp"
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
         android:indeterminate="true"
-        android:indeterminateTint="@color/cyber_cyan"
-        style="?android:attr/progressBarStyleLarge" />
+        android:indeterminateTint="@color/baba_crimson" />
 
     <TextView
         android:id="@+id/progressText"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Processing..."
-        android:textColor="@color/white"
+        android:layout_marginTop="15dp"
+        android:gravity="center"
+        android:text="Processing secure task..."
+        android:textColor="@color/baba_text"
         android:textSize="15sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.05"
-        android:shadowColor="@color/cyber_cyan"
-        android:shadowRadius="10" />
+        android:textStyle="bold" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="JADU LOADER"
-        android:textColor="#64748B"
-        android:textSize="10sp"
-        android:letterSpacing="0.08"
+        android:layout_marginTop="7dp"
+        android:letterSpacing="0.14"
+        android:text="BABA DARK LOADER"
+        android:textColor="@color/baba_gold"
+        android:textSize="9sp"
         android:textStyle="bold" />
-
 </LinearLayout>
