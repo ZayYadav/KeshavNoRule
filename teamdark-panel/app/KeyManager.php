@@ -187,7 +187,7 @@ final class KeyManager
             )->execute([
                 $actor['id'],
                 $actor['id'],
-                hash('sha256', $plain),
+                Crypto::licenseLookupHash($plain),
                 $cipher,
                 $iv,
                 $tag,
@@ -281,7 +281,7 @@ final class KeyManager
             )->execute([
                 $ownerActor['id'],
                 $ownerActor['id'],
-                hash('sha256', $plain),
+                Crypto::licenseLookupHash($plain),
                 $cipher,
                 $iv,
                 $tag,
@@ -609,8 +609,12 @@ final class KeyManager
                 );
             }
 
-            $q = $pdo->prepare('SELECT id FROM license_keys WHERE key_hash=? LIMIT 1');
-            $q->execute([hash('sha256', $customKey)]);
+            [$lookupHash, $legacyHash] =
+                Crypto::licenseLookupHashes($customKey);
+            $q = $pdo->prepare(
+                'SELECT id FROM license_keys WHERE key_hash IN (?,?) LIMIT 1'
+            );
+            $q->execute([$lookupHash, $legacyHash]);
 
             if ($q->fetch()) {
                 throw new RuntimeException('Custom key already exists.');
@@ -621,8 +625,12 @@ final class KeyManager
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
             $plain = self::newLicense();
-            $q = $pdo->prepare('SELECT id FROM license_keys WHERE key_hash=? LIMIT 1');
-            $q->execute([hash('sha256', $plain)]);
+            [$lookupHash, $legacyHash] =
+                Crypto::licenseLookupHashes($plain);
+            $q = $pdo->prepare(
+                'SELECT id FROM license_keys WHERE key_hash IN (?,?) LIMIT 1'
+            );
+            $q->execute([$lookupHash, $legacyHash]);
 
             if (!$q->fetch()) {
                 return $plain;
