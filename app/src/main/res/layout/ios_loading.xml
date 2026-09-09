@@ -1,83 +1,86 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="300dp"
+    android:layout_width="310dp"
     android:layout_height="wrap_content"
-    android:gravity="center"
-    android:background="@drawable/cyber_dialog_bg"
-    android:padding="26dp"
-    android:elevation="16dp"
-    android:orientation="vertical">
+    android:background="@drawable/baba_dialog"
+    android:elevation="18dp"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="24dp">
 
-    <!-- Icon Frame -->
     <FrameLayout
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:background="@drawable/cyber_card_glass"
-        android:padding="6dp">
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:background="@drawable/baba_panel_soft"
+        android:padding="12dp">
 
         <ImageView
             android:id="@+id/loadingIcon"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="10dp"
-            android:src="@drawable/ic_launcher"
-            android:scaleType="centerInside" />
+            android:scaleType="centerInside"
+            android:src="@drawable/icon" />
     </FrameLayout>
 
     <TextView
-        android:id="@+id/loadingText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="18dp"
-        android:text="Keshav Secure Core"
-        android:textColor="@color/white"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.04"
-        android:gravity="center" />
+        android:layout_marginTop="16dp"
+        android:letterSpacing="0.16"
+        android:text="BABA DARK"
+        android:textColor="@color/baba_crimson"
+        android:textSize="10sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/loadingText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:gravity="center"
+        android:text="Preparing private runtime"
+        android:textColor="@color/baba_text"
+        android:textSize="17sp"
+        android:textStyle="bold" />
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="6dp"
-        android:layout_marginTop="18dp"
+        android:layout_height="5dp"
+        android:layout_marginTop="20dp"
         android:indeterminate="true"
-        android:indeterminateTint="@color/cyber_cyan"
-        android:progressTint="@color/cyber_cyan"
-        android:progressBackgroundTint="#33475569" />
+        android:indeterminateTint="@color/baba_crimson"
+        android:progressBackgroundTint="#26FFFFFF"
+        android:progressTint="@color/baba_crimson" />
 
     <TextView
         android:id="@+id/progressText"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Validating secure session..."
-        android:textColor="@color/text_muted"
-        android:textSize="12sp"
-        android:letterSpacing="0.04"
-        android:gravity="center" />
+        android:layout_marginTop="11dp"
+        android:gravity="center"
+        android:text="Verifying secure session..."
+        android:textColor="@color/baba_muted"
+        android:textSize="11sp" />
 
-    <androidx.cardview.widget.CardView
+    <FrameLayout
         android:id="@+id/okButton"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="50dp"
         android:layout_marginTop="18dp"
-        android:visibility="gone"
-        app:cardCornerRadius="14dp"
-        app:cardBackgroundColor="@android:color/transparent"
-        app:cardElevation="4dp">
+        android:background="@drawable/baba_primary_button"
+        android:visibility="gone">
 
-        <androidx.appcompat.widget.AppCompatButton
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="@drawable/cyber_btn_primary"
+            android:gravity="center"
+            android:letterSpacing="0.10"
             android:text="CLOSE"
-            android:textColor="#050811"
-            android:textSize="14sp"
+            android:textColor="#160709"
+            android:textSize="12sp"
             android:textStyle="bold" />
-    </androidx.cardview.widget.CardView>
-
+    </FrameLayout>
 </LinearLayout>
