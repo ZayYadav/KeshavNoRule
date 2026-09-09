@@ -62,6 +62,7 @@ final class Config
             'telegram_webhook_secret' => $get('TELEGRAM_WEBHOOK_SECRET', ''),
             'telegram_owner_chat_id' => trim($get('TELEGRAM_OWNER_CHAT_ID', '')),
             'telegram_owner_mutations_enabled' => strtolower($get('TELEGRAM_OWNER_MUTATIONS_ENABLED', 'false')) === 'true',
+            'telegram_linked_key_generation_enabled' => strtolower($get('TELEGRAM_LINKED_KEY_GENERATION_ENABLED', 'false')) === 'true',
             'legacy_license_api_enabled' => strtolower($get('LEGACY_LICENSE_API_ENABLED', 'false')) === 'true',
             'api_reveal_license_keys' => strtolower($get('API_REVEAL_LICENSE_KEYS', 'false')) === 'true',
             'trusted_proxy_cidrs' => trim($get('TRUSTED_PROXY_CIDRS', '')),
