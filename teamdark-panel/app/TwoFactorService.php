@@ -133,11 +133,10 @@ final class TwoFactorService
                  WHERE user_id=? AND id<>?'
             )->execute([$userId, $tokenId]);
 
-            // Existing bearer tokens were issued without the newly enabled second factor.
-            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')
-                ->execute([$userId]);
-
             $pdo->commit();
+
+            $newVersion = Auth::bumpAuthVersion($userId, true);
+            Auth::refreshCurrentSessionVersion($userId, $newVersion);
 
             Security::clearRateLimit('2fa-activation-verify-user', (string)$userId);
 
@@ -197,10 +196,10 @@ final class TwoFactorService
                 'DELETE FROM login_2fa_challenges WHERE user_id=?'
             )->execute([$userId]);
 
-            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')
-                ->execute([$userId]);
-
             $pdo->commit();
+
+            $newVersion = Auth::bumpAuthVersion($userId, true);
+            Auth::refreshCurrentSessionVersion($userId, $newVersion);
 
             try {
                 Security::audit($userId, '2fa_disabled');
@@ -234,9 +233,9 @@ final class TwoFactorService
                 ->execute([$userId]);
             $pdo->prepare('DELETE FROM login_2fa_challenges WHERE user_id=?')
                 ->execute([$userId]);
-            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')
-                ->execute([$userId]);
             $pdo->commit();
+
+            Auth::bumpAuthVersion($userId, true);
 
             try {
                 Security::audit($actorUserId, '2fa_owner_reset', [
