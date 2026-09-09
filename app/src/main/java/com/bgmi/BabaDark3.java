@@ -1,0 +1,487 @@
+package com.bgmi;
+
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
+import android.content.Intent;
+import android.graphics.Color;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Debug;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.bgmi.utils.BabaDark4;
+import com.bgmi.utils.BabaDark7;
+import net_62v.external.MetaActivationManager;
+import top.niunaijun.blackbox.BlackBoxCore;
+import top.niunaijun.blackbox.entity.pm.InstallResult;
+
+import org.lsposed.lsparanoid.Obfuscate;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.nio.channels.FileChannel;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+@Obfuscate
+public class BabaDark3 extends AppCompatActivity {
+    private final Handler securityHandler = new Handler(Looper.getMainLooper());
+    private Runnable securityGuard;
+    private ObjectAnimator titleAnimator;
+    private ObjectAnimator startPulseAnimator;
+    private boolean dashboardReady = false;
+
+    static {
+        try {
+            System.loadLibrary("BabaDarkLoader");
+        } catch (Throwable ignored) {}
+    }
+
+    private static final String PKG_BGMI = "com.pubg.imobile";
+    private static final int USER_ID = 0;
+    private final Handler timerHandler = new Handler(Looper.getMainLooper());
+    private final Handler sdkActivationHandler = new Handler(Looper.getMainLooper());
+    private final AtomicBoolean sdkActivationPending = new AtomicBoolean(false);
+    private static final long SDK_ACTIVATION_POLL_MS = 500L;
+    private static final long SDK_ACTIVATION_TIMEOUT_MS = 60_000L;
+    private boolean doubleBackExit = false;
+
+    private TextView tvExpires;
+    private TextView tvDays;
+    private TextView tvHours;
+    private TextView tvMins;
+    private TextView tvSecs;
+
+    public static native String exdate();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
+            BabaDark9.showIntegrityFailure(this,
+                    "Debugger or runtime instrumentation was detected.");
+            return;
+        }
+
+        if (!BabaDark8.verify(this)) {
+            BabaDark9.showIntegrityFailure(this,
+                    "APK signature, package, native library, or loader integrity validation failed.");
+            return;
+        }
+
+        boolean nativeIntegrityOk = false;
+        try {
+            nativeIntegrityOk = BabaDark2.nativeVerifySignature(this)
+                    && BabaDark2.nativeCustomIntegrity(this);
+        } catch (Throwable ignored) {
+            nativeIntegrityOk = false;
+        }
+
+        if (!nativeIntegrityOk) {
+            BabaDark9.showIntegrityFailure(
+                    this,
+                    "Native runtime validation rejected the dashboard session.");
+            return;
+        }
+
+        // Immersive Cyber Transparent Status Bar
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            Window window = getWindow();
+            window.getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            );
+            window.setStatusBarColor(Color.TRANSPARENT);
+        }
+
+        setContentView(R.layout.activity_main);
+
+        tvExpires = findViewById(R.id.tvExpires);
+        tvDays = findViewById(R.id.tvDays);
+        tvHours = findViewById(R.id.tvHours);
+        tvMins = findViewById(R.id.tvMins);
+        tvSecs = findViewById(R.id.tvSecs);
+
+        // Animate Entrance
+        animateEntrance();
+
+        // Animate Title
+        View tvMainTitle = findViewById(R.id.tvMainTitle);
+        if (tvMainTitle != null) {
+            titleAnimator = ObjectAnimator.ofPropertyValuesHolder(
+                    tvMainTitle,
+                    PropertyValuesHolder.ofFloat("scaleX", 1.0f, 1.03f),
+                    PropertyValuesHolder.ofFloat("scaleY", 1.0f, 1.03f)
+            );
+            titleAnimator.setDuration(1500);
+            titleAnimator.setRepeatCount(ObjectAnimator.INFINITE);
+            titleAnimator.setRepeatMode(ObjectAnimator.REVERSE);
+            titleAnimator.start();
+        }
+
+        // Start Button Setup
+        View btnStart = findViewById(R.id.btnStart);
+        View btnStartContainer = findViewById(R.id.btnStartContainer);
+
+        if (btnStartContainer != null) {
+            // Pulse animation on start button
+            startPulseAnimator = ObjectAnimator.ofPropertyValuesHolder(
+                    btnStartContainer,
+                    PropertyValuesHolder.ofFloat("scaleX", 1.0f, 1.025f),
+                    PropertyValuesHolder.ofFloat("scaleY", 1.0f, 1.025f)
+            );
+            startPulseAnimator.setDuration(1200);
+            startPulseAnimator.setRepeatCount(ObjectAnimator.INFINITE);
+            startPulseAnimator.setRepeatMode(ObjectAnimator.REVERSE);
+            startPulseAnimator.start();
+        }
+
+        if (btnStart != null) {
+            BabaDark7.applyTouchBounce(btnStart, () -> {
+                BabaDark7.getInstance().playLaunch();
+                handleStart();
+            });
+        }
+
+        dashboardReady = true;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!dashboardReady) return;
+
+        // The dashboard is allowed to do periodic UI/security work only while it
+        // is actually foreground. As soon as BGMI takes over, onPause() removes
+        // every scheduled callback so the loader cannot steal game-frame time.
+        securityHandler.removeCallbacksAndMessages(null);
+        timerHandler.removeCallbacksAndMessages(null);
+        securityGuard = BabaDark9.installRuntimeGuard(this, securityHandler);
+        doCountTimerAccount();
+
+        try {
+            if (titleAnimator != null && !titleAnimator.isStarted()) {
+                titleAnimator.start();
+            }
+            if (startPulseAnimator != null && !startPulseAnimator.isStarted()) {
+                startPulseAnimator.start();
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        try {
+            securityHandler.removeCallbacksAndMessages(null);
+            timerHandler.removeCallbacksAndMessages(null);
+            sdkActivationHandler.removeCallbacksAndMessages(null);
+            sdkActivationPending.set(false);
+            securityGuard = null;
+
+            if (titleAnimator != null) titleAnimator.cancel();
+            if (startPulseAnimator != null) startPulseAnimator.cancel();
+        } catch (Throwable ignored) {
+        }
+        super.onPause();
+    }
+
+    private void animateEntrance() {
+        try {
+            View mainHeader = findViewById(R.id.mainHeader);
+            View timerCard = findViewById(R.id.timerCard);
+            View gameCard = findViewById(R.id.gameCard);
+            View tipsCard = findViewById(R.id.tipsCard);
+
+            if (mainHeader != null) {
+                Animation anim = AnimationUtils.loadAnimation(this, R.anim.anim_fade_slide_up);
+                mainHeader.startAnimation(anim);
+            }
+            if (timerCard != null) {
+                Animation anim = AnimationUtils.loadAnimation(this, R.anim.anim_fade_slide_up);
+                anim.setStartOffset(100);
+                timerCard.startAnimation(anim);
+            }
+            if (gameCard != null) {
+                Animation anim = AnimationUtils.loadAnimation(this, R.anim.anim_fade_slide_up);
+                anim.setStartOffset(200);
+                gameCard.startAnimation(anim);
+            }
+            if (tipsCard != null) {
+                Animation anim = AnimationUtils.loadAnimation(this, R.anim.anim_fade_slide_up);
+                anim.setStartOffset(300);
+                tipsCard.startAnimation(anim);
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void handleStart() {
+        if (!ensureSdkActivatedThenContinue()) {
+            return;
+        }
+        handleStartAfterSdkReady();
+    }
+
+    private boolean ensureSdkActivatedThenContinue() {
+        try {
+            if (MetaActivationManager.getActivatedStatus()) {
+                sdkActivationPending.set(false);
+                sdkActivationHandler.removeCallbacksAndMessages(null);
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        if (!sdkActivationPending.compareAndSet(false, true)) {
+            Toast.makeText(this, "SDK activation in progress...", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        final String sdkKey;
+        try {
+            sdkKey = BabaDark1.getSdkKey();
+        } catch (Throwable throwable) {
+            sdkActivationPending.set(false);
+            BabaDark7.getInstance().playError();
+            Toast.makeText(this, "SDK key unavailable", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        if (sdkKey == null || sdkKey.trim().isEmpty()) {
+            sdkActivationPending.set(false);
+            BabaDark7.getInstance().playError();
+            Toast.makeText(this, "SDK key unavailable", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        try {
+            MetaActivationManager.activateSdk(sdkKey.trim());
+        } catch (Throwable throwable) {
+            sdkActivationPending.set(false);
+            BabaDark7.getInstance().playError();
+            Toast.makeText(this, "SDK activation could not start", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        Toast.makeText(this, "Activating SDK...", Toast.LENGTH_SHORT).show();
+        final long deadline = SystemClock.elapsedRealtime() + SDK_ACTIVATION_TIMEOUT_MS;
+
+        sdkActivationHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || isDestroyed()) {
+                    sdkActivationPending.set(false);
+                    return;
+                }
+
+                boolean activated = false;
+                try {
+                    activated = MetaActivationManager.getActivatedStatus();
+                } catch (Throwable ignored) {
+                }
+
+                if (activated) {
+                    sdkActivationPending.set(false);
+                    sdkActivationHandler.removeCallbacksAndMessages(null);
+                    Toast.makeText(BabaDark3.this, "SDK Activated", Toast.LENGTH_SHORT).show();
+                    handleStartAfterSdkReady();
+                    return;
+                }
+
+                if (SystemClock.elapsedRealtime() >= deadline) {
+                    sdkActivationPending.set(false);
+                    String message = "SDK activation failed";
+                    try {
+                        String serverMessage = MetaActivationManager.getServerMessage();
+                        if (serverMessage != null && !serverMessage.trim().isEmpty()) {
+                            message = serverMessage;
+                        }
+                    } catch (Throwable ignored) {
+                    }
+                    BabaDark7.getInstance().playError();
+                    Toast.makeText(BabaDark3.this, message, Toast.LENGTH_LONG).show();
+                    return;
+                }
+
+                sdkActivationHandler.postDelayed(this, SDK_ACTIVATION_POLL_MS);
+            }
+        });
+        return false;
+    }
+
+    private void handleStartAfterSdkReady() {
+        if (BlackBoxCore.get() == null) {
+            BabaDark7.getInstance().playError();
+            Toast.makeText(this, "Core is null!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!BlackBoxCore.get().isInstalled(PKG_BGMI, USER_ID)) {
+            Toast.makeText(this, "Installing BGMI in Virtual Space...", Toast.LENGTH_SHORT).show();
+            InstallResult res = BlackBoxCore.get().installPackageAsUser(PKG_BGMI, USER_ID);
+            if (res.success) {
+                forceAutoCopyObb();
+            } else {
+                BabaDark7.getInstance().playError();
+                Toast.makeText(this, "Install Failed: " + res.msg, Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            forceAutoCopyObb();
+        }
+    }
+
+    private void forceAutoCopyObb() {
+        String internalRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
+        File sourceFolder = new File(internalRoot + "/Android/obb/" + PKG_BGMI);
+        File destFolder = new File(internalRoot + "/Sdcard/Android/obb/" + PKG_BGMI);
+
+        if (!destFolder.exists()) destFolder.mkdirs();
+
+        File[] existingFiles = destFolder.listFiles((dir, name) -> name.endsWith(".obb"));
+        if (existingFiles != null && existingFiles.length > 0) {
+            launchGame();
+            return;
+        }
+
+        Toast.makeText(this, "OBB Copying... Please wait", Toast.LENGTH_SHORT).show();
+        AtomicBoolean isFinished = new AtomicBoolean(false);
+
+        timerHandler.postDelayed(() -> {
+            if (!isFinished.get()) {
+                isFinished.set(true);
+                Toast.makeText(BabaDark3.this, "Copy Timeout! Check manually.", Toast.LENGTH_LONG).show();
+            }
+        }, 60000);
+
+        new Thread(() -> {
+            try {
+                File[] sourceFiles = sourceFolder.listFiles((dir, name) -> name.endsWith(".obb"));
+                if (sourceFiles == null || sourceFiles.length == 0) {
+                    if (!isFinished.get()) {
+                        isFinished.set(true);
+                        runOnUiThread(() -> {
+                            BabaDark7.getInstance().playError();
+                            Toast.makeText(BabaDark3.this, "Source OBB missing!", Toast.LENGTH_LONG).show();
+                        });
+                    }
+                    return;
+                }
+
+                File srcFile = sourceFiles[0];
+                File destFile = new File(destFolder, srcFile.getName());
+
+                try (FileChannel srcChannel = new FileInputStream(srcFile).getChannel();
+                     FileChannel destChannel = new FileOutputStream(destFile).getChannel()) {
+                    srcChannel.transferTo(0, srcChannel.size(), destChannel);
+                }
+
+                if (!isFinished.get()) {
+                    isFinished.set(true);
+                    runOnUiThread(() -> {
+                        Toast.makeText(BabaDark3.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
+                        launchGame();
+                    });
+                }
+            } catch (Exception e) {
+                if (!isFinished.get()) {
+                    isFinished.set(true);
+                    runOnUiThread(() -> {
+                        BabaDark7.getInstance().playError();
+                        Toast.makeText(BabaDark3.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+                }
+            }
+        }).start();
+    }
+
+    private void launchGame() {
+        try {
+            BlackBoxCore.get().launchApk(PKG_BGMI, USER_ID);
+        } catch (Exception e) {
+            BabaDark7.getInstance().playError();
+            Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (doubleBackExit) {
+            finishAffinity();
+            return;
+        }
+        this.doubleBackExit = true;
+        BabaDark7.getInstance().playClick();
+        Toast.makeText(this, "Press BACK again to exit", Toast.LENGTH_SHORT).show();
+        timerHandler.postDelayed(() -> doubleBackExit = false, 2000);
+    }
+
+    private void doCountTimerAccount() {
+        timerHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+                    Date expiry = sdf.parse(exdate());
+                    if (expiry != null) {
+                        long diff = expiry.getTime() - System.currentTimeMillis();
+
+                        if (diff > 0) {
+                            long d = diff / 86400000;
+                            long h = (diff / 3600000) % 24;
+                            long m = (diff / 60000) % 60;
+                            long s = (diff / 1000) % 60;
+
+                            String timeLeft = String.format(Locale.getDefault(), "%dd %dh %dm %ds", d, h, m, s);
+                            if (tvExpires != null) tvExpires.setText(timeLeft);
+
+                            if (tvDays != null) tvDays.setText(String.format(Locale.getDefault(), "%02d", d));
+                            if (tvHours != null) tvHours.setText(String.format(Locale.getDefault(), "%02d", h));
+                            if (tvMins != null) tvMins.setText(String.format(Locale.getDefault(), "%02d", m));
+                            if (tvSecs != null) tvSecs.setText(String.format(Locale.getDefault(), "%02d", s));
+
+                            timerHandler.postDelayed(this, 1000);
+                        } else {
+                            if (tvExpires != null) tvExpires.setText("Expired");
+                            Toast.makeText(BabaDark3.this, "Subscription Expired!", Toast.LENGTH_SHORT).show();
+                            finish();
+                        }
+                    }
+                } catch (Throwable ignored) {
+                    if (tvExpires != null) tvExpires.setText("Active");
+                }
+            }
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        dashboardReady = false;
+        try {
+            securityHandler.removeCallbacksAndMessages(null);
+            timerHandler.removeCallbacksAndMessages(null);
+            sdkActivationHandler.removeCallbacksAndMessages(null);
+            sdkActivationPending.set(false);
+            securityGuard = null;
+            if (titleAnimator != null) titleAnimator.cancel();
+            if (startPulseAnimator != null) startPulseAnimator.cancel();
+        } catch (Throwable ignored) {}
+        super.onDestroy();
+    }
+
+}
