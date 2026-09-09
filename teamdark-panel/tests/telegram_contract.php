@@ -7,7 +7,8 @@ use TeamDark\Panel\{
     Database,
     KeyManager,
     Security,
-    TelegramService
+    TelegramService,
+    TwoFactorService
 };
 
 $root = dirname(__DIR__);
@@ -18,6 +19,7 @@ foreach ([
     'Security',
     'Crypto',
     'TelegramService',
+    'TwoFactorService',
     'KeyManager',
 ] as $file) {
     require $root.'/app/'.$file.'.php';
@@ -138,5 +140,79 @@ $q->execute([$guest['id']]);
 if ((int)$q->fetchColumn() !== $userId) {
     throw new RuntimeException('Guest key ownership migration failed.');
 }
+
+$q = $pdo->prepare(
+    "SELECT id,name,username,role,balance,telegram_chat_id,
+            telegram_2fa_enabled,telegram_2fa_enabled_at,status,password_hash,created_at
+     FROM users WHERE id=? LIMIT 1"
+);
+$q->execute([$userId]);
+$linkedUser = $q->fetch();
+
+$activation = TwoFactorService::createActivationToken($linkedUser);
+
+if (!preg_match('/^TD2FA-[A-F0-9]{12}$/', $activation['code'])) {
+    throw new RuntimeException('2FA activation key format failed.');
+}
+
+TwoFactorService::activate($linkedUser, $activation['code']);
+
+$q = $pdo->prepare(
+    "SELECT telegram_2fa_enabled FROM users WHERE id=?"
+);
+$q->execute([$userId]);
+
+if ((int)$q->fetchColumn() !== 1) {
+    throw new RuntimeException('Telegram 2FA activation failed.');
+}
+
+$loginCode = '48372615';
+$loginHash = TwoFactorService::loginCodeHash($userId, $loginCode);
+
+$pdo->prepare(
+    "INSERT INTO login_2fa_challenges(
+        user_id,code_hash,expires_at,attempts,created_ip
+     ) VALUES(?,?,DATE_ADD(NOW(),INTERVAL 5 MINUTE),0,'127.0.0.1')"
+)->execute([$userId, $loginHash]);
+
+$challengeId = (int)$pdo->lastInsertId();
+
+$verified = TwoFactorService::verifyLoginChallenge(
+    $challengeId,
+    $userId,
+    $loginCode
+);
+
+if ((int)$verified['id'] !== $userId) {
+    throw new RuntimeException('2FA login verification failed.');
+}
+
+$reused = false;
+try {
+    TwoFactorService::verifyLoginChallenge(
+        $challengeId,
+        $userId,
+        $loginCode
+    );
+} catch (RuntimeException $e) {
+    $reused = str_contains($e->getMessage(), 'invalid or expired');
+}
+
+if (!$reused) {
+    throw new RuntimeException('2FA login code reuse was not blocked.');
+}
+
+TwoFactorService::disable($linkedUser, 'TelegramContract@12345');
+
+$q = $pdo->prepare(
+    "SELECT telegram_2fa_enabled FROM users WHERE id=?"
+);
+$q->execute([$userId]);
+
+if ((int)$q->fetchColumn() !== 0) {
+    throw new RuntimeException('2FA disable flow failed.');
+}
+
+echo "Telegram 2FA contract OK\n";
 
 echo "Telegram contract OK\n";
