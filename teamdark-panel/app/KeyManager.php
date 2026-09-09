@@ -587,7 +587,7 @@ final class KeyManager
         $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         $token = '';
 
-        for ($i = 0; $i < 9; $i++) {
+        for ($i = 0; $i < 16; $i++) {
             $token .= $alphabet[random_int(0, strlen($alphabet) - 1)];
         }
 
