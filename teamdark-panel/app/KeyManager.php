@@ -35,13 +35,16 @@ final class KeyManager
         }
 
         if ($actor['role'] === 'admin') {
-            return $pdo->query(
+            $q = $pdo->prepare(
                 "SELECT id,username,role
                  FROM users
-                 WHERE status='active' AND role<>'owner'
+                 WHERE status='active'
+                   AND (id=? OR referred_by=?)
                  ORDER BY username
                  LIMIT 1000"
-            )->fetchAll() ?: [];
+            );
+            $q->execute([$actor['id'], $actor['id']]);
+            return $q->fetchAll() ?: [];
         }
 
         if ($actor['role'] === 'reseller') {
@@ -86,7 +89,10 @@ final class KeyManager
         $params = [];
 
         if ($actor['role'] === 'admin') {
-            $where[] = "u.role<>'owner'";
+            $where[] = "(k.created_by=? OR k.owner_user_id=? OR u.referred_by=?)";
+            $params[] = $actor['id'];
+            $params[] = $actor['id'];
+            $params[] = $actor['id'];
         } elseif ($actor['role'] === 'reseller') {
             $where[] = "(k.created_by=? OR k.owner_user_id=? OR u.referred_by=?)";
             $params[] = $actor['id'];
@@ -505,7 +511,13 @@ final class KeyManager
             return $target;
         }
 
-        if ($actor['role'] === 'admin' && $target['role'] !== 'owner') {
+        if (
+            $actor['role'] === 'admin'
+            && (
+                (int)$target['id'] === (int)$actor['id']
+                || (int)$target['referred_by'] === (int)$actor['id']
+            )
+        ) {
             return $target;
         }
 
@@ -557,7 +569,14 @@ final class KeyManager
             return $key;
         }
 
-        if ($actor['role'] === 'admin' && $key['owner_role'] !== 'owner') {
+        if (
+            $actor['role'] === 'admin'
+            && (
+                (int)$key['created_by'] === (int)$actor['id']
+                || (int)$key['owner_user_id'] === (int)$actor['id']
+                || (int)$key['owner_referred_by'] === (int)$actor['id']
+            )
+        ) {
             return $key;
         }
 
