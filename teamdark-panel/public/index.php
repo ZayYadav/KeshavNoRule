@@ -1152,15 +1152,23 @@ try {
         }
 
         if ($telegramInfo) {
+            $unlinkControl = (int)($user['telegram_2fa_enabled'] ?? 0) === 1
+                ? '<div class="alert">Disable Telegram 2FA before changing the linked Telegram account.</div>'
+                : '<form method="post" action="/telegram/unlink" class="stack"'
+                    .' data-confirm="Unlink this Telegram account and revoke other active sessions?"'
+                    .' data-busy="Verifying and unlinking Telegram…">'
+                    .View::csrf()
+                    .'<div class="field"><label>Current password</label>'
+                    .'<input type="password" name="password" autocomplete="current-password" maxlength="200" required></div>'
+                    .'<button class="ghost danger">Unlink Telegram</button></form>';
+
             $telegramCard = '<div class="card half telegram-card">'
                 .'<div class="eyebrow">TELEGRAM LINK</div><h3>Verified & linked</h3>'
                 .'<p class="muted">Chat ID: <span class="key">'.View::e($telegramInfo['chat_id']).'</span><br>'
                 .'Telegram: '.View::e(TelegramService::displayName($telegramInfo))
                 .($telegramInfo['username'] ? ' • @'.View::e($telegramInfo['username']) : '')
                 .'</p>'
-                .'<form method="post" action="/telegram/unlink" class="inline">'
-                .View::csrf()
-                .'<button class="ghost danger">Unlink Telegram</button></form>'
+                .$unlinkControl
                 .'</div>';
         } else {
             $verify = '';
@@ -1179,6 +1187,8 @@ try {
                 .View::csrf()
                 .'<div class="field"><label>Telegram Chat ID</label>'
                 .'<input name="chat_id" inputmode="numeric" pattern="[0-9]{5,19}" maxlength="19" required placeholder="Example: 1234567890"></div>'
+                .'<div class="field"><label>Current password</label>'
+                .'<input type="password" name="password" autocomplete="current-password" maxlength="200" required></div>'
                 .'<button class="primary">Generate verification code</button>'
                 .'</form>'.$verify.'</div>';
         }
@@ -1249,6 +1259,12 @@ try {
         Security::rateLimit('telegram-link-start-'.$user['id'], 8, 3600);
 
         try {
+            Auth::verifyCurrentPassword(
+                $user,
+                (string)($_POST['password'] ?? ''),
+                'telegram-link'
+            );
+
             $challenge = TelegramService::createLinkChallenge(
                 $user,
                 input('chat_id')
@@ -1277,6 +1293,12 @@ try {
         Security::verifyCsrf($_POST['csrf'] ?? null);
 
         try {
+            Auth::verifyCurrentPassword(
+                $user,
+                (string)($_POST['password'] ?? ''),
+                'telegram-unlink'
+            );
+
             TelegramService::unlink($user);
             unset($_SESSION['telegram_link_code']);
             flash('ok', 'Telegram account unlinked.');
