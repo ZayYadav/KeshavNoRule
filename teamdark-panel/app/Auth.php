@@ -75,6 +75,14 @@ final class Auth
         $normalizedUsername = strtolower(trim($username));
 
         Security::rateLimit('web-login', 8, 600);
+
+        if (
+            strlen($normalizedUsername) > 64
+            || strlen($password) > 200
+            || str_contains($normalizedUsername, "\0")
+        ) {
+            return false;
+        }
         if ($normalizedUsername !== '') {
             Security::rateLimit(
                 'web-login-account',
