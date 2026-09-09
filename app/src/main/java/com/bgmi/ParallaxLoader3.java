@@ -21,8 +21,8 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.bgmi.utils.KeshavOwner4;
-import com.bgmi.utils.KeshavOwner7;
+import com.bgmi.utils.ParallaxLoader4;
+import com.bgmi.utils.ParallaxLoader7;
 import net_62v.external.MetaActivationManager;
 import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
@@ -39,7 +39,7 @@ import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Obfuscate
-public class KeshavOwner3 extends AppCompatActivity {
+public class ParallaxLoader3 extends AppCompatActivity {
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
     private Runnable securityGuard;
     private ObjectAnimator titleAnimator;
@@ -48,7 +48,7 @@ public class KeshavOwner3 extends AppCompatActivity {
 
     static {
         try {
-            System.loadLibrary("KeshavLoader");
+            System.loadLibrary("ParallaxLoader");
         } catch (Throwable ignored) {}
     }
 
@@ -75,27 +75,27 @@ public class KeshavOwner3 extends AppCompatActivity {
 
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
-            KeshavOwner9.showIntegrityFailure(this,
+            ParallaxLoader9.showIntegrityFailure(this,
                     "Debugger or runtime instrumentation was detected.");
             return;
         }
 
-        if (!KeshavOwner8.verify(this)) {
-            KeshavOwner9.showIntegrityFailure(this,
+        if (!ParallaxLoader8.verify(this)) {
+            ParallaxLoader9.showIntegrityFailure(this,
                     "APK signature, package, native library, or loader integrity validation failed.");
             return;
         }
 
         boolean nativeIntegrityOk = false;
         try {
-            nativeIntegrityOk = KeshavOwner2.nativeVerifySignature(this)
-                    && KeshavOwner2.nativeCustomIntegrity(this);
+            nativeIntegrityOk = ParallaxLoader2.nativeVerifySignature(this)
+                    && ParallaxLoader2.nativeCustomIntegrity(this);
         } catch (Throwable ignored) {
             nativeIntegrityOk = false;
         }
 
         if (!nativeIntegrityOk) {
-            KeshavOwner9.showIntegrityFailure(
+            ParallaxLoader9.showIntegrityFailure(
                     this,
                     "Native runtime validation rejected the dashboard session.");
             return;
@@ -153,8 +153,8 @@ public class KeshavOwner3 extends AppCompatActivity {
         }
 
         if (btnStart != null) {
-            KeshavOwner7.applyTouchBounce(btnStart, () -> {
-                KeshavOwner7.getInstance().playLaunch();
+            ParallaxLoader7.applyTouchBounce(btnStart, () -> {
+                ParallaxLoader7.getInstance().playLaunch();
                 handleStart();
             });
         }
@@ -172,7 +172,7 @@ public class KeshavOwner3 extends AppCompatActivity {
         // every scheduled callback so the loader cannot steal game-frame time.
         securityHandler.removeCallbacksAndMessages(null);
         timerHandler.removeCallbacksAndMessages(null);
-        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
+        securityGuard = ParallaxLoader9.installRuntimeGuard(this, securityHandler);
         doCountTimerAccount();
 
         try {
@@ -255,17 +255,17 @@ public class KeshavOwner3 extends AppCompatActivity {
 
         final String sdkKey;
         try {
-            sdkKey = KeshavOwner1.getSdkKey();
+            sdkKey = ParallaxLoader1.getSdkKey();
         } catch (Throwable throwable) {
             sdkActivationPending.set(false);
-            KeshavOwner7.getInstance().playError();
+            ParallaxLoader7.getInstance().playError();
             Toast.makeText(this, "SDK key unavailable", Toast.LENGTH_LONG).show();
             return false;
         }
 
         if (sdkKey == null || sdkKey.trim().isEmpty()) {
             sdkActivationPending.set(false);
-            KeshavOwner7.getInstance().playError();
+            ParallaxLoader7.getInstance().playError();
             Toast.makeText(this, "SDK key unavailable", Toast.LENGTH_LONG).show();
             return false;
         }
@@ -274,7 +274,7 @@ public class KeshavOwner3 extends AppCompatActivity {
             MetaActivationManager.activateSdk(sdkKey.trim());
         } catch (Throwable throwable) {
             sdkActivationPending.set(false);
-            KeshavOwner7.getInstance().playError();
+            ParallaxLoader7.getInstance().playError();
             Toast.makeText(this, "SDK activation could not start", Toast.LENGTH_LONG).show();
             return false;
         }
@@ -299,7 +299,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                 if (activated) {
                     sdkActivationPending.set(false);
                     sdkActivationHandler.removeCallbacksAndMessages(null);
-                    Toast.makeText(KeshavOwner3.this, "SDK Activated", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ParallaxLoader3.this, "SDK Activated", Toast.LENGTH_SHORT).show();
                     handleStartAfterSdkReady();
                     return;
                 }
@@ -314,8 +314,8 @@ public class KeshavOwner3 extends AppCompatActivity {
                         }
                     } catch (Throwable ignored) {
                     }
-                    KeshavOwner7.getInstance().playError();
-                    Toast.makeText(KeshavOwner3.this, message, Toast.LENGTH_LONG).show();
+                    ParallaxLoader7.getInstance().playError();
+                    Toast.makeText(ParallaxLoader3.this, message, Toast.LENGTH_LONG).show();
                     return;
                 }
 
@@ -327,7 +327,7 @@ public class KeshavOwner3 extends AppCompatActivity {
 
     private void handleStartAfterSdkReady() {
         if (BlackBoxCore.get() == null) {
-            KeshavOwner7.getInstance().playError();
+            ParallaxLoader7.getInstance().playError();
             Toast.makeText(this, "Core is null!", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -338,7 +338,7 @@ public class KeshavOwner3 extends AppCompatActivity {
             if (res.success) {
                 forceAutoCopyObb();
             } else {
-                KeshavOwner7.getInstance().playError();
+                ParallaxLoader7.getInstance().playError();
                 Toast.makeText(this, "Install Failed: " + res.msg, Toast.LENGTH_SHORT).show();
             }
         } else {
@@ -365,7 +365,7 @@ public class KeshavOwner3 extends AppCompatActivity {
         timerHandler.postDelayed(() -> {
             if (!isFinished.get()) {
                 isFinished.set(true);
-                Toast.makeText(KeshavOwner3.this, "Copy Timeout! Check manually.", Toast.LENGTH_LONG).show();
+                Toast.makeText(ParallaxLoader3.this, "Copy Timeout! Check manually.", Toast.LENGTH_LONG).show();
             }
         }, 60000);
 
@@ -376,8 +376,8 @@ public class KeshavOwner3 extends AppCompatActivity {
                     if (!isFinished.get()) {
                         isFinished.set(true);
                         runOnUiThread(() -> {
-                            KeshavOwner7.getInstance().playError();
-                            Toast.makeText(KeshavOwner3.this, "Source OBB missing!", Toast.LENGTH_LONG).show();
+                            ParallaxLoader7.getInstance().playError();
+                            Toast.makeText(ParallaxLoader3.this, "Source OBB missing!", Toast.LENGTH_LONG).show();
                         });
                     }
                     return;
@@ -394,7 +394,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                 if (!isFinished.get()) {
                     isFinished.set(true);
                     runOnUiThread(() -> {
-                        Toast.makeText(KeshavOwner3.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(ParallaxLoader3.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
                         launchGame();
                     });
                 }
@@ -402,8 +402,8 @@ public class KeshavOwner3 extends AppCompatActivity {
                 if (!isFinished.get()) {
                     isFinished.set(true);
                     runOnUiThread(() -> {
-                        KeshavOwner7.getInstance().playError();
-                        Toast.makeText(KeshavOwner3.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        ParallaxLoader7.getInstance().playError();
+                        Toast.makeText(ParallaxLoader3.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     });
                 }
             }
@@ -414,7 +414,7 @@ public class KeshavOwner3 extends AppCompatActivity {
         try {
             BlackBoxCore.get().launchApk(PKG_BGMI, USER_ID);
         } catch (Exception e) {
-            KeshavOwner7.getInstance().playError();
+            ParallaxLoader7.getInstance().playError();
             Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
@@ -426,7 +426,7 @@ public class KeshavOwner3 extends AppCompatActivity {
             return;
         }
         this.doubleBackExit = true;
-        KeshavOwner7.getInstance().playClick();
+        ParallaxLoader7.getInstance().playClick();
         Toast.makeText(this, "Press BACK again to exit", Toast.LENGTH_SHORT).show();
         timerHandler.postDelayed(() -> doubleBackExit = false, 2000);
     }
@@ -458,7 +458,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                             timerHandler.postDelayed(this, 1000);
                         } else {
                             if (tvExpires != null) tvExpires.setText("Expired");
-                            Toast.makeText(KeshavOwner3.this, "Subscription Expired!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(ParallaxLoader3.this, "Subscription Expired!", Toast.LENGTH_SHORT).show();
                             finish();
                         }
                     }

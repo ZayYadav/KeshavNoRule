@@ -18,22 +18,22 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Obfuscate
-public class KeshavOwner7 {
+public class ParallaxLoader7 {
 
-    private static volatile KeshavOwner7 instance;
+    private static volatile ParallaxLoader7 instance;
     private final ExecutorService soundExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private boolean soundEnabled = true;
 
     private static final int SAMPLE_RATE = 44100;
 
-    private KeshavOwner7() {}
+    private ParallaxLoader7() {}
 
-    public static KeshavOwner7 getInstance() {
+    public static ParallaxLoader7 getInstance() {
         if (instance == null) {
-            synchronized (KeshavOwner7.class) {
+            synchronized (ParallaxLoader7.class) {
                 if (instance == null) {
-                    instance = new KeshavOwner7();
+                    instance = new ParallaxLoader7();
                 }
             }
         }

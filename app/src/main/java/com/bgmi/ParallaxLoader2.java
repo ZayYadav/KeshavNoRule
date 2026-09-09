@@ -38,14 +38,14 @@ import android.widget.Toast;
 
 import java.security.MessageDigest;
 
-import com.bgmi.utils.KeshavOwner5;
-import com.bgmi.utils.KeshavOwner6;
-import com.bgmi.utils.KeshavOwner7;
+import com.bgmi.utils.ParallaxLoader5;
+import com.bgmi.utils.ParallaxLoader6;
+import com.bgmi.utils.ParallaxLoader7;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
 @Obfuscate
-public class KeshavOwner2 extends AppCompatActivity {
+public class ParallaxLoader2 extends AppCompatActivity {
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
     private Runnable securityGuard;
 
@@ -55,7 +55,7 @@ public class KeshavOwner2 extends AppCompatActivity {
     static {
         boolean loaded = false;
         try {
-            System.loadLibrary("KeshavLoader");
+            System.loadLibrary("ParallaxLoader");
             loaded = true;
         } catch (Throwable ignored) {
             loaded = false;
@@ -63,7 +63,7 @@ public class KeshavOwner2 extends AppCompatActivity {
         NATIVE_READY = loaded;
     }
 
-    private KeshavOwner6 prefs;
+    private ParallaxLoader6 prefs;
     private final String USER = "USER";
 
     private EditText textUsername;
@@ -88,18 +88,18 @@ public class KeshavOwner2 extends AppCompatActivity {
         // Security: prevent screenshots/recording of license UI and fail closed under an attached debugger.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
-            KeshavOwner9.showIntegrityFailure(this,
+            ParallaxLoader9.showIntegrityFailure(this,
                     "Debugger or runtime instrumentation was detected.");
             return;
         }
 
-        if (!KeshavOwner8.verify(this)) {
-            KeshavOwner9.showIntegrityFailure(this,
+        if (!ParallaxLoader8.verify(this)) {
+            ParallaxLoader9.showIntegrityFailure(this,
                     "APK signature, package, native library, or loader integrity validation failed.");
             return;
         }
         if (!NATIVE_READY) {
-            KeshavOwner9.showIntegrityFailure(this,
+            ParallaxLoader9.showIntegrityFailure(this,
                     "The native security engine could not be initialized safely.");
             return;
         }
@@ -112,7 +112,7 @@ public class KeshavOwner2 extends AppCompatActivity {
         }
 
         if (!integrityOk) {
-            KeshavOwner9.showIntegrityFailure(this,
+            ParallaxLoader9.showIntegrityFailure(this,
                     "Native integrity validation rejected the current runtime.");
             return;
         }
@@ -128,9 +128,9 @@ public class KeshavOwner2 extends AppCompatActivity {
 
         setContentView(R.layout.activity_login);
 
-        securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
+        securityGuard = ParallaxLoader9.installRuntimeGuard(this, securityHandler);
 
-        prefs = new KeshavOwner6(this);
+        prefs = new ParallaxLoader6(this);
         checkAndRequestPermissions();
 
         textUsername = findViewById(R.id.userkey);
@@ -141,7 +141,7 @@ public class KeshavOwner2 extends AppCompatActivity {
         textUsername.setText(prefs.getSt(USER, ""));
 
         // Play intro sound
-        KeshavOwner7.getInstance().playClick();
+        ParallaxLoader7.getInstance().playClick();
 
         // Staggered Entrance Animations
         animateEntrance();
@@ -177,7 +177,7 @@ public class KeshavOwner2 extends AppCompatActivity {
 
         // Action: Get Key (Telegram)
         if (getKey != null) {
-            KeshavOwner7.applyTouchBounce(getKey, () -> {
+            ParallaxLoader7.applyTouchBounce(getKey, () -> {
                 try {
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.setData(Uri.parse(GetKey()));
@@ -190,13 +190,13 @@ public class KeshavOwner2 extends AppCompatActivity {
 
         // Action: Login Button
         if (btnLogin != null) {
-            KeshavOwner7.applyTouchBounce(btnLogin, () -> {
+            ParallaxLoader7.applyTouchBounce(btnLogin, () -> {
                 String userKey = textUsername.getText().toString().trim();
                 if (!userKey.isEmpty()) {
                     prefs.setSt(USER, userKey);
                     Login(this, userKey);
                 } else {
-                    KeshavOwner7.getInstance().playError();
+                    ParallaxLoader7.getInstance().playError();
                     textUsername.setError("Please enter license key");
                 }
             });
@@ -204,23 +204,23 @@ public class KeshavOwner2 extends AppCompatActivity {
 
         // Action: Paste Button
         if (pasteBtn != null) {
-            KeshavOwner7.applyTouchBounce(pasteBtn, () -> {
+            ParallaxLoader7.applyTouchBounce(pasteBtn, () -> {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                 if (clipboard != null && clipboard.hasPrimaryClip()) {
                     ClipData clip = clipboard.getPrimaryClip();
                     if (clip != null && clip.getItemCount() > 0) {
                         String pasted = clip.getItemAt(0).getText().toString().trim();
                         if (pasted.length() > 3) {
-                            KeshavOwner7.getInstance().playPaste();
+                            ParallaxLoader7.getInstance().playPaste();
                             textUsername.setText(pasted);
                             Toast.makeText(this, "Key pasted from clipboard!", Toast.LENGTH_SHORT).show();
                         } else {
-                            KeshavOwner7.getInstance().playError();
+                            ParallaxLoader7.getInstance().playError();
                             Toast.makeText(this, "Invalid key in clipboard", Toast.LENGTH_SHORT).show();
                         }
                     }
                 } else {
-                    KeshavOwner7.getInstance().playError();
+                    ParallaxLoader7.getInstance().playError();
                     Toast.makeText(this, "Clipboard empty", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -298,13 +298,13 @@ public class KeshavOwner2 extends AppCompatActivity {
             dismissLoadingDialog();
             if (msg.what == 0) {
                 // Play Success Fanfare Chime
-                KeshavOwner7.getInstance().playSuccess();
+                ParallaxLoader7.getInstance().playSuccess();
 
                 // Do not copy the license back to the system clipboard after authentication.
                 startDownload(m_Context);
             } else if (msg.what == 1) {
                 // Play Error Buzz
-                KeshavOwner7.getInstance().playError();
+                ParallaxLoader7.getInstance().playError();
                 showLoadingDialog((String) msg.obj, true);
             }
             return true;
@@ -326,24 +326,24 @@ public class KeshavOwner2 extends AppCompatActivity {
     private void startDownload(Context m_Context) {
         showLoadingDialog("Checking Security Assets...", false);
 
-        KeshavOwner5 task = new KeshavOwner5(KeshavOwner2.this, success -> {
+        ParallaxLoader5 task = new ParallaxLoader5(ParallaxLoader2.this, success -> {
             dismissLoadingDialog();
 
             if (!success) {
-                KeshavOwner9.showIntegrityFailure(
-                        KeshavOwner2.this,
+                ParallaxLoader9.showIntegrityFailure(
+                        ParallaxLoader2.this,
                         "The trusted server loader could not be verified or securely bound.");
                 return;
             }
 
-            if (!KeshavOwner8.verify(KeshavOwner2.this)) {
-                KeshavOwner9.showIntegrityFailure(
-                        KeshavOwner2.this,
+            if (!ParallaxLoader8.verify(ParallaxLoader2.this)) {
+                ParallaxLoader9.showIntegrityFailure(
+                        ParallaxLoader2.this,
                         "The downloaded loader failed path, signature, or encrypted fingerprint validation.");
                 return;
             }
 
-            Intent i = new Intent(m_Context, KeshavOwner3.class);
+            Intent i = new Intent(m_Context, ParallaxLoader3.class);
             i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             m_Context.startActivity(i);
             overridePendingTransition(R.anim.anim_slide_in_right, R.anim.anim_slide_out_left);
@@ -366,10 +366,10 @@ public class KeshavOwner2 extends AppCompatActivity {
         }));
 
         try {
-            task.execute(KeshavOwner5.Link());
+            task.execute(ParallaxLoader5.Link());
         } catch (Throwable ignored) {
-            KeshavOwner9.showIntegrityFailure(
-                    KeshavOwner2.this,
+            ParallaxLoader9.showIntegrityFailure(
+                    ParallaxLoader2.this,
                     "The secure loader update could not be started safely.");
         }
     }
@@ -392,7 +392,7 @@ public class KeshavOwner2 extends AppCompatActivity {
             if (progressBar != null) progressBar.setVisibility(View.GONE);
             if (okButton != null) {
                 okButton.setVisibility(View.VISIBLE);
-                KeshavOwner7.applyTouchBounce(okButton, () -> dismissLoadingDialog());
+                ParallaxLoader7.applyTouchBounce(okButton, () -> dismissLoadingDialog());
             }
             if (loadingText != null) loadingText.setText("Access Denied: " + message);
         } else {
