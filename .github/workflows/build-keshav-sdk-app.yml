@@ -1,4 +1,4 @@
-name: Build KESHAVXOWNER SDK + KeshavNoRule
+name: Build KESHAVXOWNER SDK + BABA-DARK-LOADER
 run-name: Build KESHAVXOWNER fresh SDK (${{ inputs.sdk_ref || 'KESHAVXOWNER' }})
 
 on:
@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   build:
-    name: Build latest KESHAVXOWNER AAR and KeshavNoRule APK
+    name: Build latest KESHAVXOWNER AAR and BABA-DARK-LOADER APK
     runs-on: ubuntu-22.04
     timeout-minutes: 60
 
@@ -40,7 +40,7 @@ jobs:
       APP_CMAKE_VERSION: 3.22.1
 
     steps:
-      - name: Checkout KeshavNoRule
+      - name: Checkout BABA-DARK-LOADER
         uses: actions/checkout@v4
 
       - name: Checkout KESHAVXOWNER SDK source
@@ -136,7 +136,7 @@ jobs:
           set -euo pipefail
           ./gradlew :${SDK_MODULE}:assembleRelease --no-daemon --stacktrace
 
-      - name: Install fresh SDK AAR into KeshavNoRule
+      - name: Install fresh SDK AAR into BABA-DARK-LOADER
         shell: bash
         run: |
           set -euo pipefail
@@ -147,7 +147,7 @@ jobs:
           cp -f "$SOURCE_AAR" "${APP_AAR_PATH}"
           sha256sum "${APP_AAR_PATH}" | tee build-integration-info/KESHAVXOWNERCore-release.aar.sha256
 
-      - name: Build KeshavNoRule release APK with fresh SDK
+      - name: Build BABA-DARK-LOADER release APK with fresh SDK
         shell: bash
         run: |
           set -euo pipefail
@@ -175,11 +175,11 @@ jobs:
           printf '  %s\n' "${LIBS[@]}"
 
           printf '%s\n' "${LIBS[@]}" | grep -qx 'libKESHAVXOWNERCore.so'
-          printf '%s\n' "${LIBS[@]}" | grep -qx 'libKeshavLoader.so'
+          printf '%s\n' "${LIBS[@]}" | grep -qx 'libBabaDarkLoader.so'
 
-          cp "$APK" app/build/outputs/apk/release/KeshavNoRule-KESHAVXOWNER-release.apk
-          sha256sum app/build/outputs/apk/release/KeshavNoRule-KESHAVXOWNER-release.apk \
-            | tee build-integration-info/KeshavNoRule-KESHAVXOWNER-release.apk.sha256
+          cp "$APK" app/build/outputs/apk/release/BABA-DARK-LOADER-KESHAVXOWNER-release.apk
+          sha256sum app/build/outputs/apk/release/BABA-DARK-LOADER-KESHAVXOWNER-release.apk \
+            | tee build-integration-info/BABA-DARK-LOADER-KESHAVXOWNER-release.apk.sha256
 
       - name: Upload fresh KESHAVXOWNER AAR
         uses: actions/upload-artifact@v4
@@ -189,11 +189,11 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload KeshavNoRule release APK
+      - name: Upload BABA-DARK-LOADER release APK
         uses: actions/upload-artifact@v4
         with:
-          name: KeshavNoRule-KESHAVXOWNER-release
-          path: app/build/outputs/apk/release/KeshavNoRule-KESHAVXOWNER-release.apk
+          name: BABA-DARK-LOADER-KESHAVXOWNER-release
+          path: app/build/outputs/apk/release/BABA-DARK-LOADER-KESHAVXOWNER-release.apk
           if-no-files-found: error
           retention-days: 30
 
@@ -201,7 +201,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: KeshavNoRule-KESHAVXOWNER-build-info
+          name: BABA-DARK-LOADER-KESHAVXOWNER-build-info
           path: build-integration-info/
           if-no-files-found: warn
           retention-days: 30
