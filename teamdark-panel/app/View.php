@@ -60,19 +60,19 @@ final class View
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             .'<title>'.$safeTitle.' • '.$app.'</title>'
-            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-4">'
+            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-5">'
             .'<meta name="theme-color" content="#05070b">'
             .'<meta name="color-scheme" content="dark"></head>';
 
         if (!$user) {
-            echo $head.'<body data-teamdark-ui="3" class="guest-body">'
+            echo $head.'<body data-teamdark-ui="4" class="guest-body">'
                 .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>'
                 .'<main class="guest-main"><a class="guest-brand" href="/" aria-label="'.$app.' home">'
                 .'<span class="brand-mark"><b>TD</b><i></i></span>'
                 .'<span><strong>'.$app.'</strong><small>Secure control plane</small></span></a>'
                 .(in_array($path, ['/login','/login/2fa','/register','/register/success'], true)
                     ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
-                    : $body).'</main><script src="/assets/app.js?v=20260909-4" defer></script></body></html>';
+                    : $body).'</main><script src="/assets/app.js?v=20260909-5" defer></script></body></html>';
             return;
         }
 
@@ -98,9 +98,21 @@ final class View
         }
 
         $settings = PanelControl::settings();
-        $notice = $settings['announcement'] !== '' ? '<div class="announcement" role="status">'.self::e($settings['announcement']).'</div>' : '';
-        if (!$settings['panel_online']) $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
-        echo $head.'<body data-teamdark-ui="3">'
+        $notice = '';
+
+        if (($settings['announcement'] ?? '') !== '') {
+            $notice .= '<section class="announcement premium-announcement" role="status">'
+                .'<div class="announcement-mark">TD</div>'
+                .'<div class="announcement-copy"><span class="eyebrow">OFFICIAL ANNOUNCEMENT</span>'
+                .'<strong>'.self::e((string)$settings['announcement']).'</strong>'
+                .'<small>Team Dark • '.self::e((string)($settings['announcement_published_at'] ?: 'Official update')).'</small></div>'
+                .'<span class="announcement-live"><i></i> LIVE</span></section>';
+        }
+
+        if (!$settings['panel_online']) {
+            $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
+        }
+        echo $head.'<body data-teamdark-ui="4">'
             .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>'
             .'<div class="app-layout"><aside class="sidebar" id="app-sidebar" aria-label="Primary navigation">'
             .'<a class="sidebar-brand" href="/dashboard"><span class="brand-mark"><b>TD</b><i></i></span>'
@@ -119,7 +131,7 @@ final class View
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'
             .'<main class="page-content">'.$notice.$body.'</main>'
             .'<footer><span>TeamDark secure control plane</span><span>Session encrypted</span></footer>'
-            .'</div></div><script src="/assets/app.js?v=20260909-3" defer></script></body></html>';
+            .'</div></div><script src="/assets/app.js?v=20260909-5" defer></script></body></html>';
     }
 
     public static function csrf(): string
