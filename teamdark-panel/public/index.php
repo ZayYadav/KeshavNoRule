@@ -308,7 +308,15 @@ function bearerUser(): array
     if (PanelControl::blocked($u)) jsonOut(['ok'=>false, 'error'=>'Panel under maintenance'], 503);
 
     Database::pdo()
-        ->prepare('UPDATE api_tokens SET last_used_at=NOW() WHERE id=?')
+        ->prepare(
+            'UPDATE api_tokens
+             SET last_used_at=NOW()
+             WHERE id=?
+               AND (
+                    last_used_at IS NULL
+                    OR last_used_at<DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+               )'
+        )
         ->execute([$u['token_id']]);
 
     unset($u['status'], $u['token_id']);
@@ -347,7 +355,11 @@ function issueApiToken(array $u): array
     $pdo->beginTransaction();
 
     try {
-        $pdo->prepare('DELETE FROM api_tokens WHERE expires_at<=NOW()')->execute();
+        $pdo->exec(
+            'DELETE FROM api_tokens
+             WHERE expires_at<=NOW()
+             LIMIT 1000'
+        );
         $pdo->prepare(
             'INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)'
         )->execute([(int)$u['id'], $hash, $expiresAt]);
