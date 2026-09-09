@@ -103,6 +103,7 @@ jobs:
           DB_USER="root"
           DB_PASS="root"
           SESSION_NAME="TDTESTSESSID"
+          REGISTRATION_BONUSES_ENABLED="false"
           REFERRER_BONUS="5"
           SIGNUP_BONUS="2"
           KEY_COST="1"
