@@ -28,6 +28,24 @@ final class Crypto
         return hash_hmac('sha256', $value, self::key());
     }
 
+    public static function licenseLookupHash(string $value): string
+    {
+        return hash_hmac('sha256', 'license|'.$value, self::key());
+    }
+
+    public static function legacyLicenseLookupHash(string $value): string
+    {
+        return hash('sha256', $value);
+    }
+
+    public static function licenseLookupHashes(string $value): array
+    {
+        return [
+            self::licenseLookupHash($value),
+            self::legacyLicenseLookupHash($value),
+        ];
+    }
+
     public static function decrypt(string $cipherB64, string $ivB64, string $tagB64): string
     {
         $plain = openssl_decrypt(

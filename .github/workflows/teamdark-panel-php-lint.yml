@@ -1,6 +1,12 @@
 name: TeamDark Panel PHP Lint
 
 on:
+  pull_request:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - 'teamdark-panel/**'
+      - '.github/workflows/teamdark-panel-php-lint.yml'
   push:
     branches:
       - TeamDarkLoader

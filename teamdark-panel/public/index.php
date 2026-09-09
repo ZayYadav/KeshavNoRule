@@ -37,7 +37,6 @@ foreach ([
 
 Config::load($root);
 Security::headers();
-Security::startSession();
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $path = rawurldecode(
@@ -47,6 +46,11 @@ $path = rawurldecode(
     )
 );
 $path = '/' . ltrim(preg_replace('#/+#', '/', $path) ?? '/', '/');
+
+// Bearer APIs are stateless; only browser routes need a PHP session cookie.
+if (!str_starts_with($path, '/api/')) {
+    Security::startSession();
+}
 
 function redirectTo(string $path): never
 {
@@ -80,8 +84,25 @@ function takeFlash(): string
 
 function jsonBody(): array
 {
+    $length = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($length > 65536) {
+        throw new RuntimeException('Invalid request body.');
+    }
+
     $raw = file_get_contents('php://input') ?: '';
-    $data = json_decode($raw, true);
+    if (strlen($raw) > 65536) {
+        throw new RuntimeException('Invalid request body.');
+    }
+
+    if ($raw === '') {
+        return [];
+    }
+
+    try {
+        $data = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
+    } catch (JsonException) {
+        return [];
+    }
 
     return is_array($data) ? $data : [];
 }
@@ -90,11 +111,30 @@ function jsonOut(array $data, int $status = 200): never
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0');
     echo json_encode(
         $data,
         JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
     );
     exit;
+}
+
+function safeMessage(Throwable $e, string $fallback = 'Request failed.'): string
+{
+    if ($e instanceof PDOException) {
+        error_log(
+            'TeamDark database request failure: '
+            .get_class($e)
+            .' at '
+            .basename($e->getFile())
+            .':'
+            .$e->getLine()
+        );
+        return $fallback;
+    }
+
+    $message = trim($e->getMessage());
+    return $message === '' ? $fallback : substr($message, 0, 300);
 }
 
 function roleRank(string $role): int
@@ -292,6 +332,23 @@ try {
         $username = strtolower(trim((string)($b['username'] ?? '')));
         $password = (string)($b['password'] ?? '');
 
+        if (
+            strlen($username) > 64
+            || strlen($password) > 200
+            || str_contains($username, "\0")
+        ) {
+            jsonOut(['ok'=>false, 'error'=>'Invalid credentials'], 401);
+        }
+
+        if ($username !== '') {
+            Security::rateLimit(
+                'api-login-account',
+                80,
+                900,
+                $username
+            );
+        }
+
         $q = Database::pdo()->prepare(
             'SELECT * FROM users WHERE username=? LIMIT 1'
         );
@@ -316,6 +373,10 @@ try {
             jsonOut(['ok'=>false, 'error'=>'Invalid credentials'], 401);
         }
 
+        if ($username !== '') {
+            Security::clearRateLimit('api-login-account', $username);
+        }
+
         $token = rtrim(
             strtr(base64_encode(random_bytes(48)), '+/', '-_'),
             '='
@@ -337,6 +398,23 @@ try {
                 'INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)'
             )
             ->execute([$u['id'], $hash, $expiresAt]);
+
+        // Bound token accumulation if credentials are repeatedly used for API login.
+        Database::pdo()
+            ->prepare(
+                "DELETE FROM api_tokens
+                 WHERE user_id=?
+                   AND id NOT IN (
+                       SELECT id FROM (
+                           SELECT id
+                           FROM api_tokens
+                           WHERE user_id=?
+                           ORDER BY id DESC
+                           LIMIT 20
+                       ) AS keep_tokens
+                   )"
+            )
+            ->execute([$u['id'], $u['id']]);
 
         Security::audit((int)$u['id'], 'api_login_success');
 
@@ -456,10 +534,17 @@ try {
     if ($path === '/login' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
 
-        if (!Auth::login(
-            input('username'),
-            (string)($_POST['password'] ?? '')
-        )) {
+        try {
+            $loggedIn = Auth::login(
+                input('username'),
+                (string)($_POST['password'] ?? '')
+            );
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e, 'Sign-in temporarily unavailable.'));
+            redirectTo('/login');
+        }
+
+        if (!$loggedIn) {
             flash('err', 'Invalid username or password.');
             redirectTo('/login');
         }
@@ -631,13 +716,14 @@ try {
                 $pdo->rollBack();
             }
 
-            $message = $e instanceof RuntimeException
-                ? $e->getMessage()
-                : (
-                    $e instanceof PDOException && $e->getCode() === '23000'
-                        ? 'Username already exists.'
-                        : 'Registration failed.'
-                );
+            if ($e instanceof PDOException) {
+                // Never expose SQLSTATE/driver/schema details to an unauthenticated user.
+                $message = 'Registration failed.';
+            } elseif ($e instanceof RuntimeException) {
+                $message = substr($e->getMessage(), 0, 300);
+            } else {
+                $message = 'Registration failed.';
+            }
 
             flash('err', $message);
             redirectTo('/register?ref='.urlencode($ref));
@@ -668,7 +754,7 @@ try {
             PanelControl::save($user, $_POST);
             flash('ok', 'Server controls updated.');
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
         redirectTo('/owner/settings');
     }
@@ -833,7 +919,7 @@ try {
                 .' to the Team Dark bot from that exact Chat ID.'
             );
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
 
         redirectTo('/dashboard');
@@ -847,7 +933,7 @@ try {
             unset($_SESSION['telegram_link_code']);
             flash('ok', 'Telegram account unlinked.');
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
 
         redirectTo('/dashboard');
@@ -887,7 +973,7 @@ try {
                 .'<form method="post" action="/keys/create" class="stack" data-action="Generate key" data-confirm="Generate this key with the selected validity and device limit?" data-busy="Generating secure key…">'
                 .View::csrf()
                 .'<div class="field"><label>Custom key <span class="optional">optional</span></label>'
-                .'<input name="custom_key" maxlength="80" placeholder="Team-Dark-MyVIPKey" autocomplete="off"></div>'
+                .'<input name="custom_key" minlength="12" maxlength="80" placeholder="Team-Dark-MyVIPKey" autocomplete="off"></div>'
                 .'<div class="field"><label>Label <span class="optional">optional</span></label>'
                 .'<input name="label" maxlength="100" placeholder="Customer / plan note"></div>'
                 .'<div class="form-row">'
@@ -1037,7 +1123,7 @@ try {
                 'Generated: '.$created['key'].' • Cost: '.$created['cost'].' credit(s).'
             );
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
 
         redirectTo('/keys');
@@ -1055,7 +1141,7 @@ try {
 
             flash('ok', 'Key updated.');
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
 
         redirectTo('/keys');
@@ -1137,7 +1223,7 @@ try {
             View::page('Devices', $body, $user);
             exit;
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
             redirectTo('/keys');
         }
     }
@@ -1165,7 +1251,7 @@ try {
                     : 'No active device binding changed.'
             );
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
 
         if (isset($_POST['quick']) && $_POST['quick'] === '1') {
@@ -1297,7 +1383,7 @@ try {
 
             flash('ok', 'Telegram guest key updated.');
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
 
         redirectTo('/telegram-users');
@@ -1501,7 +1587,7 @@ try {
             $invite = ReferralManager::create($user, input('role', 'user'));
             flash('ok', 'Referral created: '.$invite['code']);
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
 
         redirectTo('/users');
@@ -1564,7 +1650,7 @@ try {
             flash('ok', '@'.$target['username'].' is now '.$status.'.');
         } catch (Throwable $e) {
             if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
         redirectTo('/users');
     }
@@ -1590,7 +1676,7 @@ try {
             ]);
             flash('ok', '@'.$target['username'].' is now '.ucfirst($role).'.');
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
         redirectTo('/users');
     }
@@ -1609,7 +1695,7 @@ try {
             ]);
             flash('ok', 'Active API access revoked for @'.$target['username'].'.');
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
         redirectTo('/users');
     }
@@ -1629,7 +1715,7 @@ try {
             ]);
             flash('ok', 'Telegram disconnected for @'.$target['username'].'.');
         } catch (Throwable $e) {
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
         redirectTo('/users');
     }
@@ -1662,7 +1748,7 @@ try {
             flash('ok', 'Password reset and API access revoked for @'.$target['username'].'.');
         } catch (Throwable $e) {
             if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
         redirectTo('/users');
     }
@@ -1715,7 +1801,7 @@ try {
             flash('ok', 'Bulk action applied to '.count($ids).' users.');
         } catch (Throwable $e) {
             if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
         redirectTo('/users');
     }
@@ -1812,7 +1898,7 @@ try {
                 $pdo->rollBack();
             }
 
-            flash('err', $e->getMessage());
+            flash('err', safeMessage($e));
         }
 
         redirectTo('/users');
@@ -1830,21 +1916,49 @@ try {
         Auth::user()
     );
 } catch (Throwable $e) {
+    $incident = bin2hex(random_bytes(6));
+    error_log(
+        'TeamDark request failure ['.$incident.']: '
+        .get_class($e)
+        .' at '
+        .basename($e->getFile())
+        .':'
+        .$e->getLine()
+    );
+
+    $rateLimited = $e instanceof RuntimeException
+        && $e->getMessage() === 'Too many requests. Try again later.';
+
     if (str_starts_with($path, '/api/')) {
+        if ($rateLimited) {
+            header('Retry-After: 600');
+        }
         jsonOut([
             'ok'=>false,
-            'error'=>'Request failed',
-        ], 400);
+            'error'=>$rateLimited ? 'Too many requests' : 'Request failed',
+        ], $rateLimited ? 429 : 400);
     }
 
-    http_response_code(400);
-    $u = Auth::user();
+    http_response_code($rateLimited ? 429 : 400);
+    if ($rateLimited) {
+        header('Retry-After: 600');
+    }
+
+    try {
+        $u = Auth::user();
+    } catch (Throwable) {
+        $u = null;
+    }
 
     View::page(
         'Request failed',
         '<section class="auth"><div class="card">'
             .'<h1>Request failed</h1>'
-            .'<div class="alert">'.View::e($e->getMessage()).'</div>'
+            .'<div class="alert">'
+            .($rateLimited
+                ? 'Too many requests. Try again later.'
+                : 'The request could not be completed. Reference: '.View::e($incident))
+            .'</div>'
             .'<a class="btn" href="/">Go back</a>'
             .'</div></section>',
         $u

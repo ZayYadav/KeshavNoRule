@@ -67,16 +67,19 @@ final class LicenseService
         }
 
         $pdo = Database::pdo();
+        [$keyHash, $legacyKeyHash] =
+            Crypto::licenseLookupHashes($plainKey);
 
         if ($deviceLabel !== '') {
             $pdo->prepare(
                 "UPDATE license_devices d
                  JOIN license_keys k ON k.id=d.license_key_id
                  SET d.device_label=?
-                 WHERE k.key_hash=? AND d.serial=?"
+                 WHERE k.key_hash IN (?,?) AND d.serial=?"
             )->execute([
                 substr($deviceLabel, 0, 120),
-                hash('sha256', $plainKey),
+                $keyHash,
+                $legacyKeyHash,
                 $deviceId,
             ]);
         }
@@ -86,10 +89,11 @@ final class LicenseService
                     (SELECT COUNT(*) FROM license_devices d
                      WHERE d.license_key_id=k.id AND d.active=1) AS used_devices
              FROM license_keys k
-             WHERE k.key_hash=?
+             WHERE k.key_hash IN (?,?)
+             ORDER BY CASE WHEN k.key_hash=? THEN 0 ELSE 1 END
              LIMIT 1"
         );
-        $q->execute([hash('sha256', $plainKey)]);
+        $q->execute([$keyHash, $legacyKeyHash, $keyHash]);
         $row = $q->fetch();
 
         if (!$row) {

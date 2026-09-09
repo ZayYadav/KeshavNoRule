@@ -71,6 +71,30 @@ try {
     check(PanelControl::settings()['revision']===$before,'CSRF blocks settings mutation');
 
     $created = KeyManager::create($user,'history fixture',86400,false,1,false);
+    check(
+        (bool)preg_match('/^Team-Dark-[A-HJ-NP-Z2-9]{16}$/', $created['key']),
+        'generated license uses hardened 16-character token'
+    );
+    $hashQ = $pdo->prepare('SELECT key_hash FROM license_keys WHERE id=?');
+    $hashQ->execute([$created['id']]);
+    check(
+        hash_equals(
+            Crypto::licenseLookupHash($created['key']),
+            (string)$hashQ->fetchColumn()
+        ),
+        'new license stores keyed HMAC lookup hash'
+    );
+    $newConnect = request($guest,'/connect',[
+        'game'=>'PUBG',
+        'user_key'=>$created['key'],
+        'serial'=>'HMAC-CONTRACT-DEVICE',
+    ]);
+    $newConnectJson = json_decode($newConnect['body'], true);
+    check(
+        $newConnect['status']===200
+        && ($newConnectJson['status'] ?? false)===true,
+        'hardened HMAC license authenticates through unchanged Loader endpoint'
+    );
     KeyManager::action($user,$created['id'],'delete');
     $q = $pdo->prepare("SELECT COUNT(*) FROM audit_logs WHERE user_id=? AND action IN ('license_created','license_delete')");$q->execute([$uid]);
     check((int)$q->fetchColumn()===2,'creation and deletion both retained');
@@ -111,6 +135,15 @@ try {
     request($guest,'/register',['csrf'=>token($reg['body']),'referral'=>'anything','name'=>'Blocked user','username'=>'blocked-registration','password'=>'ContractTest@12345']);
     check((int)$pdo->query("SELECT COUNT(*) FROM users WHERE username='blocked-registration'")->fetchColumn()===0,'closed registration creates no account');
     saveSettings($ownerClient,$ownerCsrf,[]);
+
+    $reset = request($ownerClient,'/users/password',[
+        'csrf'=>$ownerCsrf,
+        'user_id'=>$uid,
+        'password'=>'Replacement@12345',
+    ]);
+    check($reset['status']===303,'owner password reset accepted');
+    check(request($userClient,'/dashboard')['status']===302,'password reset revokes existing web session');
+
     foreach (['/users/status'=>['action'=>'disable'],'/users/role'=>['role'=>'admin'],'/users/password'=>['password'=>'Replacement@12345']] as $path=>$payload) {
         request($ownerClient,$path,['csrf'=>$ownerCsrf,'user_id'=>$owner['id']]+$payload);
     }

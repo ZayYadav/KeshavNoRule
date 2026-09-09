@@ -5,7 +5,7 @@ Standalone PHP 8.2+ / MySQL TeamDark control panel with native Loader authentica
 ## Main features
 - Owner / Admin / Reseller / User hierarchy.
 - One-time referral registration. Owner can create Admin / Reseller / User referrals; Admin can create User referrals.
-- Self-owned key generation with optional custom key and automatic `Team-Dark-XXXXXXXXX` format.
+- Self-owned key generation with optional custom key and automatic high-entropy `Team-Dark-XXXXXXXXXXXXXXXX` format.
 - First successful Loader login starts the license timer.
 - Per-key block/unblock, device reset and delete controls.
 - Telegram account linking with Chat ID + 15-minute one-time verification code.
@@ -79,3 +79,15 @@ The current native Loader contract remains `POST /connect` with form fields `gam
 - Native 19-case Loader integration suite
 - Telegram guest-key/link contract
 - Single-SQL upgrade contract
+
+
+## Security deployment hardening
+- Prefer the web-server document root to point directly at `teamdark-panel/public`. The parent `app`, `database`, `bin`, `tests`, `vendor`, `storage` and `.env` paths must never be web-accessible.
+- Keep `.env` outside public access and restrict filesystem permissions to the hosting account. Never commit the real `.env`.
+- Use a dedicated MySQL user for this database; do not use the MySQL root account in production. Keep MySQL port 3306 firewalled from the public internet unless a trusted remote DB connection is explicitly required.
+- Keep `display_errors=Off` in production. Detailed failures belong in server logs; browser/API responses intentionally use generic errors.
+- Web sessions expire after inactivity, rotate their IDs periodically, and require a fresh sign-in after the configured absolute lifetime. Password changes invalidate older PHP web sessions.
+- Keep HTTPS enabled. The panel emits HSTS and no-store headers on UI, API, Loader and Telegram webhook responses.
+- Generated license keys use high-entropy randomness. New custom keys must be at least 12 characters; generated keys are preferred.
+- Rotate `APP_KEY`, database credentials, Telegram secrets, and the native auth secret if the server `.env` is ever exposed. Rotating `APP_KEY` requires a planned key-data migration because it encrypts stored license material.
+- The existing native Loader `/connect` request and response contract is unchanged by these server-side protections.

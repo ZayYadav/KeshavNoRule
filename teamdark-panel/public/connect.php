@@ -46,6 +46,13 @@ try {
     }
 
     Config::load($root);
+    Security::headers();
+
+    // Preserve the exact existing Loader cache/header contract after shared headers.
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Surrogate-Control: no-store');
+    header('Cloudflare-CDN-Cache-Control: no-store');
 
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         teamdarkJson([
