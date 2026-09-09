@@ -36,8 +36,8 @@ final class ReferralManager
 
             try {
                 $pdo->prepare(
-                    "INSERT INTO referral_invites(code,created_by,role,status)
-                     VALUES(?,?,?,'pending')"
+                    "INSERT INTO referral_invites(code,created_by,role,status,expires_at)
+                     VALUES(?,?,?,'pending',DATE_ADD(NOW(),INTERVAL 7 DAY))"
                 )->execute([
                     $code,
                     $actor['id'],
@@ -69,8 +69,82 @@ final class ReferralManager
         throw new RuntimeException('Could not generate a unique referral. Try again.');
     }
 
+    public static function creatorCanIssueRole(string $creatorRole, string $inviteRole): bool
+    {
+        return in_array(
+            $inviteRole,
+            match ($creatorRole) {
+                'owner' => ['admin','reseller','user'],
+                'admin' => ['user'],
+                default => [],
+            },
+            true
+        );
+    }
+
+    public static function revokeUnauthorizedPendingForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $pdo = Database::pdo();
+        $q = $pdo->prepare(
+            'SELECT role,status FROM users WHERE id=? LIMIT 1'
+        );
+        $q->execute([$userId]);
+        $user = $q->fetch();
+
+        if (!$user) {
+            return 0;
+        }
+
+        $allowed = $user['status'] === 'active'
+            ? match ($user['role']) {
+                'owner' => ['admin','reseller','user'],
+                'admin' => ['user'],
+                default => [],
+            }
+            : [];
+
+        if (!$allowed) {
+            $q = $pdo->prepare(
+                "UPDATE referral_invites
+                 SET status='revoked'
+                 WHERE created_by=? AND status='pending'"
+            );
+            $q->execute([$userId]);
+            return $q->rowCount();
+        }
+
+        $placeholders = implode(',', array_fill(0, count($allowed), '?'));
+        $params = array_merge([$userId], $allowed);
+        $q = $pdo->prepare(
+            "UPDATE referral_invites
+             SET status='revoked'
+             WHERE created_by=?
+               AND status='pending'
+               AND role NOT IN (".$placeholders.")"
+        );
+        $q->execute($params);
+        return $q->rowCount();
+    }
+
+    public static function expireDue(): void
+    {
+        Database::pdo()->prepare(
+            "UPDATE referral_invites
+             SET status='revoked'
+             WHERE status='pending'
+               AND expires_at IS NOT NULL
+               AND expires_at<=NOW()"
+        )->execute();
+    }
+
     public static function visible(array $actor): array
     {
+        self::expireDue();
+
         if (!in_array(($actor['role'] ?? ''), ['owner','admin'], true)) {
             return [];
         }
