@@ -6,6 +6,8 @@ namespace TeamDark\Panel;
 final class Auth
 {
     private const RANK = ['user'=>10, 'reseller'=>20, 'admin'=>30, 'owner'=>40];
+    private const DUMMY_ARGON2ID = '$argon2id$v=19$m=65536,t=4,p=1$VmVuUVpSWm54NEEyeHJ1Mg$XoqYx0CQDm9yJB+0q/i+ivj1l4sjH89XyZ8MNoXoL08';
+    private const DUMMY_BCRYPT = '$2y$12$zYcdqDv5f4UR2jduEo6UyOaUM7WWi5ci5BNrQz3.o4JLTIklNan6a';
 
     private static function passwordFingerprint(string $hash): string
     {
@@ -76,6 +78,13 @@ final class Auth
         return $actor['role'] === 'owner' ? $targetRank < 40 : $targetRank < $actorRank;
     }
 
+    private static function dummyPasswordHash(): string
+    {
+        return defined('PASSWORD_ARGON2ID')
+            ? self::DUMMY_ARGON2ID
+            : self::DUMMY_BCRYPT;
+    }
+
     public static function verifyPasswordCredentials(
         string $username,
         string $password,
@@ -83,6 +92,7 @@ final class Auth
     ): ?array {
         $normalizedUsername = strtolower(trim($username));
 
+        // IP throttling protects the expensive password hash operation.
         Security::rateLimit($ratePrefix, 8, 600);
 
         if (
@@ -90,16 +100,11 @@ final class Auth
             || strlen($password) > 200
             || str_contains($normalizedUsername, "\0")
         ) {
-            return null;
-        }
-
-        if ($normalizedUsername !== '') {
-            Security::rateLimit(
-                $ratePrefix.'-account',
-                12,
-                900,
-                $normalizedUsername
+            password_verify(
+                substr($password, 0, 200),
+                self::dummyPasswordHash()
             );
+            return null;
         }
 
         $q = Database::pdo()->prepare(
@@ -108,34 +113,60 @@ final class Auth
         $q->execute([$normalizedUsername]);
         $u = $q->fetch();
 
-        $dummy = '$2y$10$usesomesillystringfore7hnbRJHxXVLeakoG8K30oukPsA.ztMG';
+        // Always perform one password hash verification, including missing
+        // and disabled accounts, to reduce username/status timing leakage.
+        $verifyHash = $u
+            ? (string)$u['password_hash']
+            : self::dummyPasswordHash();
 
-        if (!$u) {
-            password_verify($password, $dummy);
-        }
-
+        $passwordOk = password_verify($password, $verifyHash);
         $ok = $u
             && $u['status'] === 'active'
-            && password_verify($password, (string)$u['password_hash']);
+            && $passwordOk;
+
+        if (!$ok) {
+            $accountLimited = false;
+
+            if ($normalizedUsername !== '') {
+                try {
+                    // This bucket is charged only after a failed password.
+                    // A correct password is never blocked by an attacker
+                    // deliberately exhausting the account bucket.
+                    Security::rateLimit(
+                        $ratePrefix.'-account',
+                        12,
+                        900,
+                        $normalizedUsername
+                    );
+                } catch (\RuntimeException $e) {
+                    if ($e->getMessage() === 'Too many requests. Try again later.') {
+                        $accountLimited = true;
+                        usleep(250000);
+                    } else {
+                        throw $e;
+                    }
+                }
+            }
+
+            Security::audit(
+                $u ? (int)$u['id'] : null,
+                $ratePrefix === 'api-login' ? 'api_login_failed' : 'login_failed',
+                [
+                    'username'=>substr($normalizedUsername, 0, 64),
+                    'account_limited'=>$accountLimited,
+                ]
+            );
+            return null;
+        }
 
         if (
-            $ok
-            && !empty($u['login_not_before'])
+            !empty($u['login_not_before'])
             && strtotime((string)$u['login_not_before']) > time()
         ) {
             Security::audit((int)$u['id'], 'login_delayed', [
                 'not_before'=>$u['login_not_before'],
             ]);
             throw new \RuntimeException('Account activation delay is still active. Try again shortly.');
-        }
-
-        if (!$ok) {
-            Security::audit(
-                $u ? (int)$u['id'] : null,
-                $ratePrefix === 'api-login' ? 'api_login_failed' : 'login_failed',
-                ['username'=>substr($normalizedUsername, 0, 64)]
-            );
-            return null;
         }
 
         if (password_needs_rehash(
@@ -155,17 +186,80 @@ final class Auth
         }
 
         if ($normalizedUsername !== '') {
-            Security::clearRateLimit($ratePrefix.'-account', $normalizedUsername);
+            Security::clearRateLimit(
+                $ratePrefix.'-account',
+                $normalizedUsername
+            );
         }
 
-        try {
-            Security::audit((int)$u['id'], 'password_verified', [
-                'second_factor_required'=>(int)($u['telegram_2fa_enabled'] ?? 0) === 1,
-            ]);
-        } catch (\Throwable) {
-        }
+        Security::audit((int)$u['id'], 'password_verified', [
+            'second_factor_required'=>(int)($u['telegram_2fa_enabled'] ?? 0) === 1,
+        ]);
 
         return $u;
+    }
+
+    public static function verifyCurrentPassword(
+        array $user,
+        string $password,
+        string $purpose = 'reauth'
+    ): void {
+        $userId = (int)($user['id'] ?? 0);
+
+        if ($userId <= 0 || strlen($password) > 200) {
+            throw new \RuntimeException('Current password is incorrect.');
+        }
+
+        Security::rateLimit($purpose.'-ip', 20, 900);
+
+        $q = Database::pdo()->prepare(
+            "SELECT password_hash,status
+             FROM users
+             WHERE id=?
+             LIMIT 1"
+        );
+        $q->execute([$userId]);
+        $row = $q->fetch();
+
+        $hash = $row
+            ? (string)$row['password_hash']
+            : self::dummyPasswordHash();
+
+        $valid = password_verify($password, $hash)
+            && $row
+            && $row['status'] === 'active';
+
+        if (!$valid) {
+            try {
+                Security::rateLimit(
+                    $purpose.'-user',
+                    8,
+                    900,
+                    (string)$userId
+                );
+            } catch (\RuntimeException $e) {
+                if ($e->getMessage() === 'Too many requests. Try again later.') {
+                    usleep(250000);
+                } else {
+                    throw $e;
+                }
+            }
+
+            Security::audit($userId, 'reauth_failed', [
+                'purpose'=>substr($purpose, 0, 60),
+            ]);
+            throw new \RuntimeException('Current password is incorrect.');
+        }
+
+        Security::clearRateLimit(
+            $purpose.'-user',
+            (string)$userId
+        );
+        self::markRecentAuth();
+
+        Security::audit($userId, 'reauth_success', [
+            'purpose'=>substr($purpose, 0, 60),
+        ]);
     }
 
     public static function completeLogin(array $user): void
