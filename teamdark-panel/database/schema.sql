@@ -386,6 +386,44 @@ CREATE TABLE IF NOT EXISTS telegram_update_ids (
   INDEX idx_tg_update_received(received_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS announcement_broadcasts (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  created_by BIGINT UNSIGNED NOT NULL,
+  message VARCHAR(1000) NOT NULL,
+  panel_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  target_linked TINYINT(1) NOT NULL DEFAULT 0,
+  target_guests TINYINT(1) NOT NULL DEFAULT 0,
+  status ENUM('queued','sending','completed','partial','cancelled') NOT NULL DEFAULT 'queued',
+  total_recipients INT UNSIGNED NOT NULL DEFAULT 0,
+  sent_count INT UNSIGNED NOT NULL DEFAULT 0,
+  failed_count INT UNSIGNED NOT NULL DEFAULT 0,
+  started_at DATETIME NULL,
+  finished_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_announcement_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_announcement_status(status),
+  INDEX idx_announcement_created(created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS announcement_recipients (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  broadcast_id BIGINT UNSIGNED NOT NULL,
+  telegram_user_id BIGINT UNSIGNED NULL,
+  chat_id BIGINT NOT NULL,
+  audience ENUM('linked','guest') NOT NULL,
+  status ENUM('pending','sending','sent','failed') NOT NULL DEFAULT 'pending',
+  attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  last_error VARCHAR(160) NULL,
+  sent_at DATETIME NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_announcement_recipient_broadcast FOREIGN KEY (broadcast_id) REFERENCES announcement_broadcasts(id) ON DELETE CASCADE,
+  CONSTRAINT fk_announcement_recipient_tg FOREIGN KEY (telegram_user_id) REFERENCES telegram_users(id) ON DELETE SET NULL,
+  UNIQUE KEY uq_announcement_chat(broadcast_id,chat_id),
+  INDEX idx_announcement_recipient_status(broadcast_id,status),
+  INDEX idx_announcement_recipient_tg(telegram_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NULL,
