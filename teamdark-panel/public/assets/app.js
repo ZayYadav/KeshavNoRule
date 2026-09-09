@@ -437,6 +437,46 @@
     });
   });
 
+  var registrationCountdown = document.querySelector('[data-registration-countdown]');
+  if (registrationCountdown) {
+    var seconds = parseInt(registrationCountdown.getAttribute('data-registration-countdown') || '15', 10);
+    var countdownOrb = document.querySelector('.countdown-panel .security-orb');
+    var deadline = Date.now() + Math.max(1, seconds) * 1000;
+    var timer = null;
+
+    var renderCountdown = function () {
+      var remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+
+      if (remaining > 0) {
+        registrationCountdown.textContent = 'OK • ' + remaining + 's';
+        registrationCountdown.classList.add('is-disabled');
+        registrationCountdown.setAttribute('aria-disabled', 'true');
+        registrationCountdown.setAttribute('tabindex', '-1');
+        if (countdownOrb) countdownOrb.textContent = String(remaining);
+        return;
+      }
+
+      registrationCountdown.textContent = 'OK • Continue to login';
+      registrationCountdown.classList.remove('is-disabled');
+      registrationCountdown.setAttribute('aria-disabled', 'false');
+      registrationCountdown.removeAttribute('tabindex');
+      if (countdownOrb) countdownOrb.textContent = '✓';
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    registrationCountdown.addEventListener('click', function (event) {
+      if (registrationCountdown.classList.contains('is-disabled')) {
+        event.preventDefault();
+      }
+    });
+
+    renderCountdown();
+    timer = setInterval(renderCountdown, 250);
+  }
+
   window.addEventListener('pageshow', function () {
     hideBusy();
     document.querySelectorAll('[data-confirmed]').forEach(function (form) { form.removeAttribute('data-confirmed'); });
