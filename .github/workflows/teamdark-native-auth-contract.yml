@@ -71,7 +71,182 @@ jobs:
           grep -F 'rng < now - 60 || rng > now + 60' app/src/main/jni/main.cpp >/dev/null
 
           # Server hardening must never alter the native request/response contract.
-          grep -F "teamdarkJson($" teamdark-panel/public/connect.php >/dev/null
+          grep -F 'teamdarkJson(
+          grep -F "'status'=>true" teamdark-panel/app/LoaderAuthService.php >/dev/null
+          grep -F "'token'=>self::makeToken(" teamdark-panel/app/LoaderAuthService.php >/dev/null
+          grep -F "'rng'=>\$rng" teamdark-panel/app/LoaderAuthService.php >/dev/null
+
+          SECRET="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          source = Path('app/src/main/jni/main.cpp').read_text(encoding='utf-8')
+          match = re.search(r'auth\s*\+=\s*oxorany\("([^"]+)"\);', source)
+          if not match:
+              raise SystemExit('native auth secret not found')
+          print(match.group(1))
+          PY
+          )"
+
+          test -n "$SECRET"
+          echo "::add-mask::$SECRET"
+          echo "TEAMDARK_AUTH_SECRET=$SECRET" >> "$GITHUB_ENV"
+
+      - name: Configure isolated TeamDark test panel
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_KEY="$(php -r 'echo base64_encode(random_bytes(32));')"
+          echo "::add-mask::$APP_KEY"
+
+          cat > teamdark-panel/.env <<EOF
+          APP_NAME="TeamDark Contract Test"
+          APP_URL="http://127.0.0.1:8080"
+          APP_KEY="$APP_KEY"
+          DB_HOST="127.0.0.1"
+          DB_PORT="3306"
+          DB_NAME="teamdark_test"
+          DB_USER="root"
+          DB_PASS="root"
+          SESSION_NAME="TDTESTSESSID"
+          REFERRER_BONUS="5"
+          SIGNUP_BONUS="2"
+          KEY_COST="1"
+          UNLIMITED_KEY_COST="100"
+          TEAMDARK_AUTH_SECRET="$TEAMDARK_AUTH_SECRET"
+          TELEGRAM_BOT_TOKEN="123456:TEST_TOKEN_FOR_CONTRACT_ONLY"
+          TELEGRAM_WEBHOOK_SECRET="Contract_Webhook_Secret_123456789"
+          TELEGRAM_OWNER_CHAT_ID="7000000099"
+          API_TOKEN_TTL="86400"
+          LEGACY_LICENSE_API_ENABLED="false"
+          API_REVEAL_LICENSE_KEYS="false"
+          TELEGRAM_OWNER_MUTATIONS_ENABLED="false"
+          TELEGRAM_LINKED_KEY_GENERATION_ENABLED="false"
+          TRUSTED_PROXY_CIDRS=""
+          EOF
+
+      - name: Import schema and seed contract fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql -h127.0.0.1 -uroot -proot teamdark_test < teamdark-panel/database/schema.sql
+          php teamdark-panel/tests/seed_native_auth.php > /tmp/teamdark-fixture.json
+          jq -e 'type=="object"' /tmp/teamdark-fixture.json >/dev/null
+          php teamdark-panel/tests/telegram_contract.php
+          php teamdark-panel/tests/server_hardening_contract.php
+
+      - name: Verify single SQL install and upgrade contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test "$(find teamdark-panel -type f -name '*.sql' | wc -l)" -eq 1
+          test -f teamdark-panel/database/schema.sql
+
+          mysql -h127.0.0.1 -uroot -proot -e "DROP DATABASE IF EXISTS teamdark_migration; CREATE DATABASE teamdark_migration CHARACTER SET utf8mb4;"
+
+          mysql -h127.0.0.1 -uroot -proot teamdark_migration <<'SQL'
+          CREATE TABLE users (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            username VARCHAR(64) NOT NULL UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            role ENUM('owner','admin','reseller','user') NOT NULL DEFAULT 'user',
+            balance INT UNSIGNED NOT NULL DEFAULT 0,
+            referral_code VARCHAR(32) NOT NULL UNIQUE,
+            referred_by BIGINT UNSIGNED NULL,
+            created_by BIGINT UNSIGNED NULL,
+            status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+            last_login_at DATETIME NULL,
+            last_login_ip VARCHAR(45) NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+          CREATE TABLE license_keys (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            owner_user_id BIGINT UNSIGNED NOT NULL,
+            created_by BIGINT UNSIGNED NOT NULL,
+            key_hash CHAR(64) NOT NULL UNIQUE,
+            key_cipher TEXT NOT NULL,
+            key_iv VARCHAR(64) NOT NULL,
+            key_tag VARCHAR(64) NOT NULL,
+            label VARCHAR(100) NOT NULL DEFAULT '',
+            expires_at DATETIME NULL,
+            status ENUM('active','disabled','expired') NOT NULL DEFAULT 'active',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+          CREATE TABLE license_devices (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            license_key_id BIGINT UNSIGNED NOT NULL,
+            device_hash CHAR(64) NOT NULL,
+            device_label VARCHAR(120) NOT NULL DEFAULT '',
+            first_seen_at DATETIME NOT NULL,
+            last_seen_at DATETIME NOT NULL
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+          CREATE TABLE balance_ledger (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NOT NULL,
+            actor_user_id BIGINT UNSIGNED NULL,
+            amount INT NOT NULL,
+            reason VARCHAR(160) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          SQL
+
+          mysql -h127.0.0.1 -uroot -proot teamdark_migration < teamdark-panel/database/schema.sql
+
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_chat_id';" | grep -F 'telegram_chat_id' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_2fa_enabled';" | grep -F 'telegram_2fa_enabled' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_2fa_enabled_at';" | grep -F 'telegram_2fa_enabled_at' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'auth_version';" | grep -F 'auth_version' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'login_not_before';" | grep -F 'login_not_before' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'telegram_2fa_activation_tokens';" | grep -F 'telegram_2fa_activation_tokens' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'login_2fa_challenges';" | grep -F 'login_2fa_challenges' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'key_source';" | grep -F 'key_source' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'telegram_user_id';" | grep -F 'telegram_user_id' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_devices LIKE 'serial';" | grep -F 'serial' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'telegram_users';" | grep -F 'telegram_users' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'announcement_broadcasts';" | grep -F 'announcement_broadcasts' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'announcement_recipients';" | grep -F 'announcement_recipients' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW INDEX FROM license_devices WHERE Key_name='uq_key_serial';" | grep -F 'uq_key_serial' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW INDEX FROM license_devices WHERE Key_name='uq_key_device_hash';" | grep -F 'uq_key_device_hash' >/dev/null
+      - name: Start isolated PHP endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup php -S 127.0.0.1:8080 -t teamdark-panel/public teamdark-panel/tests/router.php >/tmp/teamdark-php.log 2>&1 &
+          echo $! >/tmp/teamdark-php.pid
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/connect >/tmp/connect-ready.json 2>/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat /tmp/teamdark-php.log >&2 || true
+          exit 1
+
+      - name: Verify owner controls, history and maintenance
+        run: php teamdark-panel/tests/owner_controls_integration.php
+
+      - name: Run 19-case native auth integration suite
+        shell: bash
+        env:
+          FIXTURE: /tmp/teamdark-fixture.json
+          BASE_URL: http://127.0.0.1:8080
+        run: |
+          set -euo pipefail
+          bash teamdark-panel/tests/native_auth_integration.sh
+
+      - name: Show PHP server log on failure
+        if: failure()
+        shell: bash
+        run: |
+          cat /tmp/teamdark-php.log 2>/dev/null || true
+ teamdark-panel/public/connect.php >/dev/null
           grep -F "'status'=>true" teamdark-panel/app/LoaderAuthService.php >/dev/null
           grep -F "'token'=>self::makeToken(" teamdark-panel/app/LoaderAuthService.php >/dev/null
           grep -F "'rng'=>$rng" teamdark-panel/app/LoaderAuthService.php >/dev/null
