@@ -1,5 +1,5 @@
 
-rootProject.name = "JaduLoader"
+rootProject.name = "ParallaxLoader"
 include ':app'
 //include ':MundoCore'
 

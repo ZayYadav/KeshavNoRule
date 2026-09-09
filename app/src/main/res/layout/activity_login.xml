@@ -71,7 +71,7 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:layout_gravity="center"
-                        android:contentDescription="JADU LOADER"
+                        android:contentDescription="PARALLAX LOADER"
                         android:src="@drawable/icon" />
                 </com.google.android.material.card.MaterialCardView>
 
@@ -88,7 +88,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-black"
                         android:letterSpacing="0.10"
-                        android:text="JADU LOADER"
+                        android:text="PARALLAX LOADER"
                         android:textColor="@color/white"
                         android:textSize="28sp"
                         android:textStyle="bold" />
@@ -294,7 +294,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="JADU LOADER SECURITY CORE"
+                    android:text="PARALLAX LOADER SECURITY CORE"
                     android:textColor="@color/text_muted"
                     android:textSize="10sp"
                     android:textStyle="bold" />

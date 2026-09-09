@@ -72,7 +72,7 @@ Java_com_bgmi_KeshavOwner2_nativeCustomIntegrity(
         JNIEnv *env,
         jclass,
         jobject context) {
-    return keshav_integrity::run(env, context) ? JNI_TRUE : JNI_FALSE;
+    return parallax_integrity::run(env, context) ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C"
@@ -91,7 +91,7 @@ Java_com_bgmi_KeshavOwner2_nativeVerifyServerLoader(
     const char *hashChars = env->GetStringUTFChars(expectedHash, nullptr);
     if (!hashChars) return JNI_FALSE;
 
-    const bool ok = keshav_integrity::verify_server_loader(
+    const bool ok = parallax_integrity::verify_server_loader(
             env,
             context,
             hashChars,
