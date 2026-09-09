@@ -480,6 +480,21 @@
     timer = setInterval(renderCountdown, 250);
   }
 
+  var audienceAll = document.querySelector('[data-audience-all]');
+  var audienceOptions = Array.prototype.slice.call(document.querySelectorAll('[data-audience-option]'));
+  if (audienceAll && audienceOptions.length) {
+    var syncAudienceAll = function () {
+      audienceAll.checked = audienceOptions.every(function (item) { return item.checked; });
+      audienceAll.indeterminate = !audienceAll.checked && audienceOptions.some(function (item) { return item.checked; });
+    };
+    audienceAll.addEventListener('change', function () {
+      audienceOptions.forEach(function (item) { item.checked = audienceAll.checked; });
+      syncAudienceAll();
+    });
+    audienceOptions.forEach(function (item) { item.addEventListener('change', syncAudienceAll); });
+    syncAudienceAll();
+  }
+
   var broadcastMessage = document.querySelector('#broadcast-message');
   var charCount = document.querySelector('[data-char-count]');
   if (broadcastMessage && charCount) {
