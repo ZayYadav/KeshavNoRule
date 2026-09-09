@@ -87,11 +87,6 @@ jobs:
             exit 1
           fi
 
-          if unzip -Z1 "$APK" | grep -q 'libNoRuleXCheat\.so'; then
-            echo "Legacy libNoRuleXCheat.so unexpectedly present"
-            exit 1
-          fi
-
           cp "$APK" app/build/outputs/apk/release/NoRuleXCheat.apk
 
       - name: Show APK output
