@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/cyber_bg_gradient">
+    android:background="@drawable/nrx_page_bg">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -17,9 +17,9 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="20dp"
-            android:paddingTop="44dp"
+            android:paddingTop="48dp"
             android:paddingEnd="20dp"
-            android:paddingBottom="28dp">
+            android:paddingBottom="30dp">
 
             <LinearLayout
                 android:id="@+id/headerArea"
@@ -30,17 +30,15 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/logoContainer"
-                    android:layout_width="66dp"
-                    android:layout_height="66dp"
-                    app:cardBackgroundColor="#17181B"
-                    app:cardCornerRadius="18dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/cyber_amber"
-                    app:strokeWidth="1dp">
+                    android:layout_width="54dp"
+                    android:layout_height="54dp"
+                    app:cardBackgroundColor="#FFFFFF"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp">
 
                     <ImageView
-                        android:layout_width="40dp"
-                        android:layout_height="40dp"
+                        android:layout_width="34dp"
+                        android:layout_height="34dp"
                         android:layout_gravity="center"
                         android:contentDescription="NoRuleXCheat"
                         android:src="@drawable/icon" />
@@ -50,79 +48,78 @@
                     android:id="@+id/titleBanner"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="16dp"
+                    android:layout_marginStart="14dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.18"
-                        android:text="NRX / ACCESS NODE"
-                        android:textColor="@color/cyber_amber"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:text="NORULE X"
+                        android:textColor="@color/white"
+                        android:textSize="15sp"
+                        android:textStyle="bold"/>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:fontFamily="sans-serif-black"
-                        android:text="NoRuleXCheat"
-                        android:textColor="@color/white"
-                        android:textSize="25sp"
-                        android:textStyle="bold" />
+                        android:layout_marginTop="2dp"
+                        android:letterSpacing="0.14"
+                        android:text="PRIVATE CLIENT / 01"
+                        android:textColor="#83909F"
+                        android:textSize="9sp"
+                        android:textStyle="bold"/>
                 </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/cyber_badge_green"
+                    android:background="@drawable/nrx_chip"
                     android:paddingStart="10dp"
-                    android:paddingTop="6dp"
+                    android:paddingTop="7dp"
                     android:paddingEnd="10dp"
-                    android:paddingBottom="6dp"
+                    android:paddingBottom="7dp"
                     android:text="ONLINE"
-                    android:textColor="@color/cyber_emerald"
+                    android:textColor="@color/nrx_ink"
                     android:textSize="9sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"/>
             </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="32dp"
+                android:layout_marginTop="34dp"
                 android:fontFamily="sans-serif-black"
-                android:lineSpacingExtra="1dp"
-                android:text="ENTER THE\nPRIVATE NODE."
+                android:lineSpacingExtra="-2dp"
+                android:text="Access without\nnoise."
                 android:textColor="@color/white"
-                android:textSize="34sp"
-                android:textStyle="bold" />
+                android:textSize="40sp"
+                android:textStyle="bold"/>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="One key. One session. Authorized access only."
-                android:textColor="@color/text_muted"
-                android:textSize="12sp" />
+                android:layout_marginTop="10dp"
+                android:text="Private verification layer for authorized NoRuleXCheat sessions."
+                android:textColor="#9AA4B1"
+                android:textSize="12sp"/>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/loginCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
-                app:cardBackgroundColor="#F0131417"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:strokeColor="#33FFFFFF"
+                android:layout_marginTop="38dp"
+                app:cardBackgroundColor="#FFFFFF"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="8dp"
+                app:strokeColor="#E2E6EC"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="20dp">
+                    android:padding="22dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -130,32 +127,46 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <TextView
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:letterSpacing="0.15"
-                            android:text="01 / LICENSE"
-                            android:textColor="@color/cyber_amber"
-                            android:textSize="10sp"
-                            android:textStyle="bold" />
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="License access"
+                                android:textColor="@color/nrx_ink"
+                                android:textSize="20sp"
+                                android:textStyle="bold"/>
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="3dp"
+                                android:text="Paste your key to continue"
+                                android:textColor="@color/nrx_ink_soft"
+                                android:textSize="11sp"/>
+                        </LinearLayout>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="ENCRYPTED INPUT"
-                            android:textColor="@color/text_muted"
-                            android:textSize="9sp" />
+                            android:text="01"
+                            android:textColor="#B8C0CC"
+                            android:textSize="26sp"
+                            android:textStyle="bold"/>
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="60dp"
-                        android:layout_marginTop="16dp"
-                        android:background="@drawable/cyber_input_bg"
+                        android:layout_height="62dp"
+                        android:layout_marginTop="20dp"
+                        android:background="@drawable/nrx_input"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:paddingStart="16dp"
+                        android:paddingStart="15dp"
                         android:paddingEnd="8dp">
 
                         <ImageView
@@ -163,7 +174,7 @@
                             android:layout_height="20dp"
                             android:contentDescription="License"
                             android:src="@drawable/ic_cyber_key"
-                            app:tint="@color/cyber_amber" />
+                            app:tint="@color/nrx_ink"/>
 
                         <EditText
                             android:id="@+id/userkey"
@@ -172,18 +183,18 @@
                             android:layout_marginStart="10dp"
                             android:layout_weight="1"
                             android:background="@android:color/transparent"
-                            android:hint="PASTE ACCESS KEY"
+                            android:hint="XXXX-XXXX-XXXX"
                             android:inputType="textPassword"
                             android:maxLines="1"
-                            android:textColor="@color/white"
-                            android:textColorHint="#73757B"
-                            android:textSize="13sp" />
+                            android:textColor="@color/nrx_ink"
+                            android:textColorHint="#8E97A4"
+                            android:textSize="14sp"/>
 
                         <FrameLayout
                             android:id="@+id/paste"
                             android:layout_width="44dp"
                             android:layout_height="44dp"
-                            android:background="@drawable/cyber_btn_secondary"
+                            android:background="@drawable/nrx_secondary"
                             android:clickable="true"
                             android:focusable="true">
 
@@ -191,9 +202,9 @@
                                 android:layout_width="18dp"
                                 android:layout_height="18dp"
                                 android:layout_gravity="center"
-                                android:contentDescription="Paste key"
+                                android:contentDescription="Paste"
                                 android:src="@drawable/ic_content_paste"
-                                app:tint="@color/cyber_amber" />
+                                app:tint="@color/nrx_ink"/>
                         </FrameLayout>
                     </LinearLayout>
 
@@ -202,19 +213,19 @@
                         android:layout_width="match_parent"
                         android:layout_height="58dp"
                         android:layout_marginTop="14dp"
-                        android:background="@drawable/cyber_btn_primary"
-                        android:letterSpacing="0.10"
-                        android:text="UNLOCK NODE  →"
-                        android:textColor="@color/text_dark"
+                        android:background="@drawable/nrx_primary"
+                        android:letterSpacing="0.06"
+                        android:text="CONTINUE"
+                        android:textColor="@color/nrx_ink"
                         android:textSize="14sp"
-                        android:textStyle="bold" />
+                        android:textStyle="bold"/>
 
                     <LinearLayout
                         android:id="@+id/GetKey"
                         android:layout_width="match_parent"
                         android:layout_height="54dp"
                         android:layout_marginTop="10dp"
-                        android:background="@drawable/cyber_btn_secondary"
+                        android:background="@drawable/nrx_secondary"
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
@@ -225,17 +236,58 @@
                             android:layout_height="18dp"
                             android:contentDescription="Telegram"
                             android:src="@drawable/ic_telegram"
-                            app:tint="@color/cyber_amber" />
+                            app:tint="@color/nrx_ink"/>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="9dp"
-                            android:letterSpacing="0.08"
-                            android:text="REQUEST OFFICIAL KEY"
-                            android:textColor="@color/cyber_amber"
+                            android:layout_marginStart="8dp"
+                            android:text="GET OFFICIAL KEY"
+                            android:textColor="@color/nrx_ink"
                             android:textSize="11sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"/>
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="20dp"
+                        android:background="@color/nrx_line"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="NATIVE AUTH"
+                            android:textColor="@color/nrx_ink_soft"
+                            android:textSize="9sp"
+                            android:textStyle="bold"/>
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="center"
+                            android:text="ARM64"
+                            android:textColor="@color/nrx_ink_soft"
+                            android:textSize="9sp"
+                            android:textStyle="bold"/>
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:gravity="end"
+                            android:text="PRIVATE"
+                            android:textColor="#72B800"
+                            android:textSize="9sp"
+                            android:textStyle="bold"/>
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -245,31 +297,15 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
-                android:gravity="center_vertical"
+                android:gravity="center"
                 android:orientation="horizontal">
-
-                <View
-                    android:layout_width="26dp"
-                    android:layout_height="2dp"
-                    android:background="@color/cyber_amber" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:text="NRX SECURITY CORE • PRIVATE BUILD"
-                    android:textColor="@color/text_muted"
-                    android:textSize="9sp"
-                    android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="ARM64"
-                    android:textColor="@color/cyber_emerald"
-                    android:textSize="9sp"
-                    android:textStyle="bold" />
+                    android:text="NoRuleXCheat • Secure access client"
+                    android:textColor="#66707E"
+                    android:textSize="9sp"/>
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

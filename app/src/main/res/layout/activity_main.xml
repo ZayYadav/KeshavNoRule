@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/cyber_bg_gradient">
+    android:background="@drawable/nrx_page_bg">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -17,9 +17,9 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="20dp"
-            android:paddingTop="44dp"
+            android:paddingTop="48dp"
             android:paddingEnd="20dp"
-            android:paddingBottom="28dp">
+            android:paddingBottom="30dp">
 
             <LinearLayout
                 android:id="@+id/mainHeader"
@@ -37,11 +37,11 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:letterSpacing="0.18"
-                        android:text="NRX / CONTROL ROOM"
-                        android:textColor="@color/cyber_amber"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:letterSpacing="0.14"
+                        android:text="NORULE X / HOME"
+                        android:textColor="#8792A1"
+                        android:textSize="9sp"
+                        android:textStyle="bold"/>
 
                     <TextView
                         android:id="@+id/tvMainTitle"
@@ -49,35 +49,35 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
                         android:fontFamily="sans-serif-black"
-                        android:text="NoRuleXCheat"
+                        android:text="Control center"
                         android:textColor="@color/white"
-                        android:textSize="27sp"
-                        android:textStyle="bold" />
+                        android:textSize="30sp"
+                        android:textStyle="bold"/>
                 </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/cyber_badge_green"
+                    android:background="@drawable/nrx_chip"
                     android:paddingStart="11dp"
                     android:paddingTop="7dp"
                     android:paddingEnd="11dp"
                     android:paddingBottom="7dp"
-                    android:text="● LIVE"
-                    android:textColor="@color/cyber_emerald"
+                    android:text="LIVE"
+                    android:textColor="@color/nrx_ink"
                     android:textSize="9sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"/>
             </LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/timerCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                app:cardBackgroundColor="#F0131417"
-                app:cardCornerRadius="20dp"
+                android:layout_marginTop="30dp"
+                app:cardBackgroundColor="#12161D"
+                app:cardCornerRadius="24dp"
                 app:cardElevation="0dp"
-                app:strokeColor="#33FFFFFF"
+                app:strokeColor="#25FFFFFF"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -101,29 +101,28 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:letterSpacing="0.14"
-                                android:text="SUBSCRIPTION CLOCK"
-                                android:textColor="@color/cyber_amber"
-                                android:textSize="10sp"
-                                android:textStyle="bold" />
+                                android:text="SESSION TIME"
+                                android:textColor="#7E8897"
+                                android:textSize="9sp"
+                                android:textStyle="bold"/>
 
                             <TextView
                                 android:id="@+id/tvExpires"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="5dp"
+                                android:layout_marginTop="4dp"
                                 android:text="Active"
                                 android:textColor="@color/white"
-                                android:textSize="17sp"
-                                android:textStyle="bold" />
+                                android:textSize="18sp"
+                                android:textStyle="bold"/>
                         </LinearLayout>
 
                         <ImageView
-                            android:layout_width="28dp"
-                            android:layout_height="28dp"
-                            android:contentDescription="Expiry timer"
+                            android:layout_width="25dp"
+                            android:layout_height="25dp"
+                            android:contentDescription="Timer"
                             android:src="@drawable/ic_timer"
-                            app:tint="@color/cyber_amber" />
+                            app:tint="@color/nrx_lime"/>
                     </LinearLayout>
 
                     <LinearLayout
@@ -134,135 +133,76 @@
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="86dp"
-                            android:layout_marginEnd="5dp"
+                            android:layout_height="78dp"
+                            android:layout_marginEnd="4dp"
                             android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
+                            android:background="@drawable/nrx_stat_tile"
                             android:gravity="center"
                             android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvDays"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="00"
-                                android:textColor="@color/white"
-                                android:textSize="27sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="DAYS"
-                                android:textColor="@color/cyber_amber"
-                                android:textSize="9sp"
-                                android:textStyle="bold" />
+                            <TextView android:id="@+id/tvDays" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/white" android:textSize="24sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DAYS" android:textColor="#778291" android:textSize="8sp" android:textStyle="bold"/>
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="86dp"
-                            android:layout_marginStart="5dp"
+                            android:layout_height="78dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
                             android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
+                            android:background="@drawable/nrx_stat_tile"
                             android:gravity="center"
                             android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvHours"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="00"
-                                android:textColor="@color/white"
-                                android:textSize="27sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="HOURS"
-                                android:textColor="@color/cyber_amber"
-                                android:textSize="9sp"
-                                android:textStyle="bold" />
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="10dp"
-                        android:orientation="horizontal">
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="86dp"
-                            android:layout_marginEnd="5dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
-                            android:gravity="center"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:id="@+id/tvMins"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="00"
-                                android:textColor="@color/white"
-                                android:textSize="27sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="MINUTES"
-                                android:textColor="@color/cyber_amber"
-                                android:textSize="9sp"
-                                android:textStyle="bold" />
+                            <TextView android:id="@+id/tvHours" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/white" android:textSize="24sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="HRS" android:textColor="#778291" android:textSize="8sp" android:textStyle="bold"/>
                         </LinearLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="86dp"
-                            android:layout_marginStart="5dp"
+                            android:layout_height="78dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_marginEnd="4dp"
                             android:layout_weight="1"
-                            android:background="@drawable/cyber_digit_bg"
+                            android:background="@drawable/nrx_stat_tile"
                             android:gravity="center"
                             android:orientation="vertical">
+                            <TextView android:id="@+id/tvMins" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/white" android:textSize="24sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="MIN" android:textColor="#778291" android:textSize="8sp" android:textStyle="bold"/>
+                        </LinearLayout>
 
-                            <TextView
-                                android:id="@+id/tvSecs"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="00"
-                                android:textColor="@color/white"
-                                android:textSize="27sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="SECONDS"
-                                android:textColor="@color/cyber_emerald"
-                                android:textSize="9sp"
-                                android:textStyle="bold" />
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="78dp"
+                            android:layout_marginStart="4dp"
+                            android:layout_weight="1"
+                            android:background="@drawable/nrx_stat_tile"
+                            android:gravity="center"
+                            android:orientation="vertical">
+                            <TextView android:id="@+id/tvSecs" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/nrx_lime" android:textSize="24sp" android:textStyle="bold"/>
+                            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SEC" android:textColor="#778291" android:textSize="8sp" android:textStyle="bold"/>
                         </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:text="QUICK LAUNCH"
+                android:textColor="@color/nrx_ink_soft"
+                android:textSize="10sp"
+                android:textStyle="bold"/>
+
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/gameCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="#FFF1B63C"
-                app:cardCornerRadius="20dp"
-                app:cardElevation="0dp"
-                app:strokeWidth="0dp">
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="#FFFFFF"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="3dp"
+                app:strokeColor="#E2E6EC"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -276,62 +216,69 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <ImageView
-                            android:layout_width="34dp"
-                            android:layout_height="34dp"
-                            android:contentDescription="Game"
-                            android:src="@drawable/ic_gamepad"
-                            app:tint="@color/text_dark" />
+                        <FrameLayout
+                            android:layout_width="48dp"
+                            android:layout_height="48dp"
+                            android:background="@drawable/nrx_chip">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:layout_gravity="center"
+                                android:contentDescription="Game"
+                                android:src="@drawable/ic_gamepad"
+                                app:tint="@color/nrx_ink"/>
+                        </FrameLayout>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
+                            android:layout_marginStart="13dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="BGMI LAUNCH NODE"
-                                android:textColor="@color/text_dark"
-                                android:textSize="17sp"
-                                android:textStyle="bold" />
+                                android:text="BGMI"
+                                android:textColor="@color/nrx_ink"
+                                android:textSize="18sp"
+                                android:textStyle="bold"/>
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="2dp"
-                                android:text="Virtual environment ready • ARM64"
-                                android:textColor="#B217181B"
-                                android:textSize="11sp" />
+                                android:layout_marginTop="3dp"
+                                android:text="Virtual environment • ARM64"
+                                android:textColor="@color/nrx_ink_soft"
+                                android:textSize="11sp"/>
                         </LinearLayout>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="READY"
-                            android:textColor="@color/text_dark"
-                            android:textSize="10sp"
-                            android:textStyle="bold" />
+                            android:textColor="#72B800"
+                            android:textSize="9sp"
+                            android:textStyle="bold"/>
                     </LinearLayout>
 
                     <FrameLayout
                         android:id="@+id/btnStartContainer"
                         android:layout_width="match_parent"
                         android:layout_height="58dp"
-                        android:layout_marginTop="16dp">
+                        android:layout_marginTop="18dp">
 
                         <androidx.appcompat.widget.AppCompatButton
                             android:id="@+id/btnStart"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:background="@drawable/cyber_btn_dark"
-                            android:letterSpacing="0.10"
-                            android:text="START BGMI  →"
-                            android:textColor="@color/white"
+                            android:background="@drawable/nrx_primary"
+                            android:letterSpacing="0.06"
+                            android:text="OPEN BGMI"
+                            android:textColor="@color/nrx_ink"
                             android:textSize="14sp"
-                            android:textStyle="bold" />
+                            android:textStyle="bold"/>
                     </FrameLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -340,11 +287,11 @@
                 android:id="@+id/tipsCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="#E6121316"
+                android:layout_marginTop="12dp"
+                app:cardBackgroundColor="#E9EDF2"
                 app:cardCornerRadius="20dp"
                 app:cardElevation="0dp"
-                app:strokeColor="#2FFFFFFF"
+                app:strokeColor="#D9DEE6"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -352,45 +299,51 @@
                     android:layout_height="wrap_content"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:padding="18dp">
+                    android:padding="16dp">
 
-                    <View
-                        android:layout_width="4dp"
-                        android:layout_height="46dp"
-                        android:background="@color/cyber_emerald" />
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:contentDescription="Security"
+                        android:src="@drawable/ic_shield_check"
+                        app:tint="@color/nrx_ink"/>
 
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="14dp"
+                        android:layout_marginStart="12dp"
                         android:layout_weight="1"
                         android:orientation="vertical">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="SYSTEM STATUS"
-                            android:textColor="@color/white"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
+                            android:text="Security ready"
+                            android:textColor="@color/nrx_ink"
+                            android:textSize="13sp"
+                            android:textStyle="bold"/>
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:lineSpacingExtra="2dp"
-                            android:text="Integrity core online • secure display active • release runtime ready."
-                            android:textColor="@color/text_muted"
-                            android:textSize="10sp" />
+                            android:layout_marginTop="3dp"
+                            android:text="Integrity core and secure display are active."
+                            android:textColor="@color/nrx_ink_soft"
+                            android:textSize="10sp"/>
                     </LinearLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:background="@drawable/nrx_chip"
+                        android:paddingStart="9dp"
+                        android:paddingTop="5dp"
+                        android:paddingEnd="9dp"
+                        android:paddingBottom="5dp"
                         android:text="OK"
-                        android:textColor="@color/cyber_emerald"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
+                        android:textColor="@color/nrx_ink"
+                        android:textSize="9sp"
+                        android:textStyle="bold"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

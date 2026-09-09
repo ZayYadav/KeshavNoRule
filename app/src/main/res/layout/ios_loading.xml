@@ -1,83 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="300dp"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="310dp"
     android:layout_height="wrap_content"
-    android:gravity="center"
-    android:background="@drawable/cyber_dialog_bg"
-    android:padding="26dp"
-    android:elevation="16dp"
-    android:orientation="vertical">
+    android:background="@drawable/nrx_panel_white"
+    android:elevation="18dp"
+    android:orientation="vertical"
+    android:padding="22dp">
 
-    <!-- Icon Frame -->
-    <FrameLayout
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:background="@drawable/cyber_card_glass"
-        android:padding="6dp">
-
-        <ImageView
-            android:id="@+id/loadingIcon"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="10dp"
-            android:src="@drawable/ic_launcher"
-            android:scaleType="centerInside" />
-    </FrameLayout>
-
-    <TextView
-        android:id="@+id/loadingText"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="18dp"
-        android:text="Keshav Secure Core"
-        android:textColor="@color/white"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.04"
-        android:gravity="center" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/nrx_chip">
+
+            <ImageView
+                android:id="@+id/loadingIcon"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_launcher"
+                android:scaleType="centerInside"/>
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/loadingText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="NoRuleXCheat"
+                android:textColor="@color/nrx_ink"
+                android:textSize="15sp"
+                android:textStyle="bold"/>
+
+            <TextView
+                android:id="@+id/progressText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="Preparing secure session..."
+                android:textColor="@color/nrx_ink_soft"
+                android:textSize="10sp"/>
+        </LinearLayout>
+    </LinearLayout>
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="6dp"
+        android:layout_height="5dp"
         android:layout_marginTop="18dp"
         android:indeterminate="true"
-        android:indeterminateTint="@color/cyber_cyan"
-        android:progressTint="@color/cyber_cyan"
-        android:progressBackgroundTint="#33475569" />
+        android:indeterminateTint="@color/nrx_lime"
+        android:progressTint="@color/nrx_lime"
+        android:progressBackgroundTint="#E2E6EC"/>
 
-    <TextView
-        android:id="@+id/progressText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Validating secure session..."
-        android:textColor="@color/text_muted"
-        android:textSize="12sp"
-        android:letterSpacing="0.04"
-        android:gravity="center" />
-
-    <androidx.cardview.widget.CardView
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/okButton"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="18dp"
-        android:visibility="gone"
-        app:cardCornerRadius="14dp"
-        app:cardBackgroundColor="@android:color/transparent"
-        app:cardElevation="4dp">
-
-        <androidx.appcompat.widget.AppCompatButton
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/cyber_btn_primary"
-            android:text="CLOSE"
-            android:textColor="#050811"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-    </androidx.cardview.widget.CardView>
-
+        android:layout_height="50dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/nrx_primary"
+        android:text="CLOSE"
+        android:textColor="@color/nrx_ink"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:visibility="gone"/>
 </LinearLayout>
