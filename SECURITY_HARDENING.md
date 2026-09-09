@@ -1,16 +1,16 @@
-# KeshavOwner Security Hardening
+# BABA DARK LOADER Security Hardening
 
-Branch: `keshavowner-security-ui-v1`
+Branch: `BABATILLU`
 
 ## Class map
 
-- `KeshavOwner1` — Application / BlackBox bootstrap
-- `KeshavOwner2` — Login / license activity
-- `KeshavOwner3` — Main dashboard / launcher activity
-- `KeshavOwner4` — App/OBB manager
-- `KeshavOwner5` — Secure downloader / extractor
-- `KeshavOwner6` — AES-GCM Keystore-backed preferences
-- `KeshavOwner7` — UI sound/touch manager
+- `BabaDark1` — Application / BlackBox bootstrap
+- `BabaDark2` — Login / license activity
+- `BabaDark3` — Main dashboard / launcher activity
+- `BabaDark4` — App/OBB manager
+- `BabaDark5` — Secure downloader / extractor
+- `BabaDark6` — AES-GCM Keystore-backed preferences
+- `BabaDark7` — UI sound/touch manager
 
 ## Custom integrity
 
@@ -20,7 +20,7 @@ Put owner-specific integrity logic only in:
 
 The function:
 
-`keshav_integrity::run(JNIEnv *env, jobject context)`
+`babadark_integrity::run(JNIEnv *env, jobject context)`
 
 must return `true` to allow the login activity to continue.
 
@@ -28,7 +28,7 @@ must return `true` to allow the login activity to continue.
 
 - R8 full mode + resource shrinking
 - LSParanoid string obfuscation on app-owned Java classes
-- Java class renaming to KeshavOwner1..7
+- Java class renaming to BabaDark1..7
 - Release screenshot / screen-record protection
 - Debugger gate on login and dashboard
 - APK signing-certificate verification before login
