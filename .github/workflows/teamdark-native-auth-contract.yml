@@ -112,6 +112,10 @@ jobs:
           TELEGRAM_WEBHOOK_SECRET="Contract_Webhook_Secret_123456789"
           TELEGRAM_OWNER_CHAT_ID="7000000099"
           API_TOKEN_TTL="86400"
+          LEGACY_LICENSE_API_ENABLED="false"
+          API_REVEAL_LICENSE_KEYS="false"
+          TELEGRAM_OWNER_MUTATIONS_ENABLED="false"
+          TRUSTED_PROXY_CIDRS=""
           EOF
 
       - name: Import schema and seed contract fixtures
@@ -188,6 +192,8 @@ jobs:
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_chat_id';" | grep -F 'telegram_chat_id' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_2fa_enabled';" | grep -F 'telegram_2fa_enabled' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'telegram_2fa_enabled_at';" | grep -F 'telegram_2fa_enabled_at' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'auth_version';" | grep -F 'auth_version' >/dev/null
+          mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM users LIKE 'login_not_before';" | grep -F 'login_not_before' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'telegram_2fa_activation_tokens';" | grep -F 'telegram_2fa_activation_tokens' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW TABLES LIKE 'login_2fa_challenges';" | grep -F 'login_2fa_challenges' >/dev/null
           mysql -N -h127.0.0.1 -uroot -proot teamdark_migration -e "SHOW COLUMNS FROM license_keys LIKE 'key_source';" | grep -F 'key_source' >/dev/null
