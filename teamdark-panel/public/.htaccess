@@ -1,7 +1,15 @@
 Options -Indexes
+ServerSignature Off
 RewriteEngine On
 
-# Existing TeamDarkLoader native endpoint.
+# Public document root must not serve hidden/backup/source artifacts.
+RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L,NC]
+RewriteRule \.(?:bak|backup|old|orig|save|swp|sql|sqlite|ini|log|conf|dist|example|yml|yaml)$ - [F,L,NC]
+
+RewriteCond %{REQUEST_METHOD} !^(?:GET|POST|HEAD)$ [NC]
+RewriteRule ^ - [R=405,L]
+
+# Existing TeamDarkLoader native endpoint. Contract intentionally unchanged.
 RewriteRule ^connect/?$ connect.php [L,QSA]
 
 # Telegram Bot API webhook endpoint.
@@ -15,4 +23,5 @@ RewriteRule ^ index.php [QSA,L]
 Header always set X-Content-Type-Options "nosniff"
 Header always set X-Frame-Options "DENY"
 Header always set Referrer-Policy "no-referrer"
+Header always set X-Permitted-Cross-Domain-Policies "none"
 </IfModule>
