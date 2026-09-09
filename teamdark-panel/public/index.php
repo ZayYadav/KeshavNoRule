@@ -328,6 +328,14 @@ try {
         $username = strtolower(trim((string)($b['username'] ?? '')));
         $password = (string)($b['password'] ?? '');
 
+        if (
+            strlen($username) > 64
+            || strlen($password) > 200
+            || str_contains($username, "\0")
+        ) {
+            jsonOut(['ok'=>false, 'error'=>'Invalid credentials'], 401);
+        }
+
         if ($username !== '') {
             Security::rateLimit(
                 'api-login-account',
@@ -386,6 +394,23 @@ try {
                 'INSERT INTO api_tokens(user_id,token_hash,expires_at) VALUES(?,?,?)'
             )
             ->execute([$u['id'], $hash, $expiresAt]);
+
+        // Bound token accumulation if credentials are repeatedly used for API login.
+        Database::pdo()
+            ->prepare(
+                "DELETE FROM api_tokens
+                 WHERE user_id=?
+                   AND id NOT IN (
+                       SELECT id FROM (
+                           SELECT id
+                           FROM api_tokens
+                           WHERE user_id=?
+                           ORDER BY id DESC
+                           LIMIT 20
+                       ) AS keep_tokens
+                   )"
+            )
+            ->execute([$u['id'], $u['id']]);
 
         Security::audit((int)$u['id'], 'api_login_success');
 
