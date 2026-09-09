@@ -1391,14 +1391,21 @@ try {
         $cards = '';
 
         foreach ($rows as $row) {
-            try {
-                $plain = Crypto::decrypt(
-                    $row['key_cipher'],
-                    $row['key_iv'],
-                    $row['key_tag']
-                );
-            } catch (Throwable) {
-                $plain = '[unavailable]';
+            $canRevealSecret = $user['role'] === 'owner'
+                || (int)$row['owner_user_id'] === (int)$user['id'];
+
+            if ($canRevealSecret) {
+                try {
+                    $plain = Crypto::decrypt(
+                        $row['key_cipher'],
+                        $row['key_iv'],
+                        $row['key_tag']
+                    );
+                } catch (Throwable) {
+                    $plain = '[unavailable]';
+                }
+            } else {
+                $plain = 'Team-Dark-••••••••••••';
             }
 
             $statusText = $row['status'] === 'disabled'
@@ -1413,7 +1420,9 @@ try {
                 ? (int)$row['device_count'].' / ∞ devices'
                 : (int)$row['device_count'].' / '.(int)$row['max_devices'].' devices';
 
-            $actions = '<button type="button" class="ghost compact" data-copy="'.View::e($plain).'">Copy</button>';
+            $actions = $canRevealSecret
+                ? '<button type="button" class="ghost compact" data-copy="'.View::e($plain).'">Copy</button>'
+                : '<span class="tag">SECRET PROTECTED</span>';
 
             if ($row['status'] === 'disabled') {
                 $actions .= '<form method="post" action="/keys/action" class="inline">'
@@ -1556,14 +1565,21 @@ try {
             $key = $data['key'];
             $devices = $data['devices'];
 
-            try {
-                $plain = Crypto::decrypt(
-                    $key['key_cipher'],
-                    $key['key_iv'],
-                    $key['key_tag']
-                );
-            } catch (Throwable) {
-                $plain = '[unavailable]';
+            $canRevealSecret = $user['role'] === 'owner'
+                || (int)$key['owner_user_id'] === (int)$user['id'];
+
+            if ($canRevealSecret) {
+                try {
+                    $plain = Crypto::decrypt(
+                        $key['key_cipher'],
+                        $key['key_iv'],
+                        $key['key_tag']
+                    );
+                } catch (Throwable) {
+                    $plain = '[unavailable]';
+                }
+            } else {
+                $plain = 'Team-Dark-••••••••••••';
             }
 
             $rows = '';
