@@ -48,6 +48,16 @@ final class TelegramBot
             $panelUser = self::panelUserByChatId($chatId);
             $isOwner = self::isOwnerChat($chatId);
 
+            if (!$isOwner && PanelControl::blocked($panelUser)) {
+                if ($callback) self::answerCallback((string)($callback['id'] ?? ''));
+                self::send($chatId, self::h(PanelControl::settings()['message']));
+                return;
+            }
+            Security::audit($panelUser ? (int)$panelUser['id'] : null, 'telegram_interaction', [
+                'telegram_user_id'=>(int)$tg['id'],
+                'operation'=>$callback ? substr((string)($callback['data'] ?? ''),0,100) : 'message',
+            ]);
+
             if ($callback) {
                 self::answerCallback((string)($callback['id'] ?? ''));
                 self::handleCallback(

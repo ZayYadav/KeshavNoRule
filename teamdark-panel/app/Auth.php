@@ -57,6 +57,10 @@ final class Auth
         }
         Security::startSession();
         session_regenerate_id(true);
+        if (PanelControl::blocked($u)) {
+            Security::audit((int)$u['id'], 'login_maintenance_blocked');
+            throw new \RuntimeException(PanelControl::settings()['message']);
+        }
         $_SESSION['uid'] = (int)$u['id'];
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
         Database::pdo()->prepare('UPDATE users SET last_login_at=NOW(), last_login_ip=? WHERE id=?')->execute([Security::clientIp(), $u['id']]);

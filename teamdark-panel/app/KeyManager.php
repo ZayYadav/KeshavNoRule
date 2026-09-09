@@ -127,6 +127,7 @@ final class KeyManager
         bool $unlimitedDevices,
         string $customKey = ''
     ): array {
+        PanelControl::assertGeneration($actor);
         if (!$unlimitedExpiry && $durationSeconds < 86400) {
             throw new RuntimeException('Key duration must be at least 1 day.');
         }
@@ -198,19 +199,15 @@ final class KeyManager
             ]);
 
             $id = (int)$pdo->lastInsertId();
+            Security::audit((int)$actor['id'], 'license_created', [
+                'license_id'=>$id,
+                'owner_id'=>(int)$actor['id'],
+                'cost'=>$cost,
+                'custom'=>$customKey !== '',
+                'unlimited_expiry'=>$unlimitedExpiry,
+                'unlimited_devices'=>$unlimitedDevices,
+            ]);
             $pdo->commit();
-
-            try {
-                Security::audit((int)$actor['id'], 'license_created', [
-                    'license_id'=>$id,
-                    'owner_id'=>(int)$actor['id'],
-                    'cost'=>$cost,
-                    'custom'=>$customKey !== '',
-                    'unlimited_expiry'=>$unlimitedExpiry,
-                    'unlimited_devices'=>$unlimitedDevices,
-                ]);
-            } catch (Throwable) {
-            }
 
             return [
                 'id'=>$id,
@@ -230,6 +227,7 @@ final class KeyManager
         array $ownerActor,
         int $telegramUserId
     ): array {
+        PanelControl::assertGeneration($ownerActor, true);
         if (($ownerActor['role'] ?? '') !== 'owner') {
             throw new RuntimeException('Owner authority is required.');
         }
@@ -301,16 +299,12 @@ final class KeyManager
                  WHERE id=?"
             )->execute([$telegramUserId]);
 
+            Security::audit((int)$ownerActor['id'], 'telegram_guest_key_created', [
+                'license_id'=>$keyId,
+                'telegram_user_id'=>$telegramUserId,
+                'duration_seconds'=>7200,
+            ]);
             $pdo->commit();
-
-            try {
-                Security::audit((int)$ownerActor['id'], 'telegram_guest_key_created', [
-                    'license_id'=>$keyId,
-                    'telegram_user_id'=>$telegramUserId,
-                    'duration_seconds'=>7200,
-                ]);
-            } catch (Throwable) {
-            }
 
             return [
                 'id'=>$keyId,
@@ -349,6 +343,11 @@ final class KeyManager
 
                 $pdo->prepare('DELETE FROM license_keys WHERE id=?')
                     ->execute([$keyId]);
+
+                Security::audit((int)$actor['id'], 'license_delete', [
+                    'license_id'=>$keyId, 'owner_id'=>(int)$key['owner_user_id'],
+                    'creator_id'=>(int)$key['created_by'], 'label'=>$key['label'],
+                ]);
 
                 $pdo->commit();
                 return;
@@ -390,14 +389,10 @@ final class KeyManager
                 throw new RuntimeException('Invalid key action.');
             }
 
+            Security::audit((int)$actor['id'], 'license_'.$action, [
+                'license_id'=>$keyId,
+            ]);
             $pdo->commit();
-
-            try {
-                Security::audit((int)$actor['id'], 'license_'.$action, [
-                    'license_id'=>$keyId,
-                ]);
-            } catch (Throwable) {
-            }
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
@@ -463,16 +458,12 @@ final class KeyManager
             }
 
             $changed = $q->rowCount();
+            Security::audit((int)$actor['id'], 'license_device_reset', [
+                'license_id'=>$keyId,
+                'device_id'=>$deviceId,
+                'count'=>$changed,
+            ]);
             $pdo->commit();
-
-            try {
-                Security::audit((int)$actor['id'], 'license_device_reset', [
-                    'license_id'=>$keyId,
-                    'device_id'=>$deviceId,
-                    'count'=>$changed,
-                ]);
-            } catch (Throwable) {
-            }
 
             return $changed;
         } catch (Throwable $e) {

@@ -14,6 +14,9 @@ use TeamDark\Panel\{
     View
 };
 
+use TeamDark\Panel\{PanelControl, OwnerConsole};
+require_once dirname(__DIR__).'/app/OwnerConsole.php';
+
 $root = dirname(__DIR__);
 
 foreach ([
@@ -70,7 +73,7 @@ function takeFlash(): string
         return '';
     }
 
-    return '<div class="alert '.($f[0] === 'ok' ? 'ok' : '').'">'
+    return '<div data-flash role="status" class="alert '.($f[0] === 'ok' ? 'ok' : '').'">'
         .View::e($f[1])
         .'</div>';
 }
@@ -186,6 +189,30 @@ function parseBalanceDelta(string $raw, bool $ownerRange): ?int
     return $value;
 }
 
+function ownerManagedUser(array $actor, int $targetId): array
+{
+    if (($actor['role'] ?? '') !== 'owner' || $targetId <= 0) {
+        throw new RuntimeException('Owner access required.');
+    }
+
+    $q = Database::pdo()->prepare(
+        'SELECT id,name,username,role,balance,telegram_chat_id,status,created_at
+         FROM users WHERE id=? LIMIT 1'
+    );
+    $q->execute([$targetId]);
+    $target = $q->fetch();
+
+    if (
+        !$target
+        || (int)$target['id'] === (int)$actor['id']
+        || $target['role'] === 'owner'
+    ) {
+        throw new RuntimeException('This account cannot be managed.');
+    }
+
+    return $target;
+}
+
 function humanDuration(int $seconds): string
 {
     $seconds = max(3600, $seconds);
@@ -229,6 +256,8 @@ function bearerUser(): array
         jsonOut(['ok'=>false, 'error'=>'Unauthorized'], 401);
     }
 
+    if (PanelControl::blocked($u)) jsonOut(['ok'=>false, 'error'=>'Panel under maintenance'], 503);
+
     Database::pdo()
         ->prepare('UPDATE api_tokens SET last_used_at=NOW() WHERE id=?')
         ->execute([$u['token_id']]);
@@ -246,6 +275,15 @@ function bearerUser(): array
 }
 
 try {
+    if (!str_starts_with($path, '/api/') && !in_array($path, ['/login','/logout'], true)) {
+        $sessionUser = Auth::user();
+        if (PanelControl::blocked($sessionUser)) {
+            http_response_code(503);
+            header('Retry-After: 300');
+            View::page('Maintenance', '<section class="auth"><div class="card"><div class="eyebrow">PANEL OFFLINE</div><h1>We will be back.</h1><p class="muted">'.View::e(PanelControl::settings()['message']).'</p><a class="ghost" href="/login">Owner sign in</a></div></section>');
+            exit;
+        }
+    }
     // Legacy JSON panel-user authentication API.
     if ($path === '/api/v1/auth/login' && $method === 'POST') {
         Security::rateLimit('api-login', 10, 600);
@@ -282,6 +320,7 @@ try {
             strtr(base64_encode(random_bytes(48)), '+/', '-_'),
             '='
         );
+        if (PanelControl::blocked($u)) jsonOut(['ok'=>false, 'error'=>'Panel under maintenance'], 503);
         $hash = hash('sha256', $token);
         $ttl = (int)Config::get('token_ttl');
 
@@ -468,6 +507,10 @@ try {
 
     if ($path === '/register' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
+        if (!PanelControl::settings()['registration_open']) {
+            flash('err', 'New registrations are paused by the owner.');
+            redirectTo('/register');
+        }
         Security::rateLimit('register', 6, 3600);
 
         $name = input('name');
@@ -606,10 +649,43 @@ try {
 
     $user = Auth::requireLogin();
 
+    if (PanelControl::blocked($user)) redirectTo('/');
+    if ($method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Security::audit((int)$user['id'], 'action_requested', [
+            'path'=>$path,
+            'target_id'=>(int)($_POST['user_id'] ?? 0),
+            'license_id'=>(int)($_POST['key_id'] ?? 0),
+        ]);
+    }
+    if ($method === 'GET' && in_array($path, ['/dashboard','/keys','/keys/expired','/keys/devices','/users','/telegram-users','/activity','/owner/users','/owner/settings'], true)) {
+        Security::audit((int)$user['id'], 'page_viewed', ['path'=>$path]);
+    }
+    if ($path === '/owner/settings' && $method === 'POST') {
+        Auth::requireRole($user, 'owner');
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        try {
+            PanelControl::save($user, $_POST);
+            flash('ok', 'Server controls updated.');
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+        redirectTo('/owner/settings');
+    }
+    if ($path === '/owner/settings' && $method === 'GET') {
+        OwnerConsole::settings($user, takeFlash());
+        exit;
+    }
+    if ($path === '/owner/users' && $method === 'GET') {
+        OwnerConsole::users($user, $_GET);
+        exit;
+    }
+
     if ($path === '/dashboard' && $method === 'GET') {
         KeyManager::expireDue();
 
         $pdo = Database::pdo();
+        $ownerPulse = '';
 
         if ($user['role'] === 'owner') {
             $users = (int)$pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
@@ -619,6 +695,30 @@ try {
             $expired = (int)$pdo->query(
                 "SELECT COUNT(*) FROM license_keys WHERE status='expired'"
             )->fetchColumn();
+
+            $activeUsers = (int)$pdo->query(
+                "SELECT COUNT(*) FROM users WHERE status='active'"
+            )->fetchColumn();
+            $disabledUsers = (int)$pdo->query(
+                "SELECT COUNT(*) FROM users WHERE status='disabled'"
+            )->fetchColumn();
+            $newUsers = (int)$pdo->query(
+                "SELECT COUNT(*) FROM users WHERE created_at>=DATE_SUB(NOW(),INTERVAL 7 DAY)"
+            )->fetchColumn();
+            $pendingInvites = (int)$pdo->query(
+                "SELECT COUNT(*) FROM referral_invites WHERE status='pending'"
+            )->fetchColumn();
+
+            $ownerPulse = '<div class="card"><div class="toolbar"><div>'
+                .'<div class="eyebrow">OWNER COMMAND CENTER</div><h3>Control the entire network</h3></div>'
+                .'<span class="status-chip status-active">LIVE</span></div>'
+                .'<div class="owner-command-grid">'
+                .'<a class="owner-command" href="/users"><span>'.$activeUsers.'</span><div><strong>Active users</strong><small>'.$disabledUsers.' disabled</small></div></a>'
+                .'<a class="owner-command" href="/users"><span>'.$newUsers.'</span><div><strong>New this week</strong><small>'.$pendingInvites.' invites pending</small></div></a>'
+                .'<a class="owner-command" href="/activity"><span>↗</span><div><strong>All activity</strong><small>Browse retained history</small></div></a>'
+                .'<a class="owner-command" href="/owner/users"><span>◎</span><div><strong>User insights</strong><small>Keys, credits and per-user history</small></div></a>'
+                .'<a class="owner-command" href="/owner/settings"><span>⏻</span><div><strong>Server controls</strong><small>Panel access and availability</small></div></a>'
+                .'</div></div>';
         } else {
             $q = $pdo->prepare('SELECT COUNT(*) FROM users WHERE referred_by=?');
             $q->execute([$user['id']]);
@@ -696,6 +796,7 @@ try {
             .'<div class="stat">'.$expired.'</div></div>'
             .'<div class="card quarter metric"><div class="eyebrow">REFERRED</div>'
             .'<div class="stat">'.$users.'</div></div>'
+            .$ownerPulse
             .$referralCard
             .$telegramCard
             .'<div class="card half"><div class="eyebrow">PROFILE</div><h3>Account</h3>'
@@ -1202,6 +1303,11 @@ try {
         redirectTo('/telegram-users');
     }
 
+    if ($path === '/activity' && $method === 'GET') {
+        OwnerConsole::activity($user, $_GET);
+        exit;
+    }
+
     if ($path === '/users' && $method === 'GET') {
         Auth::requireRole($user, 'admin');
 
@@ -1209,11 +1315,11 @@ try {
 
         if ($user['role'] === 'owner') {
             $rows = $pdo->query(
-                'SELECT id,name,username,role,balance,telegram_chat_id,status,created_at FROM users ORDER BY id DESC LIMIT 1000'
+                'SELECT id,name,username,role,balance,telegram_chat_id,status,last_login_at,created_at FROM users ORDER BY id DESC LIMIT 1000'
             )->fetchAll();
         } else {
             $q = $pdo->prepare(
-                "SELECT id,name,username,role,balance,telegram_chat_id,status,created_at
+                "SELECT id,name,username,role,balance,telegram_chat_id,status,last_login_at,created_at
                  FROM users
                  WHERE role<>'owner'
                  ORDER BY id DESC
@@ -1229,22 +1335,42 @@ try {
             $roleOptions .= '<option value="'.View::e($role).'">'.View::e(ucfirst($role)).'</option>';
         }
 
+        $activeCount = 0;
+        $disabledCount = 0;
+        $linkedCount = 0;
+        $adminCount = 0;
         $trs = '';
         foreach ($rows as $row) {
             $rowBalance = $row['role'] === 'owner'
                 ? '∞'
                 : number_format((int)$row['balance']);
 
-            $canAdjust = Auth::canManageRole($user, $row['role']);
+            $row['status'] === 'active' ? $activeCount++ : $disabledCount++;
+            if ($row['telegram_chat_id']) $linkedCount++;
+            if ($row['role'] === 'admin') $adminCount++;
 
-            $adjust = $canAdjust
+            $canAdjust = Auth::canManageRole($user, $row['role']);
+            $isOwnerTarget = $user['role'] === 'owner'
+                && $row['role'] !== 'owner'
+                && (int)$row['id'] !== (int)$user['id'];
+
+            $adjust = $canAdjust && $user['role'] !== 'owner'
                 ? '<form method="post" action="/users/balance" class="inline balance-form">'
                     .View::csrf()
                     .'<input type="hidden" name="user_id" value="'.(int)$row['id'].'">'
-                    .'<input name="amount" type="number" placeholder="± credits">'
-                    .'<button class="ghost compact">Apply</button>'
+                    .'<input name="amount" type="number" required placeholder="± credits">'
+                    .'<button class="ghost compact" data-action="Update balance">Apply</button>'
                     .'</form>'
-                : '<span class="muted">—</span>';
+                : ($isOwnerTarget
+                    ? '<button type="button" class="ghost compact" data-open-modal="owner-user" data-user-manage'
+                        .' data-user-id="'.(int)$row['id'].'"'
+                        .' data-user-name="'.View::e($row['name'] ?: $row['username']).'"'
+                        .' data-user-username="'.View::e($row['username']).'"'
+                        .' data-user-role="'.View::e($row['role']).'"'
+                        .' data-user-status="'.View::e($row['status']).'"'
+                        .' data-user-balance="'.View::e($rowBalance).'"'
+                        .' data-user-telegram="'.View::e($row['telegram_chat_id'] ?: '').'">Manage</button>'
+                    : '<span class="muted">Protected</span>');
 
             $telegramCell = $row['telegram_chat_id']
                 ? (
@@ -1252,15 +1378,21 @@ try {
                         ? '<span class="key">'.View::e($row['telegram_chat_id']).'</span>'
                         : '<span class="status-chip status-active">LINKED</span>'
                 )
+                : '<span class="muted">Not linked</span>';
+
+            $initial = strtoupper(substr((string)($row['name'] ?: $row['username']), 0, 1));
+            $checkbox = $isOwnerTarget
+                ? '<input class="row-check" type="checkbox" value="'.(int)$row['id'].'" data-user-check aria-label="Select @'.View::e($row['username']).'">'
                 : '<span class="muted">—</span>';
 
-            $trs .= '<tr>'
-                .'<td>'.(int)$row['id'].'</td>'
-                .'<td><strong>'.View::e($row['name'] ?: $row['username']).'</strong><br><span class="muted">@'.View::e($row['username']).'</span></td>'
+            $trs .= '<tr data-user-row data-role="'.View::e($row['role']).'" data-status="'.View::e($row['status']).'" data-search="'.View::e(strtolower(($row['name'] ?: '').' '.$row['username'].' '.$row['role'].' '.$row['status'])).'">'
+                .'<td>'.$checkbox.'</td>'
+                .'<td><div class="row-user"><span class="mini-avatar">'.View::e($initial).'</span><span><strong>'.View::e($row['name'] ?: $row['username']).'</strong><small>@'.View::e($row['username']).' • ID '.(int)$row['id'].'</small></span></div></td>'
                 .'<td><span class="tag">'.View::e($row['role']).'</span></td>'
                 .'<td>'.View::e($rowBalance).'</td>'
                 .'<td>'.$telegramCell.'</td>'
-                .'<td>'.View::e($row['status']).'</td>'
+                .'<td><span class="status-chip status-'.View::e($row['status']).'">'.View::e($row['status']).'</span></td>'
+                .'<td>'.View::e($row['last_login_at'] ?: 'Never').'</td>'
                 .'<td>'.$adjust.'</td>'
                 .'</tr>';
         }
@@ -1273,6 +1405,12 @@ try {
                 ? View::e(($invite['used_name'] ?: $invite['used_username']).' @'.$invite['used_username'])
                 : '<span class="muted">Waiting for registration</span>';
 
+            $inviteAction = $invite['status'] === 'pending'
+                ? '<form method="post" action="/referrals/revoke" class="inline" data-confirm="Revoke this registration invite?" data-busy="Revoking invite…">'
+                    .View::csrf().'<input type="hidden" name="invite_id" value="'.(int)$invite['id'].'">'
+                    .'<button class="ghost danger compact" type="submit">Revoke</button></form>'
+                : '<span class="muted">—</span>';
+
             $inviteRows .= '<tr>'
                 .'<td><span class="key">'.View::e($invite['code']).'</span><br>'
                 .'<button type="button" class="ghost compact" data-copy="'.View::e($invite['code']).'">Copy</button></td>'
@@ -1281,18 +1419,51 @@ try {
                 .'<td><span class="status-chip status-'.View::e($invite['status']).'">'.View::e(strtoupper($invite['status'])).'</span></td>'
                 .'<td>'.$usedBy.'</td>'
                 .'<td>'.View::e($invite['created_at']).'</td>'
+                .'<td>'.$inviteAction.'</td>'
                 .'</tr>';
         }
 
         if ($inviteRows === '') {
-            $inviteRows = '<tr><td colspan="6" class="muted">No referral invites yet.</td></tr>';
+            $inviteRows = '<tr><td colspan="7"><div class="empty-state"><div class="empty-orb">＋</div><h3>No invites yet</h3><p class="muted">Create a secure one-time registration invite.</p></div></td></tr>';
+        }
+
+        $bulkBar = $user['role'] === 'owner'
+            ? '<form method="post" action="/users/bulk" class="selection-bar" data-bulk-form data-confirm="Apply this action to all selected users?" data-busy="Updating selected users…">'
+                .View::csrf().'<input type="hidden" name="user_ids" value="">'
+                .'<strong data-selected-count>0 selected</strong>'
+                .'<select name="action" class="control-select" aria-label="Bulk action"><option value="disable">Disable accounts</option><option value="enable">Enable accounts</option><option value="revoke_access">Revoke API access</option></select>'
+                .'<button class="primary compact" type="submit" disabled>Apply action</button></form>'
+            : '';
+
+        $ownerModal = '';
+        if ($user['role'] === 'owner') {
+            $ownerModal = '<div class="modal-backdrop" id="owner-user" data-modal="owner-user" aria-hidden="true">'
+                .'<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="owner-user-title">'
+                .'<div class="modal-head"><div><div class="eyebrow">OWNER CONTROL</div><h3 id="owner-user-title">Manage user</h3></div><button type="button" class="icon-btn" data-close-modal aria-label="Close">×</button></div>'
+                .'<div class="user-summary"><span class="mini-avatar" data-owner-initial>U</span><div><strong data-owner-user-name>User</strong><small data-owner-user-handle>@username</small></div><span class="tag" data-owner-user-role>USER</span></div>'
+                .'<div class="modal-section"><a class="ghost wide" href="/owner/users" data-owner-history>Keys, balance and all history</a><div class="form-row"><div><span class="eyebrow">BALANCE</span><strong data-owner-user-balance>0</strong></div><div><span class="eyebrow">TELEGRAM</span><strong data-owner-user-telegram>Not linked</strong></div></div></div>'
+                .'<div class="modal-section"><div class="eyebrow">ACCOUNT SETTINGS</div><div class="modal-actions-grid">'
+                .'<form method="post" action="/users/balance" class="stack" data-owner-form data-busy="Updating balance…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Balance adjustment</label><input name="amount" type="number" required placeholder="Use + or - credits"></div><button class="primary" type="submit">Update balance</button></form>'
+                .'<form method="post" action="/users/role" class="stack" data-owner-form data-confirm="Change this user role?" data-busy="Changing account role…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Account role</label><select name="role" data-owner-role-select><option value="admin">Admin</option><option value="reseller">Reseller</option><option value="user">User</option></select></div><button class="ghost" type="submit">Change role</button></form>'
+                .'</div></div>'
+                .'<div class="modal-section"><div class="eyebrow">SECURITY ACTIONS</div><div class="modal-actions-grid">'
+                .'<form method="post" action="/users/status" data-owner-form data-owner-status-form data-busy="Updating account status…">'.View::csrf().'<input type="hidden" name="user_id"><input type="hidden" name="action"><button class="ghost wide" type="submit">Disable account</button></form>'
+                .'<form method="post" action="/users/revoke-access" data-owner-form data-confirm="Revoke every active API token for this user?" data-busy="Revoking active access…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost warning wide" type="submit">Revoke API access</button></form>'
+                .'<form method="post" action="/users/telegram-reset" data-owner-form data-owner-telegram-form data-confirm="Disconnect this Telegram account?" data-busy="Disconnecting Telegram…">'.View::csrf().'<input type="hidden" name="user_id"><button class="ghost wide" type="submit">Disconnect Telegram</button></form>'
+                .'</div></div>'
+                .'<div class="modal-section"><form method="post" action="/users/password" class="stack" data-owner-form data-confirm="Replace this user password and revoke API access?" data-busy="Resetting password…">'.View::csrf().'<input type="hidden" name="user_id"><div class="field"><label>Temporary password</label><input name="password" type="password" minlength="12" maxlength="200" required autocomplete="new-password" placeholder="12+ chars, number and symbol"></div><button class="ghost danger wide" type="submit">Reset password</button></form></div>'
+                .'</div></div>';
         }
 
         $body = '<section class="hero keys-hero"><div>'
-            .'<div class="eyebrow">ACCESS CONTROL</div><h1>Users & Referrals</h1>'
-            .'<p class="muted">Accounts are created only after a referral is redeemed on the registration page.</p></div></section>'
+            .'<div class="eyebrow">IDENTITY & ACCESS</div><h1>Users & invites</h1>'
+            .'<p class="muted">Manage account access, roles, balances and one-time registration invites.</p></div></section>'
             .takeFlash()
             .'<div class="grid">'
+            .'<div class="card quarter metric"><div class="eyebrow">TOTAL USERS</div><div class="stat">'.count($rows).'</div><div class="metric-note">'.$adminCount.' admin accounts</div></div>'
+            .'<div class="card quarter metric"><div class="eyebrow">ACTIVE</div><div class="stat">'.$activeCount.'</div><div class="metric-note"><span>●</span> Access enabled</div></div>'
+            .'<div class="card quarter metric"><div class="eyebrow">DISABLED</div><div class="stat">'.$disabledCount.'</div><div class="metric-note">Access blocked</div></div>'
+            .'<div class="card quarter metric"><div class="eyebrow">TELEGRAM</div><div class="stat">'.$linkedCount.'</div><div class="metric-note">Verified links</div></div>'
             .'<div class="card third spotlight"><div class="eyebrow">CREATE REFERRAL</div>'
             .'<h3>One-time registration invite</h3>'
             .'<p class="muted">'.($user['role'] === 'owner'
@@ -1305,15 +1476,19 @@ try {
             .'</form></div>'
             .'<div class="card"><div class="toolbar"><h3>Referral invites</h3><span class="tag">'.count($invites).' visible</span></div>'
             .'<div class="table-wrap"><table class="compact-table">'
-            .'<thead><tr><th>Referral</th><th>Role</th><th>Created by</th><th>Status</th><th>Registered user</th><th>Created</th></tr></thead>'
+            .'<thead><tr><th>Referral</th><th>Role</th><th>Created by</th><th>Status</th><th>Registered user</th><th>Created</th><th>Action</th></tr></thead>'
             .'<tbody>'.$inviteRows.'</tbody></table></div></div>'
-            .'<div class="card"><div class="toolbar"><h3>Users</h3><span class="tag">'.count($rows).' visible</span></div>'
+            .'<div class="card"><div class="toolbar"><div><h3>User directory</h3><span class="muted">Search and control every visible account</span></div>'
+            .'<div class="toolbar-controls"><div class="search-wrap"><input class="control-input" type="search" placeholder="Search name or username" data-user-search></div>'
+            .'<select class="control-select" data-user-role-filter aria-label="Filter by role"><option value="all">All roles</option><option value="owner">Owner</option><option value="admin">Admin</option><option value="reseller">Reseller</option><option value="user">User</option></select>'
+            .'<select class="control-select" data-user-status-filter aria-label="Filter by status"><option value="all">Any status</option><option value="active">Active</option><option value="disabled">Disabled</option></select></div></div>'
+            .$bulkBar
             .'<div class="table-wrap"><table class="compact-table">'
-            .'<thead><tr><th>ID</th><th>Name / User</th><th>Role</th><th>Balance</th><th>Telegram</th><th>Status</th><th>Adjust</th></tr></thead>'
-            .'<tbody>'.$trs.'</tbody></table></div></div>'
-            .'</div>';
+            .'<thead><tr><th>'.($user['role'] === 'owner' ? '<input class="row-check" type="checkbox" data-select-all-users aria-label="Select all manageable users">' : 'Select').'</th><th>User</th><th>Role</th><th>Balance</th><th>Telegram</th><th>Status</th><th>Last login</th><th>Control</th></tr></thead>'
+            .'<tbody>'.$trs.'<tr class="table-empty" data-user-empty><td colspan="8">No users match these filters.</td></tr></tbody></table></div></div>'
+            .'</div>'.$ownerModal;
 
-        View::page('Users & Referrals', $body, $user);
+        View::page('Users & invites', $body, $user);
         exit;
     }
 
@@ -1329,6 +1504,219 @@ try {
             flash('err', $e->getMessage());
         }
 
+        redirectTo('/users');
+    }
+
+    if ($path === '/referrals/revoke' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'admin');
+        $inviteId = (int)($_POST['invite_id'] ?? 0);
+
+        $sql = "UPDATE referral_invites SET status='revoked'
+                WHERE id=? AND status='pending'";
+        $params = [$inviteId];
+        if ($user['role'] !== 'owner') {
+            $sql .= ' AND created_by=?';
+            $params[] = $user['id'];
+        }
+
+        $q = Database::pdo()->prepare($sql);
+        $q->execute($params);
+        if ($q->rowCount() !== 1) {
+            flash('err', 'Invite was not found or is no longer pending.');
+        } else {
+            Security::audit((int)$user['id'], 'referral_revoked', [
+                'invite_id'=>$inviteId,
+            ]);
+            flash('ok', 'Registration invite revoked.');
+        }
+        redirectTo('/users');
+    }
+
+    if ($path === '/users/status' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+        Security::rateLimit('owner-user-control-'.$user['id'], 240, 3600);
+
+        try {
+            $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
+            $action = input('action');
+            if (!in_array($action, ['enable','disable'], true)) {
+                throw new RuntimeException('Invalid account action.');
+            }
+            $status = $action === 'enable' ? 'active' : 'disabled';
+            $pdo = Database::pdo();
+            $pdo->beginTransaction();
+            $pdo->prepare('UPDATE users SET status=? WHERE id=?')->execute([
+                $status,
+                $target['id'],
+            ]);
+            if ($status === 'disabled') {
+                $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
+                    $target['id'],
+                ]);
+            }
+            $pdo->commit();
+            Security::audit((int)$user['id'], 'user_status_changed', [
+                'target_id'=>(int)$target['id'],
+                'status'=>$status,
+            ]);
+            flash('ok', '@'.$target['username'].' is now '.$status.'.');
+        } catch (Throwable $e) {
+            if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+            flash('err', $e->getMessage());
+        }
+        redirectTo('/users');
+    }
+
+    if ($path === '/users/role' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+
+        try {
+            $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
+            $role = input('role');
+            if (!in_array($role, ['admin','reseller','user'], true)) {
+                throw new RuntimeException('Invalid account role.');
+            }
+            Database::pdo()->prepare('UPDATE users SET role=? WHERE id=?')->execute([
+                $role,
+                $target['id'],
+            ]);
+            Security::audit((int)$user['id'], 'user_role_changed', [
+                'target_id'=>(int)$target['id'],
+                'from'=>$target['role'],
+                'to'=>$role,
+            ]);
+            flash('ok', '@'.$target['username'].' is now '.ucfirst($role).'.');
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+        redirectTo('/users');
+    }
+
+    if ($path === '/users/revoke-access' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+
+        try {
+            $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
+            $q = Database::pdo()->prepare('DELETE FROM api_tokens WHERE user_id=?');
+            $q->execute([$target['id']]);
+            Security::audit((int)$user['id'], 'user_access_revoked', [
+                'target_id'=>(int)$target['id'],
+                'tokens_revoked'=>$q->rowCount(),
+            ]);
+            flash('ok', 'Active API access revoked for @'.$target['username'].'.');
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+        redirectTo('/users');
+    }
+
+    if ($path === '/users/telegram-reset' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+
+        try {
+            $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
+            if (!$target['telegram_chat_id']) {
+                throw new RuntimeException('This user has no linked Telegram account.');
+            }
+            TelegramService::unlink($target);
+            Security::audit((int)$user['id'], 'user_telegram_reset', [
+                'target_id'=>(int)$target['id'],
+            ]);
+            flash('ok', 'Telegram disconnected for @'.$target['username'].'.');
+        } catch (Throwable $e) {
+            flash('err', $e->getMessage());
+        }
+        redirectTo('/users');
+    }
+
+    if ($path === '/users/password' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+
+        try {
+            $target = ownerManagedUser($user, (int)($_POST['user_id'] ?? 0));
+            $password = (string)($_POST['password'] ?? '');
+            if (!validPassword($password)) {
+                throw new RuntimeException(
+                    'Password needs 12+ characters with a letter, number and symbol.'
+                );
+            }
+            $pdo = Database::pdo();
+            $pdo->beginTransaction();
+            $pdo->prepare('UPDATE users SET password_hash=? WHERE id=?')->execute([
+                Security::passwordHash($password),
+                $target['id'],
+            ]);
+            $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
+                $target['id'],
+            ]);
+            $pdo->commit();
+            Security::audit((int)$user['id'], 'user_password_reset', [
+                'target_id'=>(int)$target['id'],
+            ]);
+            flash('ok', 'Password reset and API access revoked for @'.$target['username'].'.');
+        } catch (Throwable $e) {
+            if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+            flash('err', $e->getMessage());
+        }
+        redirectTo('/users');
+    }
+
+    if ($path === '/users/bulk' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        Auth::requireRole($user, 'owner');
+        Security::rateLimit('owner-user-bulk-'.$user['id'], 30, 3600);
+
+        try {
+            $ids = array_values(array_unique(array_filter(
+                array_map('intval', explode(',', input('user_ids'))),
+                static fn (int $id): bool => $id > 0
+            )));
+            if (!$ids || count($ids) > 100) {
+                throw new RuntimeException('Select between 1 and 100 users.');
+            }
+            $action = input('action');
+            if (!in_array($action, ['enable','disable','revoke_access'], true)) {
+                throw new RuntimeException('Invalid bulk action.');
+            }
+
+            $targets = [];
+            foreach ($ids as $id) $targets[] = ownerManagedUser($user, $id);
+            $pdo = Database::pdo();
+            $pdo->beginTransaction();
+            foreach ($targets as $target) {
+                if ($action === 'revoke_access') {
+                    $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
+                        $target['id'],
+                    ]);
+                    continue;
+                }
+                $status = $action === 'enable' ? 'active' : 'disabled';
+                $pdo->prepare('UPDATE users SET status=? WHERE id=?')->execute([
+                    $status,
+                    $target['id'],
+                ]);
+                if ($status === 'disabled') {
+                    $pdo->prepare('DELETE FROM api_tokens WHERE user_id=?')->execute([
+                        $target['id'],
+                    ]);
+                }
+            }
+            $pdo->commit();
+            Security::audit((int)$user['id'], 'users_bulk_action', [
+                'action'=>$action,
+                'target_ids'=>$ids,
+            ]);
+            flash('ok', 'Bulk action applied to '.count($ids).' users.');
+        } catch (Throwable $e) {
+            if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+            flash('err', $e->getMessage());
+        }
         redirectTo('/users');
     }
 

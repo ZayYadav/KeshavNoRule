@@ -4,6 +4,7 @@
   var activeModal = null;
   var toastTimer = null;
   var lastFocused = null;
+  var dialogFocused = null;
 
   var toast = document.createElement('div');
   toast.className = 'toast';
@@ -76,7 +77,8 @@
   }
 
   function openModal(name) {
-    var modal = document.querySelector('[data-modal="' + name + '"]');
+    var modal = document.getElementById(name);
+    if (modal && modal.getAttribute('data-modal') !== name) return;
     if (!modal) return;
     lastFocused = document.activeElement;
     activeModal = modal;
@@ -146,7 +148,7 @@
       dialog.classList.add('show');
       dialog.setAttribute('aria-hidden', 'false');
       body.classList.add('modal-open');
-      lastFocused = document.activeElement;
+      dialogFocused = document.activeElement;
 
       var finish = function (result) {
         dialog.classList.remove('show');
@@ -154,7 +156,7 @@
         ok.onclick = null;
         cancel.onclick = null;
         if (!activeModal && !busy.classList.contains('show')) body.classList.remove('modal-open');
-        if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+        if (dialogFocused && typeof dialogFocused.focus === 'function') dialogFocused.focus();
         resolve(result);
       };
 
@@ -169,6 +171,55 @@
       (submitter && submitter.getAttribute && submitter.getAttribute('data-action')) ||
       (submitter && submitter.textContent && submitter.textContent.trim()) ||
       'Continue';
+  }
+
+  function hydrateOwnerUser(trigger) {
+    var modal = document.querySelector('[data-modal="owner-user"]');
+    if (!modal || !trigger) return;
+
+    var data = trigger.dataset;
+    modal.querySelectorAll('[data-owner-form]').forEach(function (form) { form.reset(); form.removeAttribute('data-confirmed'); });
+    var historyLink = modal.querySelector('[data-owner-history]');
+    if (historyLink) historyLink.href = '/owner/users?user_id=' + encodeURIComponent(data.userId);
+    var initial = (data.userName || data.userUsername || 'U').slice(0, 1).toUpperCase();
+    var put = function (selector, value) {
+      var node = modal.querySelector(selector);
+      if (node) node.textContent = value || '—';
+    };
+
+    put('[data-owner-user-name]', data.userName);
+    put('[data-owner-user-handle]', '@' + (data.userUsername || 'unknown'));
+    put('[data-owner-user-role]', (data.userRole || '').toUpperCase());
+    put('[data-owner-user-balance]', data.userBalance);
+    put('[data-owner-user-telegram]', data.userTelegram || 'Not linked');
+    put('[data-owner-initial]', initial);
+
+    modal.querySelectorAll('[data-owner-form]').forEach(function (form) {
+      var idInput = form.querySelector('[name="user_id"]');
+      if (idInput) idInput.value = data.userId || '';
+    });
+
+    var statusForm = modal.querySelector('[data-owner-status-form]');
+    if (statusForm) {
+      var action = data.userStatus === 'active' ? 'disable' : 'enable';
+      var statusInput = statusForm.querySelector('[name="action"]');
+      var statusButton = statusForm.querySelector('button[type="submit"]');
+      if (statusInput) statusInput.value = action;
+      if (statusButton) {
+        statusButton.textContent = action === 'disable' ? 'Disable account' : 'Enable account';
+        statusButton.classList.toggle('danger', action === 'disable');
+      }
+      statusForm.setAttribute(
+        'data-confirm',
+        (action === 'disable' ? 'Disable' : 'Enable') + ' @' + data.userUsername + '?'
+      );
+    }
+
+    var role = modal.querySelector('[data-owner-role-select]');
+    if (role) role.value = data.userRole || 'user';
+
+    var telegramForm = modal.querySelector('[data-owner-telegram-form]');
+    if (telegramForm) telegramForm.hidden = !data.userTelegram;
   }
 
   document.addEventListener('click', function (event) {
@@ -186,6 +237,7 @@
     var opener = target.closest('[data-open-modal]');
     if (opener) {
       event.preventDefault();
+      if (opener.hasAttribute('data-user-manage')) hydrateOwnerUser(opener);
       openModal(opener.getAttribute('data-open-modal'));
       return;
     }
@@ -203,6 +255,11 @@
   document.addEventListener('submit', function (event) {
     var form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
+    if (form.hasAttribute('data-bulk-form') && !form.querySelector('[name="user_ids"]').value) {
+      event.preventDefault();
+      showToast('Select at least one user');
+      return;
+    }
     if (form.getAttribute('data-confirmed') === '1') return;
 
     var submitter = event.submitter || document.activeElement;
@@ -220,7 +277,12 @@
         if (!confirmed) return;
         form.setAttribute('data-confirmed', '1');
         showBusy(form.getAttribute('data-busy') || actionText(form, submitter) + '…');
-        form.submit();
+        if (submitter && submitter.name) {
+          var value = document.createElement('input');
+          value.type = 'hidden'; value.name = submitter.name; value.value = submitter.value;
+          form.appendChild(value);
+        }
+        HTMLFormElement.prototype.submit.call(form);
       });
       return;
     }
@@ -231,6 +293,13 @@
   }, true);
 
   document.addEventListener('keydown', function (event) {
+    var focusSurface = dialog.classList.contains('show') ? dialog : activeModal;
+    if (event.key === 'Tab' && focusSurface) {
+      var focusables = Array.prototype.slice.call(focusSurface.querySelectorAll('button,a[href],input:not([type="hidden"]),select,textarea,[tabindex="0"]')).filter(function (el) { return !el.disabled && !el.hidden && el.getClientRects().length; });
+      var first = focusables[0], last = focusables[focusables.length-1];
+      if (event.shiftKey && (document.activeElement === first || !focusSurface.contains(document.activeElement))) { event.preventDefault(); if (last) last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || !focusSurface.contains(document.activeElement))) { event.preventDefault(); if (first) first.focus(); }
+    }
     if (event.key !== 'Escape') return;
     if (dialog.classList.contains('show')) {
       var cancel = dialog.querySelector('[data-dialog-cancel]');
@@ -255,7 +324,7 @@
     sync();
   }
 
-  var flashes = document.querySelectorAll('.alert');
+  var flashes = document.querySelectorAll('[data-flash]');
   if (flashes.length) {
     var flash = flashes[0];
     var okFlash = flash.classList.contains('ok');
@@ -270,10 +339,124 @@
 
   if (window.location.hash) {
     var hashName = window.location.hash.slice(1);
-    if (hashName && document.querySelector('[data-modal="' + hashName + '"]')) openModal(hashName);
+    if (hashName && hashName !== 'owner-user' && document.getElementById(hashName)) openModal(hashName);
   }
+
+  var sidebar = document.querySelector('.sidebar');
+  var sidebarToggle = document.querySelector('[data-sidebar-toggle]');
+  var sidebarScrim = document.querySelector('[data-sidebar-close]');
+  var closeSidebar = function () {
+    if (sidebar) sidebar.classList.remove('open');
+    if (sidebarScrim) sidebarScrim.classList.remove('show');
+    if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', 'false');
+  };
+
+  if (sidebarToggle && sidebar) {
+    sidebarToggle.addEventListener('click', function () {
+      var opening = !sidebar.classList.contains('open');
+      sidebar.classList.toggle('open', opening);
+      if (sidebarScrim) sidebarScrim.classList.toggle('show', opening);
+      sidebarToggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    });
+  }
+  if (sidebarScrim) sidebarScrim.addEventListener('click', closeSidebar);
+  window.addEventListener('resize', function () {
+    if (window.innerWidth > 860) closeSidebar();
+  });
+
+  var userSearch = document.querySelector('[data-user-search]');
+  var userRole = document.querySelector('[data-user-role-filter]');
+  var userStatus = document.querySelector('[data-user-status-filter]');
+  var userRows = Array.prototype.slice.call(document.querySelectorAll('[data-user-row]'));
+  var userEmpty = document.querySelector('[data-user-empty]');
+  var filterUsers = function () {
+    var query = userSearch ? userSearch.value.trim().toLowerCase() : '';
+    var role = userRole ? userRole.value : 'all';
+    var status = userStatus ? userStatus.value : 'all';
+    var shown = 0;
+
+    userRows.forEach(function (row) {
+      var matches = (!query || (row.getAttribute('data-search') || '').indexOf(query) !== -1) &&
+        (role === 'all' || row.getAttribute('data-role') === role) &&
+        (status === 'all' || row.getAttribute('data-status') === status);
+      row.hidden = !matches;
+      if (matches) shown++;
+    });
+    if (userEmpty) userEmpty.style.display = shown ? 'none' : 'table-row';
+  };
+  [userSearch, userRole, userStatus].forEach(function (control) {
+    if (control) control.addEventListener(control.tagName === 'INPUT' ? 'input' : 'change', filterUsers);
+  });
+
+  var selectAll = document.querySelector('[data-select-all-users]');
+  var userChecks = Array.prototype.slice.call(document.querySelectorAll('[data-user-check]'));
+  var bulkForm = document.querySelector('[data-bulk-form]');
+  var selectedCount = document.querySelector('[data-selected-count]');
+  var syncSelection = function () {
+    var selected = userChecks.filter(function (box) { return box.checked; });
+    if (selectedCount) selectedCount.textContent = selected.length + ' selected';
+    if (bulkForm) {
+      var ids = bulkForm.querySelector('[name="user_ids"]');
+      if (ids) ids.value = selected.map(function (box) { return box.value; }).join(',');
+      var submit = bulkForm.querySelector('button[type="submit"]');
+      if (submit) submit.disabled = selected.length === 0;
+    }
+    if (selectAll) {
+      selectAll.checked = userChecks.length > 0 && selected.length === userChecks.length;
+      selectAll.indeterminate = selected.length > 0 && selected.length < userChecks.length;
+    }
+  };
+  if (selectAll) {
+    selectAll.addEventListener('change', function () {
+      userChecks.forEach(function (box) {
+        if (!box.closest('tr').hidden) box.checked = selectAll.checked;
+      });
+      syncSelection();
+    });
+  }
+  userChecks.forEach(function (box) { box.addEventListener('change', syncSelection); });
+  if (bulkForm) {
+    bulkForm.addEventListener('submit', function (event) {
+      var ids = bulkForm.querySelector('[name="user_ids"]');
+      if (!ids || !ids.value) {
+        event.preventDefault();
+        showToast('Select at least one user');
+      }
+    });
+  }
+  syncSelection();
+
+  document.querySelectorAll('[data-table-search]').forEach(function (input) {
+    var target = document.querySelector(input.getAttribute('data-table-search'));
+    if (!target) return;
+    input.addEventListener('input', function () {
+      var query = input.value.trim().toLowerCase();
+      target.querySelectorAll('tbody tr').forEach(function (row) {
+        row.hidden = !!query && row.textContent.toLowerCase().indexOf(query) === -1;
+      });
+    });
+  });
 
   window.addEventListener('pageshow', function () {
     hideBusy();
+    document.querySelectorAll('[data-confirmed]').forEach(function (form) { form.removeAttribute('data-confirmed'); });
+  });
+
+  document.querySelectorAll('.field').forEach(function (field, index) {
+    var label = field.querySelector('label'), input = field.querySelector('input,select,textarea');
+    if (!label || !input) return;
+    if (!input.id) input.id = 'td-field-' + index;
+    label.htmlFor = input.id;
+    if (input.type === 'password') {
+      var wrapper = document.createElement('div'); wrapper.className = 'password-wrap';
+      input.parentNode.insertBefore(wrapper, input); wrapper.appendChild(input);
+      var toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'password-toggle';
+      toggle.textContent = 'Show'; toggle.setAttribute('aria-label','Show password'); toggle.setAttribute('aria-pressed','false');
+      toggle.addEventListener('click', function () {
+        var reveal = input.type === 'password'; input.type = reveal ? 'text' : 'password';
+        toggle.textContent = reveal ? 'Hide' : 'Show'; toggle.setAttribute('aria-pressed',String(reveal)); toggle.setAttribute('aria-label',reveal ? 'Hide password' : 'Show password');
+      });
+      wrapper.appendChild(toggle);
+    }
   });
 })();

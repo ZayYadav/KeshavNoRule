@@ -188,7 +188,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          nohup php -S 127.0.0.1:8080 teamdark-panel/tests/router.php >/tmp/teamdark-php.log 2>&1 &
+          nohup php -S 127.0.0.1:8080 -t teamdark-panel/public teamdark-panel/tests/router.php >/tmp/teamdark-php.log 2>&1 &
           echo $! >/tmp/teamdark-php.pid
 
           for i in $(seq 1 30); do
@@ -200,6 +200,9 @@ jobs:
 
           cat /tmp/teamdark-php.log >&2 || true
           exit 1
+
+      - name: Verify owner controls, history and maintenance
+        run: php teamdark-panel/tests/owner_controls_integration.php
 
       - name: Run 19-case native auth integration suite
         shell: bash
