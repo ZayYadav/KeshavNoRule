@@ -66,7 +66,7 @@ final class View
         $title = self::e((string)($settings['splash_title'] ?? 'TEAM DARK'));
         $subtitle = self::e((string)($settings['splash_subtitle'] ?? 'Secure control plane'));
 
-        return '<div class="td-splash" data-site-splash data-splash-version="'.self::e($version).'" data-splash-duration="'.$duration.'" role="status" aria-live="polite">'
+        return '<div class="td-splash" data-site-splash data-splash-version="'.self::e($version).'" data-splash-duration="'.$duration.'" role="dialog" aria-modal="true" aria-label="Team Dark opening splash">'
             .'<div class="td-splash-grid" aria-hidden="true"></div>'
             .'<div class="td-splash-glow td-splash-glow-a" aria-hidden="true"></div>'
             .'<div class="td-splash-glow td-splash-glow-b" aria-hidden="true"></div>'
@@ -97,7 +97,7 @@ final class View
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             .'<title>'.$safeTitle.' • '.$app.'</title>'
-            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-6">'
+            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-7">'
             .'<meta name="theme-color" content="#05070b">'
             .'<meta name="color-scheme" content="dark"></head>';
 
@@ -111,7 +111,7 @@ final class View
                 .'<span><strong>'.$app.'</strong><small>Secure control plane</small></span></a>'
                 .(in_array($path, ['/login','/login/2fa','/register','/register/success'], true)
                     ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
-                    : $body).'</main><script src="/assets/app.js?v=20260909-6" defer></script></body></html>';
+                    : $body).'</main><script src="/assets/app.js?v=20260909-7" defer></script></body></html>';
             return;
         }
 
@@ -171,7 +171,7 @@ final class View
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'
             .'<main class="page-content">'.$notice.$body.'</main>'
             .'<footer><span><i class="footer-dot"></i> TeamDark secure control plane</span><span>Session encrypted • Premium UI</span></footer>'
-            .'</div></div><script src="/assets/app.js?v=20260909-6" defer></script></body></html>';
+            .'</div></div><script src="/assets/app.js?v=20260909-7" defer></script></body></html>';
     }
 
     public static function csrf(): string
