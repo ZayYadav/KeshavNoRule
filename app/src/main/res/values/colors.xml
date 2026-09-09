@@ -45,4 +45,16 @@
     <color name="package_red">#FF3366</color>
     <color name="text_primary">#FFFFFF</color>
     <color name="text_secondary">#94A3B8</color>
+    <!-- BABA DARK premium palette -->
+    <color name="baba_bg">#050305</color>
+    <color name="baba_surface">#0D090A</color>
+    <color name="baba_surface_2">#171012</color>
+    <color name="baba_crimson">#FF3B4F</color>
+    <color name="baba_crimson_dark">#B91F32</color>
+    <color name="baba_gold">#FFB75E</color>
+    <color name="baba_orange">#FF7A2F</color>
+    <color name="baba_text">#FFF8F7</color>
+    <color name="baba_muted">#B5A8AA</color>
+    <color name="baba_dim">#75686B</color>
+    <color name="baba_success">#55E6A5</color>
 </resources>
