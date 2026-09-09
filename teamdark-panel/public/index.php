@@ -1337,7 +1337,7 @@ try {
             if (!hash_equals($next, $confirm)) {
                 throw new RuntimeException('New password confirmation does not match.');
             }
-            if (password_verify($next, $user['password_hash'] ?? '')) {
+            if (hash_equals($current, $next)) {
                 throw new RuntimeException('Choose a password different from the current password.');
             }
 
