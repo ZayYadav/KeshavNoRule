@@ -40,10 +40,15 @@ final class Security
         $now = time();
         $idle = max(300, (int)Config::get('session_idle_seconds', 1800));
         $rotate = max(300, (int)Config::get('session_rotate_seconds', 900));
+        $absolute = max(1800, (int)Config::get('session_absolute_seconds', 43200));
 
         $lastActivity = (int)($_SESSION['last_activity'] ?? 0);
+        $startedAt = (int)($_SESSION['session_started_at'] ?? 0);
 
-        if ($lastActivity > 0 && ($now - $lastActivity) > $idle) {
+        if (
+            ($lastActivity > 0 && ($now - $lastActivity) > $idle)
+            || ($startedAt > 0 && ($now - $startedAt) > $absolute)
+        ) {
             $_SESSION = [];
             session_regenerate_id(true);
         }
@@ -159,26 +164,35 @@ final class Security
     ): void {
         $pdo = Database::pdo();
         $identity = self::rateLimitHash($bucket, $subject);
+        $max = max(1, $max);
         $start = time() - max(1, $windowSeconds);
 
         $pdo->beginTransaction();
         try {
+            // INSERT IGNORE closes the concurrent "missing row" race.
             $pdo->prepare(
-                'DELETE FROM rate_limits WHERE bucket_hash=? AND touched_at < FROM_UNIXTIME(?)'
-            )->execute([$identity, $start]);
+                'INSERT IGNORE INTO rate_limits(bucket_hash,hits,touched_at) VALUES(?,0,NOW())'
+            )->execute([$identity]);
 
             $q = $pdo->prepare(
-                'SELECT hits FROM rate_limits WHERE bucket_hash=? FOR UPDATE'
+                'SELECT hits,UNIX_TIMESTAMP(touched_at) AS touched_ts
+                 FROM rate_limits
+                 WHERE bucket_hash=?
+                 FOR UPDATE'
             );
             $q->execute([$identity]);
             $row = $q->fetch();
 
             if (!$row) {
+                throw new \RuntimeException('Rate limit state unavailable.');
+            }
+
+            if ((int)$row['touched_ts'] < $start) {
                 $pdo->prepare(
-                    'INSERT INTO rate_limits(bucket_hash,hits,touched_at) VALUES(?,1,NOW())'
+                    'UPDATE rate_limits SET hits=1,touched_at=NOW() WHERE bucket_hash=?'
                 )->execute([$identity]);
             } else {
-                if ((int)$row['hits'] >= max(1, $max)) {
+                if ((int)$row['hits'] >= $max) {
                     throw new \RuntimeException('Too many requests. Try again later.');
                 }
 
@@ -230,7 +244,16 @@ final class Security
 
     private static function isHttps(): bool
     {
-        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            return true;
+        }
+
+        // APP_URL is server-controlled and avoids relying only on a spoofable proxy header.
+        $appUrl = strtolower((string)Config::get('app_url', ''));
+        if (str_starts_with($appUrl, 'https://')) {
+            return true;
+        }
+
+        return (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
     }
 }
