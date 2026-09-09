@@ -411,7 +411,11 @@ final class TelegramBot
             $chatId,
             "⚡ <b>TEAM DARK GUEST</b>\n"
             .self::h($name)
-            ."\n\nUnregistered Telegram users can generate one free <b>2-hour</b> key every <b>7 days</b>.\nThe timer starts on first Loader login.",
+            ."\n\n".(
+                (bool)Config::get('telegram_guest_free_keys_enabled', false)
+                    ? "Guest free-key access is enabled by the Owner security policy."
+                    : "Guest access is read-only until a panel account is linked."
+            ),
             self::menuKeyboard($chatId, null)
         );
     }
@@ -1031,7 +1035,7 @@ final class TelegramBot
 
     private static function ownerKeyboard(): array
     {
-        return [
+        $rows = [
             [
                 ['text'=>'📊 Stats','callback_data'=>'owner:stats'],
                 ['text'=>'👥 Panel Users','callback_data'=>'owner:users'],
@@ -1040,14 +1044,20 @@ final class TelegramBot
                 ['text'=>'✈️ TG Users','callback_data'=>'owner:tg'],
                 ['text'=>'🔑 Keys','callback_data'=>'owner:keys'],
             ],
-            [
+        ];
+
+        if ((bool)Config::get('telegram_owner_mutations_enabled', false)) {
+            $rows[] = [
                 ['text'=>'🎟 Referrals','callback_data'=>'owner:refs'],
                 ['text'=>'➕ 30D Key','callback_data'=>'owner:gen30'],
-            ],
-            [
-                ['text'=>'🔄 Refresh','callback_data'=>'menu'],
-            ],
+            ];
+        }
+
+        $rows[] = [
+            ['text'=>'🔄 Refresh','callback_data'=>'menu'],
         ];
+
+        return $rows;
     }
 
     private static function send(int $chatId, string $text, array $keyboard = []): void
