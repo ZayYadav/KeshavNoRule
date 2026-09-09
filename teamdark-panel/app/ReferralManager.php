@@ -31,8 +31,23 @@ final class ReferralManager
 
         $pdo = Database::pdo();
 
+        if (($actor['role'] ?? '') !== 'owner') {
+            $q = $pdo->prepare(
+                "SELECT COUNT(*)
+                 FROM referral_invites
+                 WHERE created_by=? AND status='pending'"
+            );
+            $q->execute([(int)$actor['id']]);
+
+            if ((int)$q->fetchColumn() >= 25) {
+                throw new RuntimeException(
+                    'Revoke or use existing pending referrals before creating more.'
+                );
+            }
+        }
+
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            $code = 'TD-REF-'.strtoupper(bin2hex(random_bytes(6)));
+            $code = 'TD-REF-'.strtoupper(bin2hex(random_bytes(12)));
 
             try {
                 $pdo->prepare(
