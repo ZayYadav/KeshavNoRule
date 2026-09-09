@@ -297,6 +297,60 @@ final class TelegramService
         }
     }
 
+    public static function sendPrivateMessage(int $chatId, string $html): bool
+    {
+        if ($chatId <= 0 || trim($html) === '') {
+            return false;
+        }
+
+        $token = (string)Config::get('telegram_bot_token', '');
+
+        if ($token === '') {
+            throw new RuntimeException('TELEGRAM_BOT_TOKEN is not configured.');
+        }
+
+        $ch = curl_init('https://api.telegram.org/bot'.$token.'/sendMessage');
+
+        if ($ch === false) {
+            throw new RuntimeException('Could not initialize Telegram request.');
+        }
+
+        $payload = json_encode([
+            'chat_id'=>$chatId,
+            'text'=>$html,
+            'parse_mode'=>'HTML',
+            'disable_web_page_preview'=>true,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        curl_setopt_array($ch, [
+            CURLOPT_POST=>true,
+            CURLOPT_POSTFIELDS=>$payload,
+            CURLOPT_HTTPHEADER=>['Content-Type: application/json'],
+            CURLOPT_RETURNTRANSFER=>true,
+            CURLOPT_CONNECTTIMEOUT=>4,
+            CURLOPT_TIMEOUT=>10,
+            CURLOPT_SSL_VERIFYPEER=>true,
+            CURLOPT_SSL_VERIFYHOST=>2,
+            CURLOPT_FOLLOWLOCATION=>false,
+        ]);
+
+        $body = curl_exec($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($body === false || $status !== 200) {
+            error_log(
+                'Telegram security message failed HTTP '.$status
+                .($error !== '' ? ' transport-error' : '')
+            );
+            return false;
+        }
+
+        $decoded = json_decode((string)$body, true);
+        return is_array($decoded) && ($decoded['ok'] ?? false) === true;
+    }
+
     public static function unregisteredGuests(): array
     {
         $q = Database::pdo()->query(
