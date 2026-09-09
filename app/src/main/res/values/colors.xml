@@ -45,4 +45,12 @@
     <color name="package_red">#FF3366</color>
     <color name="text_primary">#FFFFFF</color>
     <color name="text_secondary">#94A3B8</color>
+    <!-- Parallax Loader premium UI palette -->
+    <color name="parallax_bg">#06080D</color>
+    <color name="parallax_surface">#0D101A</color>
+    <color name="parallax_text">#F8FAFF</color>
+    <color name="parallax_muted">#8993A8</color>
+    <color name="parallax_blue">#62D7F6</color>
+    <color name="parallax_violet">#9B7BFF</color>
+    <color name="parallax_green">#46F29A</color>
 </resources>
