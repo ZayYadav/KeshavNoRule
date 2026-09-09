@@ -20,9 +20,9 @@ final class View
                 . '<form method="post" action="/logout" class="inline"><input type="hidden" name="csrf" value="'.self::e(Security::csrfToken()).'"><button class="ghost">Logout</button></form></nav>';
         }
         echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<title>'.$title.' • '.$app.'</title><link rel="stylesheet" href="/assets/app.css"></head><body>'
+            . '<title>'.$title.' • '.$app.'</title><link rel="stylesheet" href="/assets/app.css?v=20260909-2"><meta name="theme-color" content="#070b13"><meta name="color-scheme" content="dark"></head><body data-teamdark-ui="2">'
             . '<div class="shell"><header><div class="brand"><span class="dot"></span><strong>'.$app.'</strong></div>'.$nav.'</header>'
-            . '<main>'.$body.'</main><footer>TeamDark secure control plane</footer></div><script src="/assets/app.js" defer></script></body></html>';
+            . '<main>'.$body.'</main><footer>TeamDark secure control plane</footer></div><script src="/assets/app.js?v=20260909-2" defer></script></body></html>';
     }
 
     public static function csrf(): string

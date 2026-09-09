@@ -778,12 +778,12 @@ try {
                 .(int)Config::get('unlimited_key_cost').' credits.';
 
         $create = $filter === 'current'
-            ? '<div class="modal-backdrop" data-modal="key-generator" hidden>'
+            ? '<div class="modal-backdrop" id="key-generator" data-modal="key-generator" aria-hidden="true">'
                 .'<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="key-generator-title">'
                 .'<div class="toolbar"><div><div class="eyebrow">TEAM DARK</div><h3 id="key-generator-title">Generate Key</h3></div>'
-                .'<button type="button" class="icon-btn" data-close-modal aria-label="Close">×</button></div>'
+                .'<a class="icon-btn" data-close-modal href="/keys" aria-label="Close">×</a></div>'
                 .'<p class="muted">The key is automatically assigned to your own account.</p>'
-                .'<form method="post" action="/keys/create" class="stack">'
+                .'<form method="post" action="/keys/create" class="stack" data-action="Generate key" data-confirm="Generate this key with the selected validity and device limit?" data-busy="Generating secure key…">'
                 .View::csrf()
                 .'<div class="field"><label>Custom key <span class="optional">optional</span></label>'
                 .'<input name="custom_key" maxlength="80" placeholder="Team-Dark-MyVIPKey" autocomplete="off"></div>'
@@ -794,7 +794,7 @@ try {
                 .'<div class="field"><label>Maximum devices</label><select name="max_devices">'.$deviceOptions.'</select></div>'
                 .'</div>'
                 .'<label class="checkline"><input type="checkbox" name="unlimited_expiry" value="1" data-unlimited-toggle> Unlimited validity</label>'
-                .'<button class="primary wide">Generate key</button>'
+                .'<button type="submit" class="primary wide" data-submit-label="Generating…">Generate key</button>'
                 .'</form>'
                 .'<p class="hint">'.$pricing.' Auto format: Team-Dark-XXXXXXXXX.</p>'
                 .'</div></div>'
@@ -883,7 +883,7 @@ try {
             .'<h1>'.($filter === 'expired' ? 'Expired Keys' : 'Keys').'</h1>'
             .'<p class="muted">Self-owned keys with one-tap block, reset and delete controls.</p></div>'
             .($filter === 'current'
-                ? '<button type="button" class="primary generate-btn" data-open-modal="key-generator">+ Generate Key</button>'
+                ? '<a class="primary generate-btn" href="#key-generator" data-open-modal="key-generator" role="button">+ Generate Key</a>'
                 : '')
             .'</section>'
             .takeFlash()
