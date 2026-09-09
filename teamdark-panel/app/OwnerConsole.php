@@ -146,6 +146,17 @@ final class OwnerConsole
     {
         Auth::requireRole($actor, 'owner');
         $settings = PanelControl::settings();
+        $tgMutationMaster = (bool)Config::get(
+            'telegram_owner_mutations_enabled',
+            false
+        );
+        $tgMutationUnlocked =
+            $tgMutationMaster
+            && PanelControl::telegramOwnerMutationsUnlocked();
+        $tgMutationUntil = (string)(
+            $settings['telegram_owner_mutation_until'] ?? ''
+        );
+
         $pdo = Database::pdo();
 
         $panelUsers = (int)$pdo->query(
@@ -260,6 +271,39 @@ final class OwnerConsole
                 .'<span class="queue-live"><i></i> Auto delivery</span></div>'
                 .'<div class="broadcast-list">'.$broadcastRows.'</div>'
                 .'</div></div></section>';
+
+            $tgMutationCard = '<section class="premium-section">'
+                .'<div class="section-heading"><div><span class="eyebrow">TELEGRAM SECURITY</span>'
+                .'<h2>Owner mutation approval</h2><p>Telegram Owner controls are read-only unless a fresh web-authenticated approval window is active.</p></div></div>'
+                .'<div class="card history-card"><div class="toolbar"><div><h3>High-risk bot actions</h3>'
+                .'<span class="muted">'
+                .(!$tgMutationMaster
+                    ? 'Disabled by server environment.'
+                    : ($tgMutationUnlocked
+                        ? 'Approved until '.View::e($tgMutationUntil)
+                        : 'Server switch enabled, but web approval is locked.'))
+                .'</span></div><span class="status-chip status-'
+                .($tgMutationUnlocked ? 'active' : 'disabled').'">'
+                .($tgMutationUnlocked ? 'UNLOCKED 5M' : 'LOCKED').'</span></div>';
+
+            if (!$tgMutationMaster) {
+                $tgMutationCard .= '<div class="alert">TELEGRAM_OWNER_MUTATIONS_ENABLED is OFF. This is the safest production setting.</div>';
+            } elseif ($tgMutationUnlocked) {
+                $tgMutationCard .= '<form method="post" action="/owner/telegram-mutations/lock"'
+                    .' data-confirm="Lock Telegram Owner mutations now?">'
+                    .View::csrf()
+                    .'<button class="ghost warning" type="submit">Lock now</button></form>';
+            } else {
+                $tgMutationCard .= '<form method="post" action="/owner/telegram-mutations/unlock"'
+                    .' data-confirm="Allow high-risk Telegram Owner mutations for only 5 minutes?"'
+                    .' data-busy="Opening secure Telegram window…">'
+                    .View::csrf()
+                    .'<button class="primary" type="submit">Approve for 5 minutes</button></form>';
+            }
+
+            $tgMutationCard .= '<p class="hint">After 5 minutes it automatically locks again. Reading stats remains available while locked.</p></div></section>';
+
+            $body .= $tgMutationCard;
 
             $body .= '<section class="premium-section"><div class="section-heading"><div><span class="eyebrow">SERVER POLICY</span>'
                 .'<h2>Availability controls</h2><p>Infrastructure-safe controls for panel access and generation.</p></div></div>'
