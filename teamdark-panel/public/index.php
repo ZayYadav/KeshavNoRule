@@ -522,8 +522,16 @@ try {
     }
 
     if ($path === '/login' && $method === 'GET') {
+        if (isset($_GET['cancel']) && $_GET['cancel'] === '1') {
+            Auth::clearPendingTwoFactor();
+        }
+
         if (Auth::user()) {
             redirectTo('/dashboard');
+        }
+
+        if (Auth::pendingTwoFactor()) {
+            redirectTo('/login/2fa');
         }
 
         $body = '<section class="auth"><div class="card">'
@@ -534,7 +542,7 @@ try {
             .'<h1>Welcome back</h1>'
             .'<p class="muted">Secure access to TeamDark control panel.</p>'
             .takeFlash()
-            .'<form method="post" action="/login" class="stack">'
+            .'<form method="post" action="/login" class="stack" data-busy="Checking account security…">'
             .View::csrf()
             .'<div class="field"><label>Username</label>'
             .'<input name="username" autocomplete="username" required maxlength="32"></div>'
@@ -551,27 +559,172 @@ try {
         Security::verifyCsrf($_POST['csrf'] ?? null);
 
         try {
-            $loggedIn = Auth::login(
+            $candidate = Auth::verifyPasswordCredentials(
                 input('username'),
-                (string)($_POST['password'] ?? '')
+                (string)($_POST['password'] ?? ''),
+                'web-login'
             );
+
+            if (!$candidate) {
+                flash('err', 'Invalid username or password.');
+                redirectTo('/login');
+            }
+
+            if (TwoFactorService::enabled($candidate)) {
+                $challenge = TwoFactorService::startLoginChallenge($candidate);
+                Auth::beginTwoFactorSession($challenge);
+                redirectTo('/login/2fa');
+            }
+
+            Auth::completeLogin($candidate);
         } catch (Throwable $e) {
             flash('err', safeMessage($e, 'Sign-in temporarily unavailable.'));
-            redirectTo('/login');
-        }
-
-        if (!$loggedIn) {
-            flash('err', 'Invalid username or password.');
             redirectTo('/login');
         }
 
         redirectTo('/dashboard');
     }
 
+    if ($path === '/login/2fa' && $method === 'GET') {
+        if (Auth::user()) {
+            redirectTo('/dashboard');
+        }
+
+        $pending = Auth::pendingTwoFactor();
+
+        if (!$pending) {
+            flash('err', 'Your verification session expired. Sign in again.');
+            redirectTo('/login');
+        }
+
+        $remaining = max(1, (int)$pending['expires_ts'] - time());
+
+        $body = '<section class="auth"><div class="card twofa-login-card">'
+            .'<div class="eyebrow">TELEGRAM TWO-FACTOR</div>'
+            .'<h1>Check Telegram</h1>'
+            .'<p class="muted">We sent an 8-digit single-use login code to your linked Telegram account.</p>'
+            .takeFlash()
+            .'<div class="twofa-delivery"><span class="security-orb">2FA</span>'
+            .'<div><strong>Second factor required</strong><small>Code expires in '.View::e(formatDuration($remaining)).'</small></div></div>'
+            .'<form method="post" action="/login/2fa" class="stack" data-busy="Verifying Telegram code…">'
+            .View::csrf()
+            .'<div class="field"><label>8-digit code</label>'
+            .'<input class="otp-input" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{8}" minlength="8" maxlength="8" required autofocus placeholder="12345678"></div>'
+            .'<button class="primary wide">Verify & sign in</button>'
+            .'</form>'
+            .'<form method="post" action="/login/2fa/resend" class="inline twofa-resend">'
+            .View::csrf()
+            .'<button class="ghost" type="submit">Send a new code</button>'
+            .'<a class="ghost danger" href="/login?cancel=1">Cancel</a>'
+            .'</form>'
+            .'<p class="hint">Only use codes delivered by the Team Dark bot. Never share a login code.</p>'
+            .'</div></section>';
+
+        View::page('Two-factor verification', $body);
+        exit;
+    }
+
+    if ($path === '/login/2fa' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        $pending = Auth::pendingTwoFactor();
+
+        if (!$pending) {
+            flash('err', 'Your verification session expired. Sign in again.');
+            redirectTo('/login');
+        }
+
+        try {
+            $verified = TwoFactorService::verifyLoginChallenge(
+                (int)$pending['challenge_id'],
+                (int)$pending['user_id'],
+                input('code')
+            );
+
+            Auth::completeLogin($verified);
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e, 'Verification failed.'));
+            redirectTo('/login/2fa');
+        }
+
+        redirectTo('/dashboard');
+    }
+
+    if ($path === '/login/2fa/resend' && $method === 'POST') {
+        Security::verifyCsrf($_POST['csrf'] ?? null);
+        $pending = Auth::pendingTwoFactor();
+
+        if (!$pending) {
+            flash('err', 'Your verification session expired. Sign in again.');
+            redirectTo('/login');
+        }
+
+        $q = Database::pdo()->prepare(
+            'SELECT * FROM users WHERE id=? AND status=\'active\' LIMIT 1'
+        );
+        $q->execute([(int)$pending['user_id']]);
+        $candidate = $q->fetch();
+
+        if (!$candidate || !TwoFactorService::enabled($candidate)) {
+            Auth::clearPendingTwoFactor();
+            flash('err', 'Two-factor authentication is no longer active.');
+            redirectTo('/login');
+        }
+
+        try {
+            $challenge = TwoFactorService::startLoginChallenge($candidate);
+            Auth::beginTwoFactorSession($challenge);
+            flash('ok', 'A new 8-digit code was sent to Telegram.');
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e, 'Could not send another code.'));
+        }
+
+        redirectTo('/login/2fa');
+    }
+
     if ($path === '/logout' && $method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
         Auth::logout();
         redirectTo('/login');
+    }
+
+    if ($path === '/register/success' && $method === 'GET') {
+        if (Auth::user()) {
+            redirectTo('/dashboard');
+        }
+
+        $state = $_SESSION['registration_success'] ?? null;
+
+        if (
+            !is_array($state)
+            || (int)($state['created_ts'] ?? 0) <= time() - 900
+        ) {
+            unset($_SESSION['registration_success']);
+            redirectTo('/register');
+        }
+
+        unset($_SESSION['registration_success']);
+
+        $body = '<section class="auth registration-success"><div class="card">'
+            .'<div class="success-mark">✓</div>'
+            .'<div class="eyebrow">ACCOUNT CREATED</div>'
+            .'<h1>Welcome to Team Dark</h1>'
+            .'<p class="muted">Review your account details before continuing to login.</p>'
+            .'<div class="registration-summary">'
+            .'<div><span>Name</span><strong>'.View::e($state['name']).'</strong></div>'
+            .'<div><span>Username</span><strong>@'.View::e($state['username']).'</strong></div>'
+            .'<div><span>Role</span><strong>'.View::e(strtoupper((string)$state['role'])).'</strong></div>'
+            .'<div><span>Referral used</span><strong class="key">'.View::e($state['referral']).'</strong></div>'
+            .'<div><span>Signup balance</span><strong>'.View::e((string)$state['signup_bonus']).' credits</strong></div>'
+            .'<div><span>Password</span><strong>Saved securely • not displayed</strong></div>'
+            .'</div>'
+            .'<div class="countdown-panel"><span class="security-orb">15</span>'
+            .'<div><strong>Security review</strong><small>Continue unlocks after the countdown.</small></div></div>'
+            .'<a class="primary wide countdown-action is-disabled" href="/login" aria-disabled="true" tabindex="-1" data-registration-countdown="15">OK • 15s</a>'
+            .'<p class="hint">After login you can link Telegram and optionally enable Telegram 2FA from Dashboard.</p>'
+            .'</div></section>';
+
+        View::page('Registration complete', $body);
+        exit;
     }
 
     if ($path === '/register' && $method === 'GET') {
@@ -745,8 +898,16 @@ try {
             redirectTo('/register?ref='.urlencode($ref));
         }
 
-        flash('ok', 'Account created. You can sign in now.');
-        redirectTo('/login');
+        $_SESSION['registration_success'] = [
+            'name'=>$name,
+            'username'=>$username,
+            'role'=>$invite['role'],
+            'referral'=>$ref,
+            'signup_bonus'=>$signup,
+            'created_ts'=>time(),
+        ];
+
+        redirectTo('/register/success');
     }
 
     $user = Auth::requireLogin();
