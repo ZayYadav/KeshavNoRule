@@ -20,9 +20,9 @@ import java.util.Scanner;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
-public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
+public class NoRuleXCheat5 extends AsyncTask<String, Integer, String> {
 
-    private static final String TAG = "KeshavOwner5";
+    private static final String TAG = "NoRuleXCheat5";
     private static final long MAX_DOWNLOAD_BYTES = 100L * 1024L * 1024L;
     private static final long MAX_EXTRACTED_BYTES = 512L * 1024L * 1024L;
 
@@ -50,11 +50,11 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
     private static final String PREF_VERSION_KEY = "version";
     private static final String ZIP_NAME = "imgui.zip";
 
-    public KeshavOwner5(Context context) {
+    public NoRuleXCheat5(Context context) {
         this(context, null);
     }
 
-    public KeshavOwner5(Context context, Callback callback) {
+    public NoRuleXCheat5(Context context, Callback callback) {
         this.context = context.getApplicationContext();
         this.callback = callback;
     }
@@ -130,7 +130,7 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
         }
 
         try {
-            KeshavOwner6 secure = new KeshavOwner6(context);
+            NoRuleXCheat6 secure = new NoRuleXCheat6(context);
             secure.setSt(LOADER_HASH_KEY, "");
             secure.setSt(LOADER_SIZE_KEY, "");
         } catch (Throwable ignored) {}
@@ -349,7 +349,7 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
             String hash = sha256File(loader);
             if (hash == null || hash.length() != 64) return false;
 
-            KeshavOwner6 secure = new KeshavOwner6(context);
+            NoRuleXCheat6 secure = new NoRuleXCheat6(context);
             secure.setSt(LOADER_HASH_KEY, hash);
             secure.setSt(LOADER_SIZE_KEY, Long.toString(loader.length()));
             return true;
@@ -365,7 +365,7 @@ public class KeshavOwner5 extends AsyncTask<String, Integer, String> {
             String expectedPath = trustedLoaderFile(context).getCanonicalPath();
             if (!loader.getCanonicalPath().equals(expectedPath)) return false;
 
-            KeshavOwner6 secure = new KeshavOwner6(context);
+            NoRuleXCheat6 secure = new NoRuleXCheat6(context);
             String expectedHash = secure.getSt(LOADER_HASH_KEY, "");
             String expectedSize = secure.getSt(LOADER_SIZE_KEY, "");
 
