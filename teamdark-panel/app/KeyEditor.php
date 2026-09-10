@@ -36,7 +36,11 @@ final class KeyEditor
         bool $unlimitedExpiry,
         int $maxDevices,
         bool $unlimitedDevices
-    ): void {
+    ): int {
+        // Editing validity/device entitlement is a generation-class action.
+        // Owner always bypasses this switch through PanelControl::assertGeneration().
+        PanelControl::assertGeneration($actor);
+
         $plainKey = trim($plainKey);
         $label = trim($label);
 
@@ -81,17 +85,60 @@ final class KeyEditor
                 throw new RuntimeException('That key value already exists.');
             }
 
+            $durationSeconds = $unlimitedExpiry ? 0 : $durationDays * 86400;
+            $oldUnlimited = (bool)$row['unlimited_expiry'];
+            $oldDuration = (int)$row['duration_seconds'];
+            $oldPrice = KeyManager::price($oldDuration, $oldUnlimited);
+            $newPrice = KeyManager::price($durationSeconds, $unlimitedExpiry);
+            $upgradeCost = ($actor['role'] ?? '') === 'owner'
+                ? 0
+                : max(0, $newPrice - $oldPrice);
+
+            if ($upgradeCost > 0) {
+                $balanceQ = $pdo->prepare(
+                    'SELECT balance,status FROM users WHERE id=? FOR UPDATE'
+                );
+                $balanceQ->execute([(int)$actor['id']]);
+                $account = $balanceQ->fetch();
+
+                if (!$account || $account['status'] !== 'active') {
+                    throw new RuntimeException('Account unavailable.');
+                }
+
+                $balance = (int)$account['balance'];
+                if ($balance < $upgradeCost) {
+                    throw new RuntimeException(
+                        'Insufficient balance for this validity upgrade. Required: '.$upgradeCost.' credit(s).'
+                    );
+                }
+
+                $pdo->prepare(
+                    'UPDATE users SET balance=balance-? WHERE id=?'
+                )->execute([$upgradeCost, (int)$actor['id']]);
+
+                $pdo->prepare(
+                    'INSERT INTO balance_ledger(user_id,actor_user_id,amount,reason) VALUES(?,?,?,?)'
+                )->execute([
+                    (int)$actor['id'],
+                    (int)$actor['id'],
+                    -$upgradeCost,
+                    'License validity upgrade',
+                ]);
+            }
+
             $newHash = Crypto::licenseLookupHash($plainKey);
             $keyChanged = !hash_equals((string)$row['key_hash'], $newHash);
             [$cipher, $iv, $tag] = Crypto::encrypt($plainKey);
-            $durationSeconds = $unlimitedExpiry ? 0 : $durationDays * 86400;
             $expiresAt = null;
             $status = (string)$row['status'];
             $activatedAt = $row['activated_at'] ? (string)$row['activated_at'] : null;
 
             if (!$unlimitedExpiry && $activatedAt !== null) {
                 $activatedTs = strtotime($activatedAt);
-                if ($activatedTs === false) throw new RuntimeException('Stored activation time is invalid.');
+                if ($activatedTs === false) {
+                    throw new RuntimeException('Stored activation time is invalid.');
+                }
+
                 $expiresAt = date('Y-m-d H:i:s', $activatedTs + $durationSeconds);
                 if ($status !== 'revoked') {
                     $status = strtotime($expiresAt) <= time()
@@ -120,6 +167,8 @@ final class KeyEditor
                 $keyId,
             ]);
 
+            $pdo->commit();
+
             Security::audit((int)$actor['id'], 'license_edited', [
                 'license_id'=>$keyId,
                 'owner_id'=>(int)$row['owner_user_id'],
@@ -128,9 +177,10 @@ final class KeyEditor
                 'max_devices'=>$unlimitedDevices ? null : $maxDevices,
                 'unlimited_devices'=>$unlimitedDevices,
                 'key_value_changed'=>$keyChanged,
+                'upgrade_cost'=>$upgradeCost,
             ]);
 
-            $pdo->commit();
+            return $upgradeCost;
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $e;
