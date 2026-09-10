@@ -35,21 +35,21 @@ jobs:
                   raise SystemExit(f'{path}: expected exactly one match, found {count}')
               p.write_text(text.replace(old, new, 1), encoding='utf-8')
 
-          # 1) Defense-in-depth at the central generation service.
+          # Central generation service: non-owner cannot request either Unlimited entitlement.
           replace_once(
               'teamdark-panel/app/KeyManager.php',
               """        PanelControl::assertGeneration($actor);\n        if (!$unlimitedExpiry && $durationSeconds < 86400) {""",
               """        PanelControl::assertGeneration($actor);\n\n        if (($actor['role'] ?? '') !== 'owner' && ($unlimitedExpiry || $unlimitedDevices)) {\n            throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');\n        }\n\n        if (!$unlimitedExpiry && $durationSeconds < 86400) {"""
           )
 
-          # 2) Key editor: non-owner cannot escalate or alter an Owner-managed unlimited entitlement.
+          # Key editor: a non-owner cannot escalate or alter Owner-managed Unlimited flags.
           replace_once(
               'teamdark-panel/app/KeyEditor.php',
               """            $row = self::rowForActor($pdo, $actor, $keyId, true);\n            if (!$row) throw new RuntimeException('Key not found or not allowed.');\n\n            $deviceQ = $pdo->prepare(""",
-              """            $row = self::rowForActor($pdo, $actor, $keyId, true);\n            if (!$row) throw new RuntimeException('Key not found or not allowed.');\n\n            $isOwner = (($actor['role'] ?? '') === 'owner');\n            if (!$isOwner) {\n                $oldUnlimitedExpiry = (bool)$row['unlimited_expiry'];\n                $oldUnlimitedDevices = (bool)$row['unlimited_devices'];\n\n                if (($unlimitedExpiry && !$oldUnlimitedExpiry) || ($unlimitedDevices && !$oldUnlimitedDevices)) {\n                    throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');\n                }\n\n                // Unlimited entitlements already granted by Owner are read-only for non-owner accounts.\n                $unlimitedExpiry = $oldUnlimitedExpiry;\n                $unlimitedDevices = $oldUnlimitedDevices;\n            }\n\n            $deviceQ = $pdo->prepare("""
+              """            $row = self::rowForActor($pdo, $actor, $keyId, true);\n            if (!$row) throw new RuntimeException('Key not found or not allowed.');\n\n            $isOwner = (($actor['role'] ?? '') === 'owner');\n            if (!$isOwner) {\n                $oldUnlimitedExpiry = (bool)$row['unlimited_expiry'];\n                $oldUnlimitedDevices = (bool)$row['unlimited_devices'];\n\n                if (($unlimitedExpiry && !$oldUnlimitedExpiry) || ($unlimitedDevices && !$oldUnlimitedDevices)) {\n                    throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');\n                }\n\n                // Existing Owner-granted Unlimited entitlements are read-only for non-owner accounts.\n                $unlimitedExpiry = $oldUnlimitedExpiry;\n                $unlimitedDevices = $oldUnlimitedDevices;\n            }\n\n            $deviceQ = $pdo->prepare("""
           )
 
-          # 3) Generate-key UI: do not render either Unlimited control for non-owner accounts.
+          # Generate-key UI: do not render Unlimited controls to non-owner accounts.
           replace_once(
               'teamdark-panel/public/index.php',
               """        $deviceOptions .= '<option value=\"unlimited\">Unlimited devices</option>';""",
@@ -71,7 +71,7 @@ jobs:
               """            $requestedUnlimitedExpiry = isset($_POST['unlimited_expiry'])\n                && $_POST['unlimited_expiry'] === '1';\n\n            $deviceRaw = input('max_devices', '10');\n            $requestedUnlimitedDevices = $deviceRaw === 'unlimited';\n\n            if (($user['role'] ?? '') !== 'owner' && ($requestedUnlimitedExpiry || $requestedUnlimitedDevices)) {\n                throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');\n            }\n\n            $unlimitedExpiry = (($user['role'] ?? '') === 'owner') && $requestedUnlimitedExpiry;\n            $unlimitedDevices = (($user['role'] ?? '') === 'owner') && $requestedUnlimitedDevices;\n            $maxDevices = $unlimitedDevices ? 1 : (int)$deviceRaw;"""
           )
 
-          # 4) Edit-key UI: render Unlimited switches only for Owner.
+          # Edit-key UI: render Unlimited switches only for Owner.
           replace_once(
               'teamdark-panel/public/key-edit.php',
               """    $owner = trim((string)($row['owner_display_name'] ?? '')) ?: (string)$row['owner_name'];\n\n    $body = '<link rel=\"stylesheet\" href=\"/assets/vault.css?v=20260910-2\">'""",
@@ -83,14 +83,7 @@ jobs:
               """        .$unlimitedControls\n        .'<p class=\"hint\">For non-owner accounts, increasing finite validity deducts only the extra credit difference. Downgrades do not refund credits. Owner edits cost 0.</p>'"""
           )
 
-          # 5) Strengthen static CI guard for this policy.
-          replace_once(
-              '.github/workflows/teamdark-panel-php-lint.yml',
-              """          grep -F \"require $root.'/app/KeyManager.php';\" teamdark-panel/public/key-edit.php >/dev/null\n""",
-              """          grep -F \"require $root.'/app/KeyManager.php';\" teamdark-panel/public/key-edit.php >/dev/null\n          grep -F \"Unlimited validity and unlimited devices are reserved for Owner.\" teamdark-panel/app/KeyManager.php >/dev/null\n          grep -F \"Unlimited validity and unlimited devices are reserved for Owner.\" teamdark-panel/app/KeyEditor.php >/dev/null\n          grep -F \"Unlimited options are Owner-only.\" teamdark-panel/public/index.php >/dev/null\n"""
-          )
-
-          # Self-disable the one-shot workflow after the patch commit.
+          # Self-disable after this successful one-shot patch.
           workflow = Path('.github/workflows/apply-owner-only-unlimited.yml')
           wt = workflow.read_text(encoding='utf-8')
           old_trigger = """on:\n  push:\n    branches:\n      - TeamDarkLoader\n    paths:\n      - '.github/workflows/apply-owner-only-unlimited.yml'\n  workflow_dispatch:\n"""
@@ -100,7 +93,7 @@ jobs:
           workflow.write_text(wt.replace(old_trigger, new_trigger, 1), encoding='utf-8')
           PY
 
-      - name: Validate patched PHP
+      - name: Validate patched files
         shell: bash
         run: |
           set -euo pipefail
@@ -108,6 +101,9 @@ jobs:
           php -l teamdark-panel/app/KeyEditor.php
           php -l teamdark-panel/public/index.php
           php -l teamdark-panel/public/key-edit.php
+          grep -F 'Unlimited validity and unlimited devices are reserved for Owner.' teamdark-panel/app/KeyManager.php >/dev/null
+          grep -F 'Unlimited validity and unlimited devices are reserved for Owner.' teamdark-panel/app/KeyEditor.php >/dev/null
+          grep -F 'Unlimited options are Owner-only.' teamdark-panel/public/index.php >/dev/null
 
       - name: Commit owner-only policy
         shell: bash
@@ -119,7 +115,6 @@ jobs:
                   teamdark-panel/app/KeyEditor.php \
                   teamdark-panel/public/index.php \
                   teamdark-panel/public/key-edit.php \
-                  .github/workflows/teamdark-panel-php-lint.yml \
                   .github/workflows/apply-owner-only-unlimited.yml
           git diff --cached --check
           git commit -m 'Restrict unlimited license options to owner'
