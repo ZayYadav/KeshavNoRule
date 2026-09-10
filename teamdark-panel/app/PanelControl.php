@@ -17,6 +17,22 @@ final class PanelControl
         'splash_subtitle'=>'Secure control plane',
         'splash_duration_ms'=>2400,
         'splash_version'=>1,
+        'default_max_devices'=>10,
+        'force_one_device_new_keys'=>false,
+        'generated_key_prefix'=>'Team-Dark-',
+        'generated_key_length'=>16,
+        'key_cost_per_day'=>-1,
+        'blocked_ip_rules'=>[],
+        'brand_name'=>'',
+        'brand_subtitle'=>'Secure control plane',
+        'brand_footer'=>'TeamDark secure control plane',
+        'brand_mark'=>'TD',
+        'package_enabled'=>false,
+        'package_name'=>'',
+        'package_version'=>'',
+        'package_notes'=>'',
+        'package_file_id'=>0,
+        'panel_release_label'=>'',
     ];
 
     public static function settings(): array
@@ -98,7 +114,7 @@ final class PanelControl
     {
         if (($actor['role'] ?? '') !== 'owner') throw new \RuntimeException('Owner access required.');
         $current = self::settings();
-        $settings = self::DEFAULTS;
+        $settings = array_replace(self::DEFAULTS, $current);
         $settings['announcement'] = (string)($current['announcement'] ?? '');
         $settings['announcement_published_at'] = (string)($current['announcement_published_at'] ?? '');
 

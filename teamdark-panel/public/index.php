@@ -16,14 +16,14 @@ use TeamDark\Panel\{
     View
 };
 
-use TeamDark\Panel\{PanelControl, OwnerConsole};
-require_once dirname(__DIR__).'/app/OwnerConsole.php';
+use TeamDark\Panel\{PanelControl, OwnerConsole, OwnerSystem, CdnCache};
 
 $root = dirname(__DIR__);
 
 foreach ([
     'Config',
     'Database',
+    'PanelControl',
     'Security',
     'Crypto',
     'Auth',
@@ -35,8 +35,11 @@ foreach ([
     'TelegramService',
     'BroadcastService',
     'TwoFactorService',
+    'CdnCache',
+    'OwnerConsole',
+    'OwnerSystem',
 ] as $file) {
-    require $root.'/app/'.$file.'.php';
+    require_once $root.'/app/'.$file.'.php';
 }
 
 Config::load($root);
@@ -319,6 +322,7 @@ function bearerUser(): array
     }
 
     if (PanelControl::blocked($u)) jsonOut(['ok'=>false, 'error'=>'Panel under maintenance'], 503);
+    if (Security::ownerIpPolicyBlocked($u)) jsonOut(['ok'=>false, 'error'=>'Access denied by IP policy'], 403);
 
     Database::pdo()
         ->prepare('UPDATE api_tokens SET last_used_at=NOW() WHERE id=?')
@@ -812,6 +816,11 @@ try {
             flash('err', 'New registrations are paused by the owner.');
             redirectTo('/register');
         }
+        if (Security::ownerIpPolicyBlocked(null)) {
+            http_response_code(403);
+            flash('err', 'Registration is not available from this network.');
+            redirectTo('/register');
+        }
         Security::rateLimit('register', 6, 3600);
 
         $name = input('name');
@@ -985,6 +994,8 @@ try {
 
     $privilegedFreshAuthRoutes = [
         '/owner/settings',
+        '/owner/system/save',
+        '/owner/system/action',
         '/owner/announcements/create',
         '/owner/announcements/clear',
         '/telegram/unlink',
@@ -1017,6 +1028,11 @@ try {
     }
 
     if (PanelControl::blocked($user)) redirectTo('/');
+    if (Security::ownerIpPolicyBlocked($user)) {
+        http_response_code(403);
+        View::page('Access denied', '<section class="auth"><div class="card"><h1>Network blocked</h1><p class="muted">This account cannot access the panel from the current IP policy.</p></div></section>', $user);
+        exit;
+    }
     if ($method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
 
@@ -1028,9 +1044,39 @@ try {
             ]);
         }
     }
-    if ($method === 'GET' && in_array($path, ['/dashboard','/keys','/keys/expired','/keys/devices','/users','/telegram-users','/activity','/owner/users','/owner/settings'], true)) {
+    if ($method === 'GET' && (in_array($path, ['/dashboard','/keys','/keys/expired','/keys/devices','/users','/telegram-users','/activity','/owner/users'], true) || str_starts_with($path, '/owner/'))) {
         Security::audit((int)$user['id'], 'page_viewed', ['path'=>$path]);
     }
+    if ($path === '/owner/system/save' && $method === 'POST') {
+        Auth::requireRole($user, 'owner');
+        $section = input('section');
+        try {
+            $message = OwnerSystem::saveSection($user, $section, $_POST);
+            flash('ok', $message);
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+        redirectTo(OwnerSystem::redirectForSection($section));
+    }
+
+    if ($path === '/owner/system/action' && $method === 'POST') {
+        Auth::requireRole($user, 'owner');
+        $returnTo = input('return_to', '/owner/system');
+        $allowedReturn = ['/owner/system','/owner/session-controls','/owner/update','/owner/packages'];
+        if (!in_array($returnTo, $allowedReturn, true)) $returnTo = '/owner/system';
+        try {
+            flash('ok', OwnerSystem::action($user, input('action'), $_POST));
+        } catch (Throwable $e) {
+            flash('err', safeMessage($e));
+        }
+        redirectTo($returnTo);
+    }
+
+    if ($method === 'GET' && OwnerSystem::handles($path)) {
+        OwnerSystem::render($path, $user, takeFlash());
+        exit;
+    }
+
     if ($path === '/owner/announcements/create' && $method === 'POST') {
         Auth::requireRole($user, 'owner');
 
@@ -1052,7 +1098,7 @@ try {
             flash('err', safeMessage($e));
         }
 
-        redirectTo('/owner/settings#announcements');
+        redirectTo('/owner/alerts');
     }
 
     if ($path === '/owner/announcements/process' && $method === 'POST') {
@@ -1083,23 +1129,18 @@ try {
             flash('err', safeMessage($e));
         }
 
-        redirectTo('/owner/settings#announcements');
+        redirectTo('/owner/alerts');
     }
 
     if ($path === '/owner/settings' && $method === 'POST') {
         Auth::requireRole($user, 'owner');
-        Security::verifyCsrf($_POST['csrf'] ?? null);
         try {
             PanelControl::save($user, $_POST);
-            flash('ok', 'Server controls updated.');
+            flash('ok', 'Legacy server controls updated.');
         } catch (Throwable $e) {
             flash('err', safeMessage($e));
         }
-        redirectTo('/owner/settings');
-    }
-    if ($path === '/owner/settings' && $method === 'GET') {
-        OwnerConsole::settings($user, takeFlash());
-        exit;
+        redirectTo('/owner/server');
     }
     if ($path === '/owner/users' && $method === 'GET') {
         OwnerConsole::users($user, $_GET);
@@ -1142,7 +1183,7 @@ try {
                 .'<a class="owner-command" href="/users"><span>'.$newUsers.'</span><div><strong>New this week</strong><small>'.$pendingInvites.' invites pending</small></div></a>'
                 .'<a class="owner-command" href="/activity"><span>↗</span><div><strong>All activity</strong><small>Browse retained history</small></div></a>'
                 .'<a class="owner-command" href="/owner/users"><span>◎</span><div><strong>User insights</strong><small>Keys, credits and per-user history</small></div></a>'
-                .'<a class="owner-command" href="/owner/settings"><span>⏻</span><div><strong>Server controls</strong><small>Panel access and availability</small></div></a>'
+                .'<a class="owner-command" href="/owner/system"><span>⏻</span><div><strong>System controls</strong><small>Dedicated owner modules</small></div></a>'
                 .'</div></div>';
         } else {
             $q = $pdo->prepare('SELECT COUNT(*) FROM users WHERE referred_by=?');
@@ -1430,9 +1471,14 @@ try {
         $filter = $path === '/keys/expired' ? 'expired' : 'current';
         $rows = KeyManager::visibleKeys($user, $filter);
 
+        $keyPolicy = PanelControl::settings();
+        $defaultDevices = (bool)($keyPolicy['force_one_device_new_keys'] ?? false)
+            ? 1
+            : (int)($keyPolicy['default_max_devices'] ?? 10);
+        if (!in_array($defaultDevices, KeyManager::DEVICE_LIMITS, true)) $defaultDevices = 10;
         $deviceOptions = '';
         foreach (KeyManager::DEVICE_LIMITS as $limit) {
-            $selected = $limit === 10 ? ' selected' : '';
+            $selected = $limit === $defaultDevices ? ' selected' : '';
             $deviceOptions .= '<option value="'.$limit.'"'.$selected.'>'
                 .$limit.' devices</option>';
         }
@@ -1447,10 +1493,13 @@ try {
                 .$day.' day'.($day === 1 ? '' : 's').'</option>';
         }
 
+        $dailyPrice = KeyManager::price(86400, false);
         $pricing = ownerUnlimited($user)
             ? 'Owner generation cost: 0 credits. Unlimited validity and devices available.'
-            : 'Timed cost: '.(int)Config::get('key_cost')
-                .' credit(s) per day. Unlimited options are Owner-only.';
+            : 'Timed cost: '.$dailyPrice.' credit(s) per day. Unlimited options are Owner-only.';
+        $autoPrefix = (string)($keyPolicy['generated_key_prefix'] ?? 'Team-Dark-');
+        $autoLength = max(8, min(32, (int)($keyPolicy['generated_key_length'] ?? 16)));
+        $autoPreview = $autoPrefix.str_repeat('X', min($autoLength, 20)).($autoLength > 20 ? '…' : '');
 
         $create = $filter === 'current'
             ? '<div class="modal-backdrop" id="key-generator" data-modal="key-generator" aria-hidden="true">'
@@ -1461,7 +1510,7 @@ try {
                 .'<form method="post" action="/keys/create" class="stack" data-action="Generate key" data-confirm="Generate this key with the selected validity and device limit?" data-busy="Generating secure key…">'
                 .View::csrf()
                 .'<div class="field"><label>Custom key <span class="optional">optional</span></label>'
-                .'<input name="custom_key" minlength="24" maxlength="80" placeholder="Team-Dark-MyVIPKey9" autocomplete="off"></div>'
+                .'<input name="custom_key" minlength="5" maxlength="80" placeholder="Custom key • 5–80 characters" autocomplete="off"></div>'
                 .'<div class="field"><label>Label <span class="optional">optional</span></label>'
                 .'<input name="label" maxlength="100" placeholder="Customer / plan note"></div>'
                 .'<div class="form-row">'
@@ -1473,7 +1522,7 @@ try {
                     : '')
                 .'<button type="submit" class="primary wide" data-submit-label="Generating…">Generate key</button>'
                 .'</form>'
-                .'<p class="hint">'.$pricing.' Auto format: Team-Dark-XXXXXXXXX.</p>'
+                .'<p class="hint">'.$pricing.' Auto format: '.View::e($autoPreview).'.'.((bool)($keyPolicy['force_one_device_new_keys'] ?? false) ? ' One-device policy is active.' : '').'</p>'
                 .'</div></div>'
             : '';
 
@@ -2073,11 +2122,11 @@ try {
             .'<p class="muted">Manage account access, roles, balances and one-time registration invites.</p></div></section>'
             .takeFlash()
             .'<div class="grid">'
-            .'<div class="card quarter metric"><div class="eyebrow">TOTAL USERS</div><div class="stat">'.count($rows).'</div><div class="metric-note">'.$adminCount.' admin accounts</div></div>'
+            .'<div id="balance-center"></div><div class="card quarter metric"><div class="eyebrow">TOTAL USERS</div><div class="stat">'.count($rows).'</div><div class="metric-note">'.$adminCount.' admin accounts</div></div>'
             .'<div class="card quarter metric"><div class="eyebrow">ACTIVE</div><div class="stat">'.$activeCount.'</div><div class="metric-note"><span>●</span> Access enabled</div></div>'
             .'<div class="card quarter metric"><div class="eyebrow">DISABLED</div><div class="stat">'.$disabledCount.'</div><div class="metric-note">Access blocked</div></div>'
             .'<div class="card quarter metric"><div class="eyebrow">TELEGRAM</div><div class="stat">'.$linkedCount.'</div><div class="metric-note">'.$twoFactorCount.' with 2FA enabled</div></div>'
-            .'<div class="card third spotlight"><div class="eyebrow">CREATE REFERRAL</div>'
+            .'<div class="card third spotlight" id="referral-center"><div class="eyebrow">CREATE REFERRAL</div>'
             .'<h3>One-time registration invite</h3>'
             .'<p class="muted">'.($user['role'] === 'owner'
                 ? 'Owner can create Admin, Reseller and User referrals.'

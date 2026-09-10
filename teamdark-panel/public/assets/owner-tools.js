@@ -236,15 +236,6 @@
 
   function installPanelExtensions() {
     var path = window.location.pathname || '/';
-    var nav = document.querySelector('.sidebar nav .nav-group');
-    if (nav && !document.querySelector('[data-private-vault-link]')) {
-      var vault = document.createElement('a');
-      vault.href = '/files';
-      vault.setAttribute('data-private-vault-link', '1');
-      if (path.indexOf('/files') === 0) vault.className = 'active';
-      vault.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"/><path d="M7 7V4h10v3"/><path d="M8 12h8M8 16h5"/></svg><span>Binary Vault</span>' + (path.indexOf('/files') === 0 ? '<i></i>' : '');
-      nav.appendChild(vault);
-    }
 
     if (path.indexOf('/key-edit') === 0) {
       var keyNav = document.querySelector('.sidebar nav a[href="/keys"]');

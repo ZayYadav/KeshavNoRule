@@ -171,6 +171,27 @@ final class Security
         return $remote;
     }
 
+    public static function ownerIpPolicyBlocked(?array $actor): bool
+    {
+        if (($actor['role'] ?? '') === 'owner') {
+            return false;
+        }
+
+        $rules = PanelControl::settings()['blocked_ip_rules'] ?? [];
+        if (!is_array($rules) || $rules === []) {
+            return false;
+        }
+
+        $ip = self::clientIp();
+        foreach ($rules as $rule) {
+            $rule = trim((string)$rule);
+            if ($rule !== '' && self::ipInCidr($ip, $rule)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static function trustedProxy(string $remote): bool
     {
         $raw = trim((string)Config::get('trusted_proxy_cidrs', ''));

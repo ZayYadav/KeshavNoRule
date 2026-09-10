@@ -38,7 +38,7 @@ final class OwnerSystem
         if (!$method) {
             throw new RuntimeException('Owner system page not found.');
         }
-        self::$method($actor, $flash);
+        self::{$method}($actor, $flash);
     }
 
     public static function redirectForSection(string $section): string
@@ -105,6 +105,15 @@ final class OwnerSystem
     {
         $revision = (int)($input['revision'] ?? -1);
         if ($revision < 0) throw new RuntimeException('Missing settings revision.');
+
+        if ($section === 'packages') {
+            $fileId = max(0, (int)($input['package_file_id'] ?? 0));
+            if ($fileId > 0) {
+                $q = Database::pdo()->prepare('SELECT 1 FROM user_uploads WHERE id=? AND user_id=? LIMIT 1');
+                $q->execute([$fileId, (int)$actor['id']]);
+                if (!$q->fetchColumn()) throw new RuntimeException('Selected package file must belong to the Owner File Manager.');
+            }
+        }
 
         self::saveTransaction($actor, $revision, static function (array $s) use ($section, $input): array {
             if ($section === 'server') {
@@ -220,15 +229,6 @@ final class OwnerSystem
 
             throw new RuntimeException('Unknown settings section.');
         }, 'owner_system_'.$section.'_changed');
-
-        if ($section === 'packages') {
-            $fileId = max(0, (int)($input['package_file_id'] ?? 0));
-            if ($fileId > 0) {
-                $q = Database::pdo()->prepare('SELECT 1 FROM user_uploads WHERE id=? AND user_id=? LIMIT 1');
-                $q->execute([$fileId, (int)$actor['id']]);
-                if (!$q->fetchColumn()) throw new RuntimeException('Selected package file must belong to the Owner File Manager.');
-            }
-        }
 
         return 'Settings saved.';
     }

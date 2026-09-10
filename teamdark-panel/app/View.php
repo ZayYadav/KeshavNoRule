@@ -38,9 +38,10 @@ final class View
         string $icon,
         string $path
     ): string {
-        $active = $path === $href
-            || ($href === '/keys' && str_starts_with($path, '/keys'))
-            || ($href === '/users' && str_starts_with($path, '/users'));
+        $hrefPath = (string)(parse_url($href, PHP_URL_PATH) ?: $href);
+        $active = $path === $hrefPath
+            || ($hrefPath === '/keys' && str_starts_with($path, '/keys'))
+            || ($hrefPath === '/users' && str_starts_with($path, '/users'));
 
         return '<a href="'.$href.'"'.($active ? ' class="active" aria-current="page"' : '').'>'
             .self::icon($icon).'<span>'.$label.'</span>'
@@ -307,14 +308,18 @@ KOTLIN);
 
     public static function page(string $title, string $body, ?array $user = null): void
     {
-        $app = self::e(Config::get('app_name'));
+        $settings = PanelControl::settings();
+        $rawApp = trim((string)($settings['brand_name'] ?? '')) ?: (string)Config::get('app_name');
+        $app = self::e($rawApp);
+        $brandSubtitle = self::e(trim((string)($settings['brand_subtitle'] ?? '')) ?: 'Secure control plane');
+        $brandFooter = self::e(trim((string)($settings['brand_footer'] ?? '')) ?: $rawApp.' secure control plane');
+        $brandMark = self::e(strtoupper(trim((string)($settings['brand_mark'] ?? 'TD'))) ?: 'TD');
         $safeTitle = self::e($title);
         $path = (string)(
             parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH)
             ?: '/'
         );
         $csrf = self::e(Security::csrfToken());
-        $settings = PanelControl::settings();
         $splash = self::splash($settings);
 
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
@@ -324,6 +329,7 @@ KOTLIN);
             .'<link rel="stylesheet" href="/assets/themes.css?v=20260910-2">'
             .'<link rel="stylesheet" href="/assets/owner-tools.css?v=20260910-2">'
             .'<link rel="stylesheet" href="/assets/cinematic.css?v=20260910-2">'
+            .'<link rel="stylesheet" href="/assets/system-console.css?v=20260910-1">'
             .'<meta name="theme-color" content="#020305">'
             .'<meta name="color-scheme" content="dark light"></head>';
 
@@ -333,8 +339,8 @@ KOTLIN);
                 .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
                 .'<div class="cursor-aura" aria-hidden="true"></div>'
                 .'<main class="guest-main"><a class="guest-brand" href="/" aria-label="'.$app.' home">'
-                .'<span class="brand-mark"><b>TD</b><i></i></span>'
-                .'<span><strong>'.$app.'</strong><small>Secure control plane</small></span></a>'
+                .'<span class="brand-mark"><b>'.$brandMark.'</b><i></i></span>'
+                .'<span><strong>'.$app.'</strong><small>'.$brandSubtitle.'</small></span></a>'
                 .(in_array($path, ['/login','/login/2fa','/register','/register/success'], true)
                     ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
                     : $body).'</main><script src="/assets/themes.js?v=20260910-2" defer></script><script src="/assets/owner-tools.js?v=20260910-2" defer></script><script src="/assets/app.js?v=20260910-2" defer></script></body></html>';
@@ -346,22 +352,44 @@ KOTLIN);
         $role = strtoupper((string)$user['role']);
         $themeUser = self::e((string)($user['id'] ?? $user['username'] ?? 'user'));
 
-        $nav = '<div class="nav-group"><span class="nav-label">Workspace</span>'
-            .self::navLink('/dashboard', 'Overview', 'dashboard', $path)
-            .self::navLink('/keys', 'License keys', 'keys', $path)
-            .self::navLink('/files', 'Binary Vault', 'spark', $path)
+        $nav = '<div class="nav-group"><span class="nav-label">Main</span>'
+            .self::navLink('/dashboard', 'Dashboard', 'dashboard', $path)
+            .self::navLink('/keys', 'All Keys', 'keys', $path)
+            .self::navLink('/keys#key-generator', 'Generate Key', 'spark', $path)
+            .self::navLink('/keys?generator=random#key-generator', 'Random Keys', 'spark', $path)
+            .self::navLink('/files', 'File Manager', 'spark', $path)
             .'</div>';
 
         if (in_array($user['role'], ['owner','admin'], true)) {
             $nav .= '<div class="nav-group"><span class="nav-label">Management</span>'
-                .self::navLink('/users', 'Users & invites', 'users', $path);
+                .self::navLink('/users', 'Manage Users', 'users', $path)
+                .self::navLink('/users#referral-center', 'Referral Codes', 'users', $path)
+                .self::navLink('/users#balance-center', 'Balance', 'spark', $path);
             if ($user['role'] === 'owner') {
-                $nav .= self::navLink('/telegram-users', 'Telegram guests', 'telegram', $path)
-                    .self::navLink('/activity', 'All activity', 'activity', $path)
-                    .self::navLink('/owner/users', 'User insights', 'users', $path)
-                    .self::navLink('/owner/settings', 'Server controls', 'dashboard', $path);
+                $nav .= self::navLink('/owner/users', 'User Insights', 'users', $path)
+                    .self::navLink('/telegram-users', 'Telegram Users', 'telegram', $path);
             }
             $nav .= '</div>';
+        }
+
+        if (($user['role'] ?? '') === 'owner') {
+            $nav .= '<div class="nav-group system-group"><span class="nav-label">System</span>'
+                .self::navLink('/owner/system', 'System Overview', 'dashboard', $path)
+                .self::navLink('/owner/server', 'Server & Maint.', 'dashboard', $path)
+                .self::navLink('/owner/device-policy', 'One Device', 'keys', $path)
+                .self::navLink('/owner/key-format', 'Key Format', 'keys', $path)
+                .self::navLink('/owner/pricing', 'Pricing', 'spark', $path)
+                .self::navLink('/owner/ip-management', 'IP Management', 'activity', $path)
+                .self::navLink('/owner/rebranding', 'Manage Rebranding', 'spark', $path)
+                .self::navLink('/owner/security', 'Heartbeat & Security', 'activity', $path)
+                .self::navLink('/owner/session-controls', 'Heartbeat Kicks', 'activity', $path)
+                .self::navLink('/owner/packages', 'Package Manager', 'spark', $path)
+                .self::navLink('/owner/alerts', 'Panel Alert', 'telegram', $path)
+                .self::navLink('/owner/update', 'Panel Update', 'spark', $path)
+                .self::navLink('/owner/settings', 'Settings', 'dashboard', $path)
+                .self::navLink('/activity', 'Activity Logs', 'activity', $path)
+                .self::navLink('/owner/developer', 'Developer API', 'spark', $path)
+                .'</div>';
         }
 
         $notice = '';
@@ -379,7 +407,7 @@ KOTLIN);
             $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
         }
 
-        if (($user['role'] ?? '') === 'owner' && $path === '/owner/settings') {
+        if (($user['role'] ?? '') === 'owner' && $path === '/owner/developer') {
             $body .= self::ownerConnectSection();
         }
 
@@ -389,7 +417,7 @@ KOTLIN);
             .'<div class="cursor-aura" aria-hidden="true"></div>'
             .'<div class="app-layout"><aside class="sidebar" id="app-sidebar" aria-label="Primary navigation">'
             .'<a class="sidebar-brand" href="/dashboard"><span class="brand-mark"><b>TD</b><i></i></span>'
-            .'<span><strong>'.$app.'</strong><small>'.self::e(ucfirst($user['role'])).' console</small></span></a>'
+            .'<span><strong>'.$app.'</strong><small>'.$brandSubtitle.'</small></span></a>'
             .'<nav>'.$nav.'</nav>'
             .'<div class="sidebar-foot"><div class="system-state"><span></span><div><strong>Panel '.($settings['panel_online'] ? 'online' : 'offline').'</strong><small>Signed in as '.self::e($user['role']).'</small></div></div>'
             .'<form method="post" action="/logout" data-action="Signing out" data-busy="Closing secure session…">'
@@ -403,7 +431,7 @@ KOTLIN);
             .'<div class="topbar-right">'.self::themePicker().'<div class="secure-pill"><span></span><b>Protected</b><i>Live security</i></div>'
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'
             .'<main class="page-content">'.$notice.$body.'</main>'
-            .'<footer><span><i class="footer-dot"></i> TeamDark secure control plane</span><span>Session encrypted • Personal theme enabled</span></footer>'
+            .'<footer><span><i class="footer-dot"></i> '.$brandFooter.'</span><span>Session encrypted • Personal theme enabled</span></footer>'
             .'</div></div><script src="/assets/themes.js?v=20260910-2" defer></script><script src="/assets/owner-tools.js?v=20260910-2" defer></script><script src="/assets/app.js?v=20260910-2" defer></script></body></html>';
     }
 

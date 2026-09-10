@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use TeamDark\Panel\{Auth,Config,Database,PanelControl,Security,UploadManager,View};
+use TeamDark\Panel\{Auth,CdnCache,Config,Database,PanelControl,Security,UploadManager,View};
 
 $root = dirname(__DIR__);
-foreach (['Config','Database','Security','PanelControl','Auth','View','UploadManager'] as $file) {
+foreach (['Config','Database','Security','PanelControl','Auth','View','CdnCache','UploadManager'] as $file) {
     require_once $root.'/app/'.$file.'.php';
 }
 
@@ -244,7 +244,7 @@ try {
     }
 
     $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-3">'
-        .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE STORAGE</span><h1>Binary Vault</h1><p class="muted">Private .so / .zip storage with isolated per-user slots and protected downloads.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
+        .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE FILE MANAGER</span><h1>File Manager</h1><p class="muted">Private .so / .zip storage with isolated per-user slots and protected downloads.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
         .vaultTakeFlash()
         .'<section class="premium-section" id="my-files"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. Copied download links still require an authorized panel session.</p></div></div>'
         .$uploadForm
@@ -255,7 +255,7 @@ try {
         .$ownerSection;
 
     Security::audit((int)$user['id'], 'page_viewed', ['path'=>'/files']);
-    View::page('Binary Vault', $body, $user);
+    View::page('File Manager', $body, $user);
 } catch (Throwable $e) {
     error_log('TeamDark vault error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
     $message = vaultSafeMessage($e);

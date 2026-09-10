@@ -16,8 +16,13 @@ final class KeyManager
             return max(0, (int)Config::get('unlimited_key_cost', 100));
         }
 
+        $settings = PanelControl::settings();
+        $configured = (int)($settings['key_cost_per_day'] ?? -1);
+        $daily = $configured >= 0
+            ? $configured
+            : max(0, (int)Config::get('key_cost', 1));
         $days = max(1, (int)ceil(max(86400, $durationSeconds) / 86400));
-        return $days * max(0, (int)Config::get('key_cost', 1));
+        return $days * $daily;
     }
 
     public static function targetsFor(array $actor): array
@@ -131,6 +136,11 @@ final class KeyManager
 
         if (($actor['role'] ?? '') !== 'owner' && ($unlimitedExpiry || $unlimitedDevices)) {
             throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');
+        }
+
+        $devicePolicy = PanelControl::settings();
+        if (!$unlimitedDevices && (bool)($devicePolicy['force_one_device_new_keys'] ?? false)) {
+            $maxDevices = 1;
         }
 
         if (!$unlimitedExpiry && $durationSeconds < 86400) {
@@ -595,14 +605,20 @@ final class KeyManager
 
     private static function newLicense(): string
     {
+        $settings = PanelControl::settings();
+        $prefix = trim((string)($settings['generated_key_prefix'] ?? 'Team-Dark-'));
+        if ($prefix === '' || strlen($prefix) > 30 || !preg_match('/^[A-Za-z0-9_-]+$/', $prefix)) {
+            $prefix = 'Team-Dark-';
+        }
+        $length = max(8, min(32, (int)($settings['generated_key_length'] ?? 16)));
         $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         $token = '';
 
-        for ($i = 0; $i < 16; $i++) {
+        for ($i = 0; $i < $length; $i++) {
             $token .= $alphabet[random_int(0, strlen($alphabet) - 1)];
         }
 
-        return 'Team-Dark-'.$token;
+        return $prefix.$token;
     }
 
     private static function licenseValue(\PDO $pdo, string $customKey): string
