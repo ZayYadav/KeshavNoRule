@@ -82,6 +82,20 @@ final class View
             .'</div></div>';
     }
 
+    private static function themePicker(): string
+    {
+        return '<div class="theme-control" data-theme-control title="Personal theme • Alt+Shift+T to cycle">'
+            .'<span class="theme-control-mark" aria-hidden="true">FX</span>'
+            .'<select data-theme-select aria-label="Choose your personal panel theme">'
+            .'<option value="obsidian">Obsidian</option>'
+            .'<option value="crimson">Crimson</option>'
+            .'<option value="cyber">Cyber Blue</option>'
+            .'<option value="emerald">Emerald</option>'
+            .'<option value="royal">Royal Purple</option>'
+            .'<option value="snow">Snow Light</option>'
+            .'</select></div>';
+    }
+
     public static function page(string $title, string $body, ?array $user = null): void
     {
         $app = self::e(Config::get('app_name'));
@@ -97,12 +111,13 @@ final class View
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             .'<title>'.$safeTitle.' • '.$app.'</title>'
-            .'<link rel="stylesheet" href="/assets/app.css?v=20260909-7">'
+            .'<link rel="stylesheet" href="/assets/app.css?v=20260910-1">'
+            .'<link rel="stylesheet" href="/assets/themes.css?v=20260910-1">'
             .'<meta name="theme-color" content="#05070b">'
-            .'<meta name="color-scheme" content="dark"></head>';
+            .'<meta name="color-scheme" content="dark light"></head>';
 
         if (!$user) {
-            echo $head.'<body data-teamdark-ui="5" class="guest-body">'.$splash
+            echo $head.'<body data-teamdark-ui="6" data-theme="obsidian" data-theme-user="guest" class="guest-body">'.$splash
                 .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
                 .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
                 .'<div class="cursor-aura" aria-hidden="true"></div>'
@@ -111,13 +126,14 @@ final class View
                 .'<span><strong>'.$app.'</strong><small>Secure control plane</small></span></a>'
                 .(in_array($path, ['/login','/login/2fa','/register','/register/success'], true)
                     ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
-                    : $body).'</main><script src="/assets/app.js?v=20260909-7" defer></script></body></html>';
+                    : $body).'</main><script src="/assets/themes.js?v=20260910-1" defer></script><script src="/assets/app.js?v=20260910-1" defer></script></body></html>';
             return;
         }
 
         $displayName = trim((string)($user['name'] ?? '')) ?: (string)$user['username'];
         $initial = strtoupper(substr($displayName, 0, 1));
         $role = strtoupper((string)$user['role']);
+        $themeUser = self::e((string)($user['id'] ?? $user['username'] ?? 'user'));
 
         $nav = '<div class="nav-group"><span class="nav-label">Workspace</span>'
             .self::navLink('/dashboard', 'Overview', 'dashboard', $path)
@@ -150,7 +166,7 @@ final class View
         if (!$settings['panel_online']) {
             $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
         }
-        echo $head.'<body data-teamdark-ui="5">'.$splash
+        echo $head.'<body data-teamdark-ui="6" data-theme="obsidian" data-theme-user="'.$themeUser.'">'.$splash
             .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
             .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
             .'<div class="cursor-aura" aria-hidden="true"></div>'
@@ -167,11 +183,11 @@ final class View
             .'<button class="mobile-menu" type="button" data-sidebar-toggle aria-controls="app-sidebar" aria-expanded="false">'
             .self::icon('menu').'<span>Menu</span></button><div class="breadcrumb"><span>TeamDark</span>'
             .self::icon('chevron').'<strong>'.$safeTitle.'</strong></div></div>'
-            .'<div class="topbar-right"><div class="secure-pill"><span></span><b>Protected</b><i>Live security</i></div>'
+            .'<div class="topbar-right">'.self::themePicker().'<div class="secure-pill"><span></span><b>Protected</b><i>Live security</i></div>'
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'
             .'<main class="page-content">'.$notice.$body.'</main>'
-            .'<footer><span><i class="footer-dot"></i> TeamDark secure control plane</span><span>Session encrypted • Premium UI</span></footer>'
-            .'</div></div><script src="/assets/app.js?v=20260909-7" defer></script></body></html>';
+            .'<footer><span><i class="footer-dot"></i> TeamDark secure control plane</span><span>Session encrypted • Personal theme enabled</span></footer>'
+            .'</div></div><script src="/assets/themes.js?v=20260910-1" defer></script><script src="/assets/app.js?v=20260910-1" defer></script></body></html>';
     }
 
     public static function csrf(): string
