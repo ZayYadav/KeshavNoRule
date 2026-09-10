@@ -111,7 +111,7 @@ try {
         'LoaderAuthService',
         'AppRegistry',
     ] as $file) {
-        require $root.'/app/'.$file.'.php';
+        require_once $root.'/app/'.$file.'.php';
     }
 
     Config::load($root);
