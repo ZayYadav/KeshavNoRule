@@ -18,6 +18,20 @@ jobs:
         with:
           ref: TeamDarkLoader
 
+      - name: Repair patch script replacement escaping
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/apply_teamdark_multi_app_api.py')
+          s = p.read_text(encoding='utf-8')
+          old = "s, n = pattern.subn(replacement, s, count=1)"
+          new = "s, n = pattern.subn(lambda _m: replacement, s, count=1)"
+          if old not in s:
+              raise SystemExit('repair marker missing')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+
       - name: Apply multi-app API patch
         run: python3 scripts/apply_teamdark_multi_app_api.py
 
