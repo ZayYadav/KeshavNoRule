@@ -1,0 +1,57 @@
+name: TeamDark Endpoint Referral Finalizer
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/tmp-teamdark-referral-endpoint.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+          fetch-depth: 0
+
+      - name: Apply production patch
+        run: python3 .github/tmp-teamdark-referral-endpoint-patch.py
+
+      - name: PHP lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in teamdark-panel/app/Database.php teamdark-panel/app/ReferralManager.php teamdark-panel/public/register-relaxed.php teamdark-panel/public/index.php teamdark-panel/app/View.php teamdark-panel/tests/multi_app_contract.php; do
+            php -l "$f"
+          done
+
+      - name: Verify required wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "grant_balance BIGINT UNSIGNED NOT NULL DEFAULT 0" teamdark-panel/database/schema.sql >/dev/null
+          grep -F "MAX_REFERRAL_BALANCE = 1000000000" teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F "grantInviteBalanceToUser" teamdark-panel/public/register-relaxed.php >/dev/null
+          grep -F "'/my-apps'" teamdark-panel/app/View.php >/dev/null
+          grep -F "My App APIs" teamdark-panel/public/index.php >/dev/null
+          grep -F "Referral balance grant" teamdark-panel/app/ReferralManager.php >/dev/null
+
+      - name: Commit production changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "TeamDark CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add teamdark-panel/
+          if git diff --cached --quiet; then
+            echo "No production changes to commit"
+            exit 0
+          fi
+          git commit -m "Add user App API view and referral balance grants"
+          git push origin HEAD:TeamDarkLoader
