@@ -315,7 +315,8 @@ try {
     request($ownerClient,'/owner/settings',['csrf'=>$ownerCsrf,'revision'=>$revision-1]);
     check(PanelControl::settings()['panel_online']===true,'stale settings form cannot overwrite newer controls');
     saveSettings($ownerClient,$ownerCsrf,['registration_open'=>'0']);
-    $reg = request($guest,'/register');
+    // Obtain the session CSRF token from login: invite-only /register intentionally has no create-account CSRF form until a referral is verified.
+    $reg = request($guest,'/login');
     request($guest,'/register',['csrf'=>token($reg['body']),'referral'=>'anything','name'=>'Blocked user','username'=>'blocked-registration','password'=>'ContractTest@12345']);
     check((int)$pdo->query("SELECT COUNT(*) FROM users WHERE username='blocked-registration'")->fetchColumn()===0,'closed registration creates no account');
     saveSettings($ownerClient,$ownerCsrf,[]);
