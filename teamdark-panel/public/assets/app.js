@@ -59,6 +59,7 @@
         '<p class="muted" data-dialog-message></p>' +
       '</div>' +
       '<div class="ui-dialog-actions">' +
+        '<button type="button" class="ghost" data-dialog-copy hidden>Copy</button>' +
         '<button type="button" class="ghost" data-dialog-cancel>Cancel</button>' +
         '<button type="button" class="primary" data-dialog-ok>Continue</button>' +
       '</div>' +
@@ -170,6 +171,7 @@
       var title = dialog.querySelector('[data-dialog-title]');
       var message = dialog.querySelector('[data-dialog-message]');
       var icon = dialog.querySelector('[data-dialog-icon]');
+      var copy = dialog.querySelector('[data-dialog-copy]');
       var cancel = dialog.querySelector('[data-dialog-cancel]');
       var ok = dialog.querySelector('[data-dialog-ok]');
 
@@ -191,6 +193,11 @@
       ok.textContent = options.okText || 'Continue';
       cancel.textContent = options.cancelText || 'Cancel';
       cancel.hidden = options.cancel === false;
+      if (copy) {
+        copy.hidden = !options.copyValue;
+        copy.textContent = options.copyText || 'Copy';
+        copy.classList.remove('copied');
+      }
 
       dialog.classList.add('show');
       dialog.setAttribute('aria-hidden', 'false');
@@ -202,14 +209,28 @@
         dialog.setAttribute('aria-hidden', 'true');
         ok.onclick = null;
         cancel.onclick = null;
+        if (copy) copy.onclick = null;
         if (!activeModal && !busy.classList.contains('show')) body.classList.remove('modal-open');
         if (dialogFocused && typeof dialogFocused.focus === 'function') dialogFocused.focus();
         resolve(result);
       };
 
+      if (copy) {
+        copy.onclick = function () {
+          copyText(options.copyValue || '');
+          copy.textContent = 'Copied ✓';
+          copy.classList.add('copied');
+          setTimeout(function () {
+            if (copy && dialog.classList.contains('show')) {
+              copy.textContent = options.copyText || 'Copy';
+              copy.classList.remove('copied');
+            }
+          }, 1200);
+        };
+      }
       ok.onclick = function () { finish(true); };
       cancel.onclick = function () { finish(false); };
-      setTimeout(function () { ok.focus(); }, 20);
+      setTimeout(function () { (copy && !copy.hidden ? copy : ok).focus(); }, 20);
     });
   }
 
@@ -378,12 +399,16 @@
   if (flashes.length) {
     var flash = flashes[0];
     var okFlash = flash.classList.contains('ok');
+    var flashCopy = flash.getAttribute('data-flash-copy') || '';
+    var flashCopyLabel = flash.getAttribute('data-flash-copy-label') || 'Copy';
     ask({
       title: okFlash ? 'Success' : 'Action failed',
       message: flash.textContent.trim(),
       icon: okFlash ? '✓' : '!',
       okText: 'OK',
-      cancel: false
+      cancel: false,
+      copyValue: flashCopy,
+      copyText: flashCopyLabel
     });
   }
 

@@ -69,9 +69,13 @@ function input(string $name, string $default = ''): string
     return trim((string)($_POST[$name] ?? $default));
 }
 
-function flash(string $type, string $message): void
-{
-    $_SESSION['flash'] = [$type, $message];
+function flash(
+    string $type,
+    string $message,
+    ?string $copyValue = null,
+    string $copyLabel = 'Copy'
+): void {
+    $_SESSION['flash'] = [$type, $message, $copyValue, $copyLabel];
 }
 
 function takeFlash(): string
@@ -83,7 +87,15 @@ function takeFlash(): string
         return '';
     }
 
-    return '<div data-flash role="status" class="alert '.($f[0] === 'ok' ? 'ok' : '').'">'
+    $copyValue = isset($f[2]) && is_string($f[2]) ? $f[2] : '';
+    $copyLabel = isset($f[3]) && is_string($f[3]) && trim($f[3]) !== ''
+        ? trim($f[3])
+        : 'Copy';
+    $copyAttrs = $copyValue !== ''
+        ? ' data-flash-copy="'.View::e($copyValue).'" data-flash-copy-label="'.View::e($copyLabel).'"'
+        : '';
+
+    return '<div data-flash role="status" class="alert '.($f[0] === 'ok' ? 'ok' : '').'"'.$copyAttrs.'>'
         .View::e($f[1])
         .'</div>';
 }
@@ -1614,7 +1626,9 @@ try {
 
             flash(
                 'ok',
-                'Generated: '.$created['key'].' • Cost: '.$created['cost'].' credit(s).'
+                'Generated: '.$created['key'].' • Cost: '.$created['cost'].' credit(s).',
+                (string)$created['key'],
+                'Copy key'
             );
         } catch (Throwable $e) {
             flash('err', safeMessage($e));
@@ -2098,7 +2112,12 @@ try {
 
         try {
             $invite = ReferralManager::create($user, input('role', 'user'));
-            flash('ok', 'Referral created: '.$invite['code']);
+            flash(
+                'ok',
+                'Referral created: '.$invite['code'],
+                (string)$invite['code'],
+                'Copy referral'
+            );
         } catch (Throwable $e) {
             flash('err', safeMessage($e));
         }
