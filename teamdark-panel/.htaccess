@@ -29,9 +29,11 @@ RewriteRule ^assets/(.*)$ public/assets/$1 [L,NC]
 # Let requests that are already inside /public continue normally.
 RewriteRule ^public(?:/|$) - [L]
 
-# Shared-hosting fallback: route UI/API routes through public/index.php.
-RewriteRule ^$ public/index.php [QSA,L]
-RewriteRule ^.*$ public/index.php [QSA,L]
+# Shared-hosting fallback: route UI/API routes through the production crash logger wrapper.
+# The wrapper logs uncaught PHP exceptions/fatals to storage/logs/panel-error.log
+# and then executes the unchanged public/index.php application entrypoint.
+RewriteRule ^$ public/index-debug.php [QSA,L]
+RewriteRule ^.*$ public/index-debug.php [QSA,L]
 
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
