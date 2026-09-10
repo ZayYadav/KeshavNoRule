@@ -18,17 +18,26 @@ jobs:
         with:
           ref: TeamDarkLoader
 
-      - name: Repair patch script replacement escaping
+      - name: Repair patch script and registration marker
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
+
           p = Path('scripts/apply_teamdark_multi_app_api.py')
           s = p.read_text(encoding='utf-8')
           old = "s, n = pattern.subn(replacement, s, count=1)"
           new = "s, n = pattern.subn(lambda _m: replacement, s, count=1)"
           if old not in s:
-              raise SystemExit('repair marker missing')
+              raise SystemExit('regex repair marker missing')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          p = Path('teamdark-panel/public/register-relaxed.php')
+          s = p.read_text(encoding='utf-8')
+          old = "        $uid = (int)$pdo->lastInsertId();\n"
+          new = "            $uid = (int)$pdo->lastInsertId();\n"
+          if old not in s:
+              raise SystemExit('registration uid marker missing')
           p.write_text(s.replace(old, new, 1), encoding='utf-8')
           PY
 
