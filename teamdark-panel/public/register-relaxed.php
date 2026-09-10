@@ -5,7 +5,7 @@ use TeamDark\Panel\{Auth,Config,Database,PanelControl,ReferralManager,Security,V
 
 $root = dirname(__DIR__);
 foreach (['Config','Database','Security','PanelControl','Auth','View','ReferralManager'] as $file) {
-    require $root.'/app/'.$file.'.php';
+    require_once $root.'/app/'.$file.'.php';
 }
 
 Config::load($root);
@@ -43,42 +43,68 @@ function regValidName(string $name): bool
 
 function regValidUsername(string $username): bool
 {
-    return (bool)preg_match('/^[a-z0-9_.-]{3,32}$/', $username);
+    $length = strlen($username);
+    return $length >= 3
+        && $length <= 64
+        && (bool)preg_match('/^[A-Za-z0-9._-]+$/', $username);
+}
+
+function regValidPassword(string $password): bool
+{
+    $length = strlen($password);
+    return $length >= 1
+        && $length <= 200
+        && !str_contains($password, "\0");
 }
 
 function regReferralCode(): string
 {
-    return 'TD'.strtoupper(bin2hex(random_bytes(7)));
+    return 'TDUSR'.strtoupper(bin2hex(random_bytes(8)));
 }
 
 try {
-    if (Auth::user()) regRedirect('/dashboard');
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    $path = rawurldecode((string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/register'), PHP_URL_PATH) ?: '/register'));
 
-    $settings = PanelControl::settings();
-    if (!$settings['panel_online']) {
-        http_response_code(503);
-        header('Retry-After: 300');
-        View::page(
-            'Maintenance',
-            '<section class="auth"><div class="card"><div class="eyebrow">PANEL OFFLINE</div><h1>We will be back.</h1><p class="muted">'.View::e((string)$settings['message']).'</p><a class="ghost" href="/login">Owner sign in</a></div></section>'
-        );
+    if (!in_array($path, ['/register','/register/'], true)) {
+        http_response_code(404);
+        View::page('Not found', '<section class="auth"><div class="card"><h1>404</h1><p class="muted">Registration route not found.</p></div></section>');
         exit;
     }
 
-    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-
     if ($method === 'GET') {
-        $prefill = View::e((string)($_GET['ref'] ?? ''));
-        $body = '<section class="auth"><div class="card">'
-            .'<div class="tabs"><a href="/login">Login</a><a class="active" href="/register">Register</a></div>'
-            .'<h1>Create account</h1><p class="muted">A valid referral code is required.</p>'
-            .regTakeFlash()
-            .'<form method="post" action="/register" class="stack">'.View::csrf()
-            .'<div class="field"><label>Referral code</label><input name="referral" value="'.$prefill.'" required maxlength="40" autocomplete="off"></div>'
-            .'<div class="field"><label>Name</label><input name="name" required minlength="2" maxlength="80" autocomplete="name" placeholder="Your name"></div>'
-            .'<div class="field"><label>Username</label><input name="username" required minlength="3" maxlength="32" autocomplete="username"></div>'
-            .'<div class="field"><label>Password</label><input type="password" name="password" required minlength="1" maxlength="200" autocomplete="new-password"><p class="hint">Any non-empty password up to 200 characters is accepted. No letter/number/symbol combination is required.</p></div>'
-            .'<button class="primary">Create account</button></form></div></section>';
+        $ref = trim((string)($_GET['ref'] ?? ''));
+        $flash = regTakeFlash();
+        $invite = null;
+
+        if ($ref !== '') {
+            try {
+                $invite = ReferralManager::validateForRegistration($ref);
+            } catch (Throwable $e) {
+                $flash .= '<div class="alert">'.View::e($e->getMessage()).'</div>';
+            }
+        }
+
+        if (!$invite) {
+            $body = '<section class="auth"><div class="card"><div class="eyebrow">INVITE ONLY</div><h1>Create account</h1>'
+                .$flash
+                .'<p class="muted">A valid one-time referral code is required to register.</p>'
+                .'<form method="get" action="/register" class="stack"><div class="field"><label>Referral code</label><input name="ref" maxlength="80" required value="'.View::e($ref).'" placeholder="TD-REF-..."></div><button class="primary wide">Verify invite</button></form>'
+                .'<p class="hint">Already registered? <a href="/login">Sign in</a>.</p></div></section>';
+            View::page('Register', $body);
+            exit;
+        }
+
+        $body = '<section class="auth"><div class="card"><div class="eyebrow">SECURE REGISTRATION</div><h1>Create account</h1>'
+            .$flash
+            .'<p class="muted">Invite verified for a '.View::e((string)$invite['role']).' account.</p>'
+            .'<form method="post" action="/register" class="stack" data-busy="Creating account…">'.View::csrf()
+            .'<input type="hidden" name="referral" value="'.View::e($ref).'">'
+            .'<div class="field"><label>Name</label><input name="name" minlength="2" maxlength="80" required autocomplete="name"></div>'
+            .'<div class="field"><label>Username</label><input name="username" minlength="3" maxlength="64" pattern="[A-Za-z0-9._-]+" required autocomplete="username"></div>'
+            .'<div class="field"><label>Password</label><input name="password" type="password" minlength="1" maxlength="200" required autocomplete="new-password"></div>'
+            .'<button class="primary wide" type="submit">Create account</button></form>'
+            .'<p class="hint">Registration activates after a short security delay.</p></div></section>';
         View::page('Register', $body);
         exit;
     }
@@ -89,48 +115,42 @@ try {
     }
 
     Security::verifyCsrf($_POST['csrf'] ?? null);
-    if (!$settings['registration_open']) {
-        regFlash('err', 'New registrations are paused by the owner.');
-        regRedirect('/register');
-    }
-    Security::rateLimit('register', 6, 3600);
+    Security::rateLimit('register-ip', 15, 3600);
 
+    $ref = trim((string)($_POST['referral'] ?? ''));
     $name = trim((string)($_POST['name'] ?? ''));
     $username = strtolower(trim((string)($_POST['username'] ?? '')));
     $password = (string)($_POST['password'] ?? '');
-    $ref = strtoupper(trim((string)($_POST['referral'] ?? '')));
-
-    if (!regValidName($name)) {
-        regFlash('err', 'Name must be between 2 and 80 characters.');
-        regRedirect('/register?ref='.urlencode($ref));
-    }
-    if (!regValidUsername($username)) {
-        regFlash('err', 'Username must be 3–32 chars: letters, numbers, dot, underscore or hyphen.');
-        regRedirect('/register?ref='.urlencode($ref));
-    }
-    if (strlen($password) < 1 || strlen($password) > 200) {
-        regFlash('err', 'Password must be between 1 and 200 characters.');
-        regRedirect('/register?ref='.urlencode($ref));
-    }
-
-    $pdo = Database::pdo();
-    $pdo->beginTransaction();
 
     try {
-        $q = $pdo->prepare(
-            "SELECT i.id,i.role,i.created_by,i.expires_at,u.role creator_role,u.status creator_status
-             FROM referral_invites i JOIN users u ON u.id=i.created_by
-             WHERE i.code=? AND i.status='pending' AND (i.expires_at IS NULL OR i.expires_at>NOW())
-             LIMIT 1 FOR UPDATE"
-        );
-        $q->execute([$ref]);
-        $invite = $q->fetch();
-
-        if (!$invite || $invite['creator_status'] !== 'active' || !ReferralManager::creatorCanIssueRole((string)$invite['creator_role'], (string)$invite['role'])) {
-            throw new RuntimeException('Invalid or already used referral code.');
+        if (!regValidName($name)) {
+            throw new RuntimeException('Name must be 2-80 characters.');
         }
-        if (!in_array($invite['role'], ['admin','reseller','user'], true)) {
-            throw new RuntimeException('Invalid referral role.');
+        if (!regValidUsername($username)) {
+            throw new RuntimeException('Username must be 3-64 letters, numbers, dot, underscore or dash.');
+        }
+        if (!regValidPassword($password)) {
+            throw new RuntimeException('Password must be between 1 and 200 characters.');
+        }
+
+        $invite = ReferralManager::validateForRegistration($ref);
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+
+        $lock = $pdo->prepare(
+            "SELECT i.*,u.role creator_role
+             FROM referral_invites i
+             JOIN users u ON u.id=i.created_by
+             WHERE i.id=? FOR UPDATE"
+        );
+        $lock->execute([(int)$invite['id']]);
+        $invite = $lock->fetch();
+
+        if (!$invite || $invite['status'] !== 'pending' || ($invite['expires_at'] && strtotime((string)$invite['expires_at']) <= time())) {
+            throw new RuntimeException('This referral is invalid, used, revoked or expired.');
+        }
+        if (!ReferralManager::creatorCanIssueRole((string)$invite['creator_role'], (string)$invite['role'])) {
+            throw new RuntimeException('This referral is no longer authorized.');
         }
 
         $bonusesEnabled = (bool)Config::get('registration_bonuses_enabled', false);
@@ -151,13 +171,13 @@ try {
             $invite['created_by'],
         ]);
 
-            $uid = (int)$pdo->lastInsertId();
-            $grantedAppIds = ReferralManager::grantInviteAppsToUser(
-                $pdo,
-                (int)$invite['id'],
-                $uid,
-                (int)$invite['created_by']
-            );
+        $uid = (int)$pdo->lastInsertId();
+        $grantedAppIds = ReferralManager::grantInviteAppsToUser(
+            $pdo,
+            (int)$invite['id'],
+            $uid,
+            (int)$invite['created_by']
+        );
         $pdo->prepare("UPDATE referral_invites SET status='used',used_by=?,used_at=NOW() WHERE id=? AND status='pending'")
             ->execute([$uid, $invite['id']]);
 
@@ -200,16 +220,13 @@ try {
         'user_id'=>$uid,
         'name'=>$name,
         'username'=>$username,
-        'role'=>$invite['role'],
+        'role'=>(string)$invite['role'],
         'referral'=>$ref,
-        'signup_bonus'=>$signup,
-        'created_at'=>date('Y-m-d H:i:s'),
-        'created_ts'=>time(),
+        'created_at'=>time(),
     ];
-
     regRedirect('/register/success');
 } catch (Throwable $e) {
-    error_log('TeamDark registration error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
-    regFlash('err', 'Registration request failed.');
-    regRedirect('/register');
+    error_log('TeamDark registration controller error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
+    http_response_code(400);
+    View::page('Registration unavailable', '<section class="auth"><div class="card"><h1>Registration unavailable</h1><div class="alert">'.View::e($e->getMessage()).'</div><a class="btn" href="/login">Go back</a></div></section>');
 }
