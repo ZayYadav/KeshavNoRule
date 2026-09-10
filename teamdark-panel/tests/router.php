@@ -4,7 +4,11 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $path = '/'.ltrim((string)(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'), '/');
 
-if ($path === '/connect' || $path === '/connect/') {
+if (
+    $path === '/connect'
+    || $path === '/connect/'
+    || preg_match('#^/connect/[A-Za-z0-9_-]{8,64}/?$#', $path)
+) {
     require $root.'/public/connect.php';
     return true;
 }
@@ -36,6 +40,11 @@ if ($path === '/files/download' || $path === '/files/download/') {
 
 if ($path === '/files' || $path === '/files/' || str_starts_with($path, '/files/')) {
     require $root.'/public/vault.php';
+    return true;
+}
+
+if ($path === '/owner/apps' || $path === '/owner/apps/' || str_starts_with($path, '/owner/apps/')) {
+    require $root.'/public/app-api-manager.php';
     return true;
 }
 
