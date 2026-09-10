@@ -2569,7 +2569,8 @@ try {
                 $pendingQ = $pdo->prepare(
                     "SELECT COALESCE(SUM(grant_balance),0)
                      FROM referral_invites
-                     WHERE created_by=? AND status='pending'"
+                     WHERE created_by=? AND status='pending'
+                       AND (expires_at IS NULL OR expires_at>NOW())"
                 );
                 $pendingQ->execute([(int)$user['id']]);
                 $reserved = (int)$pendingQ->fetchColumn();
