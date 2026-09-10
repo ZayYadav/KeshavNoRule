@@ -1,0 +1,124 @@
+name: Fix TeamDark Shared Host Schema
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/fix-teamdark-shared-host-schema.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+          fetch-depth: 0
+
+      - name: Remove CREATE ROUTINE dependency and harden direct webhook bootstrap
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          schema_path = Path('teamdark-panel/database/schema.sql')
+          text = schema_path.read_text(encoding='utf-8')
+
+          start = text.find('DROP PROCEDURE IF EXISTS td_add_column;')
+          if start < 0:
+              raise SystemExit('schema helper block start not found')
+          end_marker = 'DELIMITER ;'
+          end = text.find(end_marker, start)
+          if end < 0:
+              raise SystemExit('schema helper block end not found')
+          end += len(end_marker)
+
+          text = (
+              text[:start]
+              + "-- Shared-host-safe idempotent migrations below use prepared statements.\n"
+              + "-- No CREATE ROUTINE / CREATE PROCEDURE privilege is required.\n"
+              + text[end:]
+          )
+
+          call_re = re.compile(
+              r"CALL td_add_(column|index)\(\s*'([^']+)'\s*,\s*'([^']+)'\s*,\s*'((?:''|[^'])*)'\s*\);",
+              re.S,
+          )
+
+          def replace_call(match):
+              kind, table, item, ddl = match.groups()
+              if kind == 'column':
+                  source = 'information_schema.COLUMNS'
+                  predicate = f"TABLE_NAME='{table}' AND COLUMN_NAME='{item}'"
+              else:
+                  source = 'information_schema.STATISTICS'
+                  predicate = f"TABLE_NAME='{table}' AND INDEX_NAME='{item}'"
+              return (
+                  "SET @td_exists := (\n"
+                  f"  SELECT COUNT(*) FROM {source}\n"
+                  f"  WHERE TABLE_SCHEMA=DATABASE() AND {predicate}\n"
+                  ");\n"
+                  f"SET @td_sql := IF(@td_exists=0, '{ddl}', 'SELECT 1');\n"
+                  "PREPARE td_stmt FROM @td_sql;\n"
+                  "EXECUTE td_stmt;\n"
+                  "DEALLOCATE PREPARE td_stmt;"
+              )
+
+          text, replaced = call_re.subn(replace_call, text)
+          if replaced < 5:
+              raise SystemExit(f'expected migration helper calls, replaced only {replaced}')
+
+          text = re.sub(
+              r"(?m)^DROP PROCEDURE IF EXISTS td_add_(?:column|index);\s*$\n?",
+              '',
+              text,
+          )
+
+          forbidden = ['CREATE PROCEDURE', 'CALL td_add_', 'DROP PROCEDURE', 'DELIMITER $$']
+          leftovers = [value for value in forbidden if value in text]
+          if leftovers:
+              raise SystemExit('shared-host migration conversion incomplete: ' + ', '.join(leftovers))
+
+          schema_path.write_text(text, encoding='utf-8')
+
+          webhook_path = Path('teamdark-panel/public/telegram-webhook.php')
+          webhook = webhook_path.read_text(encoding='utf-8')
+          old = "    require $root.'/app/'.$file.'.php';"
+          new = "    require_once $root.'/app/'.$file.'.php';"
+          if old in webhook:
+              webhook = webhook.replace(old, new)
+              webhook_path.write_text(webhook, encoding='utf-8')
+          elif new not in webhook:
+              raise SystemExit('telegram webhook bootstrap marker not found')
+          PY
+
+      - name: Static verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l teamdark-panel/app/Database.php
+          php -l teamdark-panel/public/telegram-webhook.php
+          ! grep -F 'CREATE PROCEDURE' teamdark-panel/database/schema.sql
+          ! grep -F 'CALL td_add_' teamdark-panel/database/schema.sql
+          ! grep -F 'DELIMITER $$' teamdark-panel/database/schema.sql
+          grep -F 'information_schema.COLUMNS' teamdark-panel/database/schema.sql >/dev/null
+          grep -F 'information_schema.STATISTICS' teamdark-panel/database/schema.sql >/dev/null
+
+      - name: Commit production files only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TeamDark CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add teamdark-panel/database/schema.sql teamdark-panel/public/telegram-webhook.php
+          if git diff --cached --quiet; then
+            echo 'No production changes needed.'
+            exit 0
+          fi
+          git commit -m 'Make schema migrations shared-host safe'
+          git push origin HEAD:TeamDarkLoader
