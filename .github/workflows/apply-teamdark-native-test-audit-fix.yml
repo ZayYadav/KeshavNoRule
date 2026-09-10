@@ -1,0 +1,52 @@
+name: Apply TeamDark Native Audit Test Fix
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/apply-teamdark-native-test-audit-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+
+      - name: Align closed-registration contract test
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('teamdark-panel/tests/owner_controls_integration.php')
+          s = p.read_text(encoding='utf-8')
+          old = "    $reg = request($guest,'/register');\n    request($guest,'/register',['csrf'=>token($reg['body']),'referral'=>'anything','name'=>'Blocked user','username'=>'blocked-registration','password'=>'ContractTest@12345']);"
+          new = "    // Obtain the session CSRF token from login: invite-only /register intentionally has no create-account CSRF form until a referral is verified.\n    $reg = request($guest,'/login');\n    request($guest,'/register',['csrf'=>token($reg['body']),'referral'=>'anything','name'=>'Blocked user','username'=>'blocked-registration','password'=>'ContractTest@12345']);"
+          if new in s:
+              print('Already aligned.')
+          elif old in s:
+              p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          else:
+              raise SystemExit('Expected stale test block not found')
+          PY
+          php -l teamdark-panel/tests/owner_controls_integration.php
+
+      - name: Commit test alignment only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TeamDark CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add teamdark-panel/tests/owner_controls_integration.php
+          if git diff --cached --quiet; then
+            echo 'No changes.'
+            exit 0
+          fi
+          git commit -m 'Align closed registration integration test'
+          git push origin HEAD:TeamDarkLoader
