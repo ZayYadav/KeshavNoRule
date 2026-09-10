@@ -1,4 +1,4 @@
-name: Apply TeamDark Multi App API
+name: Apply TeamDark Multi App Audit Fix
 
 on:
   push:
@@ -13,56 +13,34 @@ permissions:
 jobs:
   patch:
     runs-on: ubuntu-22.04
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: TeamDarkLoader
 
-      - name: Repair patch script and registration marker
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          p = Path('scripts/apply_teamdark_multi_app_api.py')
-          s = p.read_text(encoding='utf-8')
-          old = "s, n = pattern.subn(replacement, s, count=1)"
-          new = "s, n = pattern.subn(lambda _m: replacement, s, count=1)"
-          if old not in s:
-              raise SystemExit('regex repair marker missing')
-          p.write_text(s.replace(old, new, 1), encoding='utf-8')
-
-          p = Path('teamdark-panel/public/register-relaxed.php')
-          s = p.read_text(encoding='utf-8')
-          old = "        $uid = (int)$pdo->lastInsertId();\n"
-          new = "            $uid = (int)$pdo->lastInsertId();\n"
-          if old not in s:
-              raise SystemExit('registration uid marker missing')
-          p.write_text(s.replace(old, new, 1), encoding='utf-8')
-          PY
-
-      - name: Apply multi-app API patch
+      - name: Apply audited multi-app hardening
         run: python3 scripts/apply_teamdark_multi_app_api.py
 
-      - name: Validate PHP and multi-app wiring
+      - name: Validate patched application
         shell: bash
         run: |
           set -euo pipefail
           php -l teamdark-panel/app/AppRegistry.php
           php -l teamdark-panel/app/ReferralManager.php
-          php -l teamdark-panel/app/KeyManager.php
           php -l teamdark-panel/app/LoaderAuthService.php
+          php -l teamdark-panel/app/KeyManager.php
           php -l teamdark-panel/public/connect.php
           php -l teamdark-panel/public/index.php
           php -l teamdark-panel/public/register-relaxed.php
           php -l teamdark-panel/public/app-api-manager.php
-          php -l teamdark-panel/app/View.php
           php -l teamdark-panel/tests/multi_app_contract.php
-          grep -F 'CREATE TABLE IF NOT EXISTS app_registry' teamdark-panel/database/schema.sql >/dev/null
-          grep -F "AppRegistry::generationApp" teamdark-panel/app/KeyManager.php >/dev/null
-          grep -F 'AND k.app_id=?' teamdark-panel/app/LoaderAuthService.php >/dev/null
-          grep -F 'name="app_ids[]"' teamdark-panel/public/index.php >/dev/null
-          grep -F "'/owner/apps', 'App APIs'" teamdark-panel/app/View.php >/dev/null
+          php -l teamdark-panel/tests/owner_controls_integration.php
+          grep -F 'public static function lockForRegistration' teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F "JOIN app_registry a ON a.id=k.app_id AND a.status='active'" teamdark-panel/app/LoaderAuthService.php >/dev/null
+          grep -F '@td_user_app_access_existed' teamdark-panel/database/schema.sql >/dev/null
+          grep -F '@td_referral_app_access_existed' teamdark-panel/database/schema.sql >/dev/null
+          grep -F "'created_ts'=>time()" teamdark-panel/public/register-relaxed.php >/dev/null
 
       - name: Commit application changes only
         shell: bash
@@ -71,5 +49,9 @@ jobs:
           git config user.name 'TeamDark CI'
           git config user.email 'actions@users.noreply.github.com'
           git add teamdark-panel
-          git commit -m 'Add referral-scoped multi-app API isolation'
+          if git diff --cached --quiet; then
+            echo 'No application changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Harden multi-app referral and migration isolation'
           git push origin HEAD:TeamDarkLoader
