@@ -1,5 +1,78 @@
 'use strict';
 (function () {
+  /*
+   * Cinematic splash gate.
+   * This script is loaded before app.js, so it takes ownership of the splash
+   * and prevents the legacy auto-dismiss behaviour from app.js.
+   */
+  var splash = document.querySelector('[data-site-splash]');
+  if (splash) {
+    var splashVersion = splash.getAttribute('data-splash-version') || '1';
+    var enterButton = splash.querySelector('[data-splash-skip]');
+    var secureCookie = window.location.protocol === 'https:' ? '; Secure' : '';
+    var gateDuration = 5500;
+    var ready = false;
+
+    /* app.js only manages elements that still carry data-site-splash. */
+    splash.removeAttribute('data-site-splash');
+    splash.setAttribute('data-splash-managed', 'cinematic-gate');
+    splash.setAttribute('data-splash-duration', String(gateDuration));
+    splash.style.setProperty('--splash-duration', gateDuration + 'ms');
+    document.body.classList.add('splash-open');
+
+    if (enterButton) {
+      enterButton.disabled = true;
+      enterButton.setAttribute('aria-disabled', 'true');
+      enterButton.textContent = 'PREMIERE LOADING…';
+      enterButton.style.opacity = '0';
+      enterButton.style.visibility = 'hidden';
+      enterButton.style.pointerEvents = 'none';
+      enterButton.style.transform = 'translateY(8px)';
+    }
+
+    window.setTimeout(function () {
+      ready = true;
+      splash.classList.add('is-ready');
+
+      if (enterButton) {
+        enterButton.disabled = false;
+        enterButton.removeAttribute('aria-disabled');
+        enterButton.textContent = 'ENTER';
+        enterButton.style.visibility = 'visible';
+        enterButton.style.pointerEvents = 'auto';
+        enterButton.style.opacity = '1';
+        enterButton.style.transform = 'translateY(0)';
+        try { enterButton.focus({ preventScroll: true }); } catch (e) {}
+      }
+    }, gateDuration);
+
+    if (enterButton) {
+      enterButton.addEventListener('click', function (event) {
+        event.preventDefault();
+        if (!ready) return;
+
+        ready = false;
+        enterButton.disabled = true;
+        enterButton.setAttribute('aria-disabled', 'true');
+        enterButton.textContent = 'ENTERING…';
+
+        try {
+          document.cookie =
+            'TD_SPLASH=' + encodeURIComponent(splashVersion)
+            + '; Path=/; SameSite=Lax' + secureCookie;
+        } catch (e) {}
+
+        splash.classList.add('is-leaving');
+        splash.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('splash-open');
+
+        window.setTimeout(function () {
+          window.location.assign('/login');
+        }, 460);
+      });
+    }
+  }
+
   // The deep premium visual system in app.css is currently scoped to UI v5.
   // Keep the rendered markup compatible until those selectors are versionless.
   if (document.body && document.body.getAttribute('data-teamdark-ui') !== '5') {
