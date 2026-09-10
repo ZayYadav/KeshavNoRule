@@ -66,28 +66,58 @@ function vaultBaseUrl(): string
     return (Security::isHttpsRequest() ? 'https://' : 'http://').$host;
 }
 
-function vaultOwnerPageData(int $requestedPage): array
+function vaultPagedRows(?int $userId, int $requestedPage, int $pageSize = 100): array
 {
-    $pageSize = 100;
-    $total = (int)Database::pdo()->query('SELECT COUNT(*) FROM user_uploads')->fetchColumn();
+    $pageSize = min(200, max(20, $pageSize));
+    $pdo = Database::pdo();
+
+    if ($userId === null) {
+        $total = (int)$pdo->query('SELECT COUNT(*) FROM user_uploads')->fetchColumn();
+    } else {
+        $countQ = $pdo->prepare('SELECT COUNT(*) FROM user_uploads WHERE user_id=?');
+        $countQ->execute([$userId]);
+        $total = (int)$countQ->fetchColumn();
+    }
+
     $pages = max(1, (int)ceil($total / $pageSize));
     $page = min(max(1, $requestedPage), $pages);
     $offset = ($page - 1) * $pageSize;
 
-    $rows = Database::pdo()->query(
-        'SELECT f.*,u.username,u.name,u.role
-         FROM user_uploads f
-         JOIN users u ON u.id=f.user_id
-         ORDER BY f.updated_at DESC,f.id DESC
-         LIMIT '.$pageSize.' OFFSET '.$offset
-    )->fetchAll() ?: [];
+    $sql = 'SELECT f.*,u.username,u.name,u.role
+            FROM user_uploads f
+            JOIN users u ON u.id=f.user_id';
+    $params = [];
+
+    if ($userId !== null) {
+        $sql .= ' WHERE f.user_id=?';
+        $params[] = $userId;
+    }
+
+    $sql .= ' ORDER BY f.updated_at DESC,f.id DESC LIMIT '.$pageSize.' OFFSET '.$offset;
+    $q = $pdo->prepare($sql);
+    $q->execute($params);
 
     return [
-        'rows'=>$rows,
+        'rows'=>$q->fetchAll() ?: [],
         'total'=>$total,
         'page'=>$page,
         'pages'=>$pages,
     ];
+}
+
+function vaultPager(array $page, string $param, string $anchor): string
+{
+    if ((int)$page['pages'] <= 1) return '';
+
+    $html = '<div class="vault-pager">';
+    if ((int)$page['page'] > 1) {
+        $html .= '<a class="ghost compact" href="/files?'.$param.'='.((int)$page['page'] - 1).'#'.$anchor.'">← Previous</a>';
+    }
+    $html .= '<span>Page '.(int)$page['page'].' of '.(int)$page['pages'].'</span>';
+    if ((int)$page['page'] < (int)$page['pages']) {
+        $html .= '<a class="ghost compact" href="/files?'.$param.'='.((int)$page['page'] + 1).'#'.$anchor.'">Next →</a>';
+    }
+    return $html.'</div>';
 }
 
 function vaultFileCard(array $row, bool $ownerView = false): string
@@ -167,12 +197,16 @@ try {
         exit;
     }
 
-    $mine = UploadManager::listOwn($user);
-    $limitText = ($user['role'] ?? '') === 'owner'
-        ? 'Unlimited files'
-        : count($mine).' / '.UploadManager::USER_FILE_LIMIT.' files used';
-    $canAdd = ($user['role'] ?? '') === 'owner'
-        || count($mine) < UploadManager::USER_FILE_LIMIT;
+    $isOwner = ($user['role'] ?? '') === 'owner';
+    $minePage = $isOwner
+        ? vaultPagedRows((int)$user['id'], (int)($_GET['my_page'] ?? 1))
+        : null;
+    $mine = $isOwner ? $minePage['rows'] : UploadManager::listOwn($user);
+    $mineTotal = $isOwner ? (int)$minePage['total'] : count($mine);
+    $limitText = $isOwner
+        ? 'Unlimited files • '.$mineTotal.' stored'
+        : $mineTotal.' / '.UploadManager::USER_FILE_LIMIT.' files used';
+    $canAdd = $isOwner || $mineTotal < UploadManager::USER_FILE_LIMIT;
 
     $cards = '';
     foreach ($mine as $row) $cards .= vaultFileCard($row, false);
@@ -189,25 +223,18 @@ try {
             .'</form>'
         : '<div class="vault-limit-note"><strong>2-file limit reached.</strong><span>Replace either slot as many times as you want, or delete one to upload a different file.</span></div>';
 
+    $minePager = $isOwner ? vaultPager($minePage, 'my_page', 'my-files') : '';
+
     $ownerSection = '';
-    if (($user['role'] ?? '') === 'owner') {
-        $ownerPage = vaultOwnerPageData((int)($_GET['owner_page'] ?? 1));
+    if ($isOwner) {
+        $ownerPage = vaultPagedRows(null, (int)($_GET['owner_page'] ?? 1));
         $allCards = '';
         foreach ($ownerPage['rows'] as $row) $allCards .= vaultFileCard($row, true);
         if ($allCards === '') {
             $allCards = '<div class="empty-state"><div class="empty-orb">TD</div><h3>No uploaded files yet</h3><p class="muted">User uploads will appear here.</p></div>';
         }
 
-        $pager = '<div class="vault-pager">';
-        if ($ownerPage['page'] > 1) {
-            $pager .= '<a class="ghost compact" href="/files?owner_page='.($ownerPage['page'] - 1).'#owner-uploads">← Previous</a>';
-        }
-        $pager .= '<span>Page '.$ownerPage['page'].' of '.$ownerPage['pages'].'</span>';
-        if ($ownerPage['page'] < $ownerPage['pages']) {
-            $pager .= '<a class="ghost compact" href="/files?owner_page='.($ownerPage['page'] + 1).'#owner-uploads">Next →</a>';
-        }
-        $pager .= '</div>';
-
+        $pager = vaultPager($ownerPage, 'owner_page', 'owner-uploads');
         $ownerSection = '<section class="premium-section vault-owner-section" id="owner-uploads">'
             .'<div class="section-heading"><div><span class="eyebrow">OWNER VIEW</span><h2>All user uploads</h2><p>Every account remains isolated. Owner can review, download, replace or delete any stored file.</p></div><span class="tag">'.$ownerPage['total'].' total</span></div>'
             .$pager
@@ -219,9 +246,12 @@ try {
     $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-3">'
         .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE STORAGE</span><h1>Binary Vault</h1><p class="muted">Private .so / .zip storage with isolated per-user slots and protected downloads.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
         .vaultTakeFlash()
-        .'<section class="premium-section"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. Copied download links still require an authorized panel session.</p></div></div>'
+        .'<section class="premium-section" id="my-files"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. Copied download links still require an authorized panel session.</p></div></div>'
         .$uploadForm
-        .'<div class="vault-grid">'.$cards.'</div></section>'
+        .$minePager
+        .'<div class="vault-grid">'.$cards.'</div>'
+        .$minePager
+        .'</section>'
         .$ownerSection;
 
     Security::audit((int)$user['id'], 'page_viewed', ['path'=>'/files']);
