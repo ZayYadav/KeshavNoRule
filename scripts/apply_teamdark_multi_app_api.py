@@ -2,533 +2,478 @@ from pathlib import Path
 import re
 
 
-def read(path: str) -> tuple[Path, str]:
+def load(path: str):
     p = Path(path)
     return p, p.read_text(encoding='utf-8')
 
 
-def once(text: str, old: str, new: str, path: Path) -> str:
+def save(p: Path, text: str):
+    p.write_text(text, encoding='utf-8')
+
+
+def replace_once(text: str, old: str, new: str, label: str, already: str | None = None) -> str:
+    if already and already in text:
+        return text
     if old not in text:
-        raise SystemExit(f'missing marker in {path}: {old[:140]!r}')
+        raise SystemExit(f'{label}: marker missing')
     return text.replace(old, new, 1)
 
 
-# -----------------------------------------------------------------------------
-# schema.sql: app registry, account/referral grants, key app binding.
-# -----------------------------------------------------------------------------
-p, s = read('teamdark-panel/database/schema.sql')
-marker = "CREATE TABLE IF NOT EXISTS user_uploads ("
-block = r'''CREATE TABLE IF NOT EXISTS app_registry (
-  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(80) NOT NULL,
-  endpoint_token VARCHAR(64) NOT NULL UNIQUE,
-  notes VARCHAR(240) NOT NULL DEFAULT '',
-  status ENUM('active','disabled') NOT NULL DEFAULT 'active',
-  is_official TINYINT(1) NOT NULL DEFAULT 0,
-  created_by BIGINT UNSIGNED NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_app_registry_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-  UNIQUE KEY uq_app_registry_name(name),
-  INDEX idx_app_registry_status(status),
-  INDEX idx_app_registry_official(is_official)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT INTO app_registry(id,name,endpoint_token,notes,status,is_official,created_by)
-VALUES(1,'Official','official','Permanent backward-compatible /connect application API.','active',1,NULL)
-ON DUPLICATE KEY UPDATE
-  name=IF(is_official=1,name,VALUES(name)),
-  status=IF(is_official=1,'active',status),
-  is_official=IF(id=1,1,is_official);
-
-CREATE TABLE IF NOT EXISTS user_app_access (
-  user_id BIGINT UNSIGNED NOT NULL,
-  app_id BIGINT UNSIGNED NOT NULL,
-  granted_by BIGINT UNSIGNED NULL,
-  source VARCHAR(24) NOT NULL DEFAULT 'owner',
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY(user_id,app_id),
-  CONSTRAINT fk_user_app_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_user_app_app FOREIGN KEY (app_id) REFERENCES app_registry(id) ON DELETE CASCADE,
-  CONSTRAINT fk_user_app_granter FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL,
-  INDEX idx_user_app_app(app_id),
-  INDEX idx_user_app_granter(granted_by)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Existing accounts keep the historical Official application automatically.
-INSERT IGNORE INTO user_app_access(user_id,app_id,granted_by,source)
-SELECT id,1,NULL,'migration' FROM users;
-
-'''
-s = once(s, marker, block + marker, p)
-
-marker = "CREATE TABLE IF NOT EXISTS telegram_users ("
-block = r'''CREATE TABLE IF NOT EXISTS referral_app_access (
-  referral_id BIGINT UNSIGNED NOT NULL,
-  app_id BIGINT UNSIGNED NOT NULL,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY(referral_id,app_id),
-  CONSTRAINT fk_ref_app_referral FOREIGN KEY (referral_id) REFERENCES referral_invites(id) ON DELETE CASCADE,
-  CONSTRAINT fk_ref_app_app FOREIGN KEY (app_id) REFERENCES app_registry(id) ON DELETE CASCADE,
-  INDEX idx_ref_app_app(app_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Existing pending/used referrals preserve old behavior by granting Official.
-INSERT IGNORE INTO referral_app_access(referral_id,app_id)
-SELECT id,1 FROM referral_invites;
-
-'''
-s = once(s, marker, block + marker, p)
-
-marker = "CALL td_add_column(\n  'license_keys','telegram_user_id',\n  'ALTER TABLE license_keys ADD COLUMN telegram_user_id BIGINT UNSIGNED NULL AFTER key_source'\n);"
-addition = marker + r'''
-CALL td_add_column(
-  'license_keys','app_id',
-  'ALTER TABLE license_keys ADD COLUMN app_id BIGINT UNSIGNED NOT NULL DEFAULT 1 AFTER telegram_user_id'
-);
-
-UPDATE license_keys SET app_id=1 WHERE app_id IS NULL OR app_id=0;
-'''
-s = once(s, marker, addition, p)
-
-marker = "CALL td_add_index(\n  'license_keys','idx_keys_source',\n  'ALTER TABLE license_keys ADD INDEX idx_keys_source(key_source)'\n);"
-addition = marker + r'''
-CALL td_add_index(
-  'license_keys','idx_keys_app',
-  'ALTER TABLE license_keys ADD INDEX idx_keys_app(app_id)'
-);
-'''
-s = once(s, marker, addition, p)
-p.write_text(s, encoding='utf-8')
+def regex_once(text: str, pattern: str, replacement: str, label: str, already: str | None = None) -> str:
+    if already and already in text:
+        return text
+    out, n = re.subn(pattern, lambda _m: replacement, text, count=1, flags=re.S)
+    if n != 1:
+        raise SystemExit(f'{label}: expected one replacement, got {n}')
+    return out
 
 
-# -----------------------------------------------------------------------------
-# ReferralManager: atomic app allocation + visible app summary.
-# -----------------------------------------------------------------------------
-p, s = read('teamdark-panel/app/ReferralManager.php')
-s = once(s, "namespace TeamDark\\Panel;\n", "namespace TeamDark\\Panel;\n\nrequire_once __DIR__.'/AppRegistry.php';\n", p)
-pattern = re.compile(r"    public static function create\(array \$actor, string \$role\): array\n    \{.*?\n    \}\n\n    public static function creatorCanIssueRole", re.S)
-replacement = r'''    public static function create(array $actor, string $role, mixed $appIds = []): array
+# 1) Referral validation must fail closed and the POST path must validate while
+# holding the referral row lock. Runtime fallback to Official is intentionally
+# removed; schema migration is responsible for one-time legacy backfill.
+p, s = load('teamdark-panel/app/ReferralManager.php')
+referral_replacement = r'''    public static function validateForRegistration(string $code): array
     {
-        $allowed = self::allowedRoles($actor);
-        if (!in_array($role, $allowed, true)) {
-            throw new RuntimeException('You cannot create a referral for this role.');
+        $code = trim($code);
+        if ($code === '' || strlen($code) > 80) {
+            throw new RuntimeException('A valid referral code is required.');
         }
 
-        $selectedApps = AppRegistry::validateReferralApps($actor, $appIds);
+        self::expireDue();
         $pdo = Database::pdo();
+        $q = $pdo->prepare(
+            "SELECT i.*,u.role AS creator_role,u.status AS creator_status
+             FROM referral_invites i
+             JOIN users u ON u.id=i.created_by
+             WHERE i.code=?
+             LIMIT 1"
+        );
+        $q->execute([$code]);
+        return self::validateLoadedInvite($pdo, $q->fetch());
+    }
 
-        for ($attempt = 0; $attempt < 8; $attempt++) {
-            $code = 'TD-REF-'.strtoupper(bin2hex(random_bytes(6)));
-            $pdo->beginTransaction();
-            try {
-                $pdo->prepare(
-                    "INSERT INTO referral_invites(code,created_by,role,status,expires_at)
-                     VALUES(?,?,?,'pending',DATE_ADD(NOW(),INTERVAL 7 DAY))"
-                )->execute([$code, $actor['id'], $role]);
+    public static function lockForRegistration(\PDO $pdo, string $code): array
+    {
+        $code = trim($code);
+        if ($code === '' || strlen($code) > 80) {
+            throw new RuntimeException('A valid referral code is required.');
+        }
 
-                $id = (int)$pdo->lastInsertId();
-                AppRegistry::attachAppsToReferral($pdo, $actor, $id, $selectedApps);
-                $pdo->commit();
+        $q = $pdo->prepare(
+            "SELECT i.*,u.role AS creator_role,u.status AS creator_status
+             FROM referral_invites i
+             JOIN users u ON u.id=i.created_by
+             WHERE i.code=?
+             LIMIT 1
+             FOR UPDATE"
+        );
+        $q->execute([$code]);
+        return self::validateLoadedInvite($pdo, $q->fetch());
+    }
 
-                try {
-                    Security::audit((int)$actor['id'], 'referral_created', [
-                        'invite_id'=>$id,
-                        'role'=>$role,
-                        'app_ids'=>$selectedApps,
-                    ]);
-                } catch (Throwable) {
-                }
+    private static function validateLoadedInvite(\PDO $pdo, array|false $invite): array
+    {
+        if (!$invite || ($invite['status'] ?? '') !== 'pending') {
+            throw new RuntimeException('This referral is invalid, used, revoked or expired.');
+        }
+        if (($invite['expires_at'] ?? null) && strtotime((string)$invite['expires_at']) <= time()) {
+            throw new RuntimeException('This referral is invalid, used, revoked or expired.');
+        }
+        if (($invite['creator_status'] ?? '') !== 'active') {
+            throw new RuntimeException('This referral is no longer authorized.');
+        }
+        if (!self::creatorCanIssueRole((string)$invite['creator_role'], (string)$invite['role'])) {
+            throw new RuntimeException('This referral is no longer authorized.');
+        }
 
-                return [
-                    'id'=>$id,
-                    'code'=>$code,
-                    'role'=>$role,
-                    'app_ids'=>$selectedApps,
-                ];
-            } catch (\PDOException $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                if ($e->getCode() !== '23000') throw $e;
-            } catch (Throwable $e) {
-                if ($pdo->inTransaction()) $pdo->rollBack();
-                throw $e;
+        $appQ = $pdo->prepare(
+            "SELECT a.id
+             FROM referral_app_access ra
+             JOIN app_registry a ON a.id=ra.app_id
+             WHERE ra.referral_id=? AND a.status='active'
+             ORDER BY a.is_official DESC,a.id ASC"
+        );
+        $appQ->execute([(int)$invite['id']]);
+        $appIds = array_map('intval', $appQ->fetchAll(\PDO::FETCH_COLUMN) ?: []);
+
+        // Fail closed. Legacy referrals are backfilled exactly once by schema.sql.
+        // An invite that loses all active app mappings must never silently become Official.
+        if (!$appIds) {
+            throw new RuntimeException('This referral has no active application API assigned.');
+        }
+
+        if (($invite['creator_role'] ?? '') !== 'owner') {
+            $placeholders = implode(',', array_fill(0, count($appIds), '?'));
+            $params = array_merge([(int)$invite['created_by']], $appIds);
+            $accessQ = $pdo->prepare(
+                "SELECT COUNT(DISTINCT ua.app_id)
+                 FROM user_app_access ua
+                 JOIN app_registry a ON a.id=ua.app_id
+                 WHERE ua.user_id=?
+                   AND a.status='active'
+                   AND ua.app_id IN (".$placeholders.")"
+            );
+            $accessQ->execute($params);
+            if ((int)$accessQ->fetchColumn() !== count($appIds)) {
+                throw new RuntimeException('This referral contains application access that is no longer authorized.');
             }
         }
 
-        throw new RuntimeException('Could not generate a unique referral. Try again.');
-    }
-
-    public static function grantInviteAppsToUser(\PDO $pdo, int $inviteId, int $userId, int $grantedBy): array
-    {
-        return AppRegistry::grantReferralToUser($pdo, $inviteId, $userId, $grantedBy);
+        $invite['app_ids'] = $appIds;
+        return $invite;
     }
 
     public static function creatorCanIssueRole'''
-s, n = pattern.subn(replacement, s, count=1)
-if n != 1:
-    raise SystemExit('ReferralManager create method marker not found')
-old = """        $sql = \"SELECT i.id,i.code,i.role,i.status,i.created_at,i.used_at,
-                       c.username creator_username,
-                       u.username used_username,u.name used_name
-                FROM referral_invites i
-"""
-new = """        $sql = \"SELECT i.id,i.code,i.role,i.status,i.created_at,i.used_at,
-                       c.username creator_username,
-                       u.username used_username,u.name used_name,
-                       COALESCE((SELECT GROUP_CONCAT(a.name ORDER BY a.is_official DESC,a.name SEPARATOR ', ')
-                                 FROM referral_app_access ra
-                                 JOIN app_registry a ON a.id=ra.app_id
-                                 WHERE ra.referral_id=i.id),'No App API') AS app_names,
-                       (SELECT COUNT(*) FROM referral_app_access ra2 WHERE ra2.referral_id=i.id) AS app_count
-                FROM referral_invites i
-"""
-s = once(s, old, new, p)
-p.write_text(s, encoding='utf-8')
+s = regex_once(
+    s,
+    r"    public static function validateForRegistration\(string \$code\): array\n    \{.*?\n    \}\n\n    public static function creatorCanIssueRole",
+    referral_replacement,
+    'ReferralManager fail-closed validation',
+    'public static function lockForRegistration'
+)
+save(p, s)
 
 
-# -----------------------------------------------------------------------------
-# Registration: referral App APIs become account App APIs atomically.
-# -----------------------------------------------------------------------------
-for filename in ['teamdark-panel/public/register-relaxed.php', 'teamdark-panel/public/index.php']:
-    p, s = read(filename)
-    marker = "            $uid = (int)$pdo->lastInsertId();\n"
-    addition = marker + "            $grantedAppIds = ReferralManager::grantInviteAppsToUser(\n                $pdo,\n                (int)$invite['id'],\n                $uid,\n                (int)$invite['created_by']\n            );\n"
-    s = once(s, marker, addition, p)
-    marker = "            'invite_id'=>(int)$invite['id'],\n"
-    s = once(s, marker, marker + "            'app_ids'=>$grantedAppIds,\n", p)
-    p.write_text(s, encoding='utf-8')
+# 2) App disable/pruning is one atomic state transition. This removes the
+# partial-state window where the app was disabled but pending referrals were
+# not yet cleaned up.
+p, s = load('teamdark-panel/app/AppRegistry.php')
+set_enabled_replacement = r'''    public static function setEnabled(array $actor, int $appId, bool $enabled): void
+    {
+        Auth::requireRole($actor, 'owner');
+        if ($appId <= 0 || $appId === self::OFFICIAL_ID) {
+            throw new RuntimeException('Official API cannot be disabled.');
+        }
 
-
-# -----------------------------------------------------------------------------
-# KeyManager: app-scoped key creation and labels.
-# -----------------------------------------------------------------------------
-p, s = read('teamdark-panel/app/KeyManager.php')
-s = once(s, "namespace TeamDark\\Panel;\n", "namespace TeamDark\\Panel;\n\nrequire_once __DIR__.'/AppRegistry.php';\n", p)
-s = once(
-    s,
-    "                       c.username creator_name,\n                       (SELECT COUNT(*) FROM license_devices d",
-    "                       c.username creator_name,\n                       COALESCE(a.name,'Official') app_name,\n                       COALESCE(a.id,1) app_id_resolved,\n                       (SELECT COUNT(*) FROM license_devices d",
-    p,
-)
-s = once(
-    s,
-    "                JOIN users c ON c.id=k.created_by\";",
-    "                JOIN users c ON c.id=k.created_by\n                LEFT JOIN app_registry a ON a.id=k.app_id\";",
-    p,
-)
-s = once(
-    s,
-    "        bool $unlimitedDevices,\n        string $customKey = ''\n    ): array {\n        PanelControl::assertGeneration($actor);",
-    "        bool $unlimitedDevices,\n        string $customKey = '',\n        ?int $appId = null\n    ): array {\n        PanelControl::assertGeneration($actor);\n        $app = AppRegistry::generationApp($actor, $appId);",
-    p,
-)
-s = once(s, "                        'PUBG license generation',", "                        (string)$app['name'].' license generation',", p)
-s = once(
-    s,
-    "                    label,game,duration_seconds,unlimited_expiry,\n                    activated_at,expires_at,last_used_at,\n                    max_devices,unlimited_devices,status\n                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',?,?,NULL,NULL,NULL,?,?,'unused')\"",
-    "                    label,game,app_id,duration_seconds,unlimited_expiry,\n                    activated_at,expires_at,last_used_at,\n                    max_devices,unlimited_devices,status\n                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',?,?,?,NULL,NULL,NULL,?,?,'unused')\"",
-    p,
-)
-s = once(
-    s,
-    "                substr(trim($label), 0, 100),\n                $unlimitedExpiry ? 0 : max(86400, $durationSeconds),",
-    "                substr(trim($label), 0, 100),\n                (int)$app['id'],\n                $unlimitedExpiry ? 0 : max(86400, $durationSeconds),",
-    p,
-)
-s = once(
-    s,
-    "                'unlimited_devices'=>$unlimitedDevices,\n            ]);",
-    "                'unlimited_devices'=>$unlimitedDevices,\n                'app_id'=>(int)$app['id'],\n                'app_name'=>(string)$app['name'],\n            ]);",
-    p,
-)
-s = once(
-    s,
-    "                'cost'=>$cost,\n            ];",
-    "                'cost'=>$cost,\n                'app_id'=>(int)$app['id'],\n                'app_name'=>(string)$app['name'],\n            ];",
-    p,
-)
-s = once(
-    s,
-    "                    label,game,duration_seconds,unlimited_expiry,\n                    activated_at,expires_at,last_used_at,\n                    max_devices,unlimited_devices,status,key_source,telegram_user_id\n                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',7200,0,NULL,NULL,NULL,1,0,'unused','telegram_guest',?)\"",
-    "                    label,game,app_id,duration_seconds,unlimited_expiry,\n                    activated_at,expires_at,last_used_at,\n                    max_devices,unlimited_devices,status,key_source,telegram_user_id\n                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',1,7200,0,NULL,NULL,NULL,1,0,'unused','telegram_guest',?)\"",
-    p,
-)
-p.write_text(s, encoding='utf-8')
-
-
-# -----------------------------------------------------------------------------
-# Loader auth: resolve expected app from endpoint and bind key/account to app_id.
-# -----------------------------------------------------------------------------
-p, s = read('teamdark-panel/app/LoaderAuthService.php')
-s = once(s, "namespace TeamDark\\Panel;\n", "namespace TeamDark\\Panel;\n\nrequire_once __DIR__.'/AppRegistry.php';\n", p)
-s = once(
-    s,
-    "        string $serial,\n        string $ipAddress\n    ): array {",
-    "        string $serial,\n        string $ipAddress,\n        int $appId = 1\n    ): array {",
-    p,
-)
-s = once(
-    s,
-    "        if ($game === '' || $userKey === '' || $serial === '') {",
-    "        if ($appId <= 0) {\n            return self::fail('Invalid Application');\n        }\n\n        if ($game === '' || $userKey === '' || $serial === '') {",
-    p,
-)
-s = once(
-    s,
-    "                \"SELECT k.*, u.status AS account_status\n                 FROM license_keys k",
-    "                \"SELECT k.*, u.status AS account_status,u.role AS account_role\n                 FROM license_keys k",
-    p,
-)
-s = once(
-    s,
-    "                 WHERE k.key_hash IN (?,?)\n                 ORDER BY CASE WHEN k.key_hash=? THEN 0 ELSE 1 END",
-    "                 WHERE k.key_hash IN (?,?) AND k.app_id=?\n                 ORDER BY CASE WHEN k.key_hash=? THEN 0 ELSE 1 END",
-    p,
-)
-s = once(s, "$q->execute([$keyHash, $legacyKeyHash, $keyHash]);", "$q->execute([$keyHash, $legacyKeyHash, $appId, $keyHash]);", p)
-marker = """            if (($key['game'] ?? 'PUBG') !== $game) {
-                $pdo->rollBack();
-                return self::fail('Invalid Game');
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $q = $pdo->prepare(
+                'SELECT id,status,is_official FROM app_registry WHERE id=? LIMIT 1 FOR UPDATE'
+            );
+            $q->execute([$appId]);
+            $app = $q->fetch();
+            if (!$app || (int)$app['is_official'] === 1) {
+                throw new RuntimeException('Application API not found.');
             }
 
-"""
-addition = marker + """            if (!AppRegistry::userHasApp((int)$key['owner_user_id'], (string)($key['account_role'] ?? ''), $appId)) {
-                $pdo->rollBack();
-                return self::fail('Application Access Revoked');
+            $next = $enabled ? 'active' : 'disabled';
+            if ((string)$app['status'] === $next) {
+                throw new RuntimeException('Application API is already in that state.');
             }
 
-"""
-s = once(s, marker, addition, p)
-s = once(
-    s,
-    "                        'used_devices'=>$usedDevices,\n                    ]",
-    "                        'used_devices'=>$usedDevices,\n                        'app_id'=>$appId,\n                    ]",
-    p,
-)
-p.write_text(s, encoding='utf-8')
+            $pdo->prepare('UPDATE app_registry SET status=? WHERE id=?')
+                ->execute([$next, $appId]);
 
+            if (!$enabled) {
+                $pdo->prepare(
+                    "DELETE ra FROM referral_app_access ra
+                     JOIN referral_invites ri ON ri.id=ra.referral_id
+                     WHERE ra.app_id=? AND ri.status='pending'"
+                )->execute([$appId]);
+                $pdo->exec(
+                    "UPDATE referral_invites ri
+                     SET ri.status='revoked'
+                     WHERE ri.status='pending'
+                       AND NOT EXISTS (
+                           SELECT 1 FROM referral_app_access ra
+                           WHERE ra.referral_id=ri.id
+                       )"
+                );
+            }
 
-# -----------------------------------------------------------------------------
-# /connect and /connect/<channel> share the exact native payload contract.
-# -----------------------------------------------------------------------------
-p, s = read('teamdark-panel/public/connect.php')
-s = once(s, "use TeamDark\\Panel\\{Config,Database,Security,Crypto,LoaderAuthService};", "use TeamDark\\Panel\\{AppRegistry,Config,Database,Security,Crypto,LoaderAuthService};", p)
-s = once(s, "function teamdarkGateway(string $endpoint, bool $headOnly = false): never", "function teamdarkGateway(string $endpoint, string $appName, bool $headOnly = false): never", p)
-s = once(
-    s,
-    "    $safeEndpoint = htmlspecialchars(\n        $endpoint,\n        ENT_QUOTES | ENT_SUBSTITUTE,\n        'UTF-8'\n    );",
-    "    $safeEndpoint = htmlspecialchars(\n        $endpoint,\n        ENT_QUOTES | ENT_SUBSTITUTE,\n        'UTF-8'\n    );\n    $safeAppName = htmlspecialchars($appName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');",
-    p,
-)
-s = once(s, "Encrypted license gateway for authorized Team Dark clients.", "'.$safeAppName.' application license gateway for authorized Team Dark clients.", p)
-s = once(s, "        'LoaderAuthService',\n", "        'LoaderAuthService',\n        'AppRegistry',\n", p)
-marker = """    $method = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
-
-    if ($method === 'GET' || $method === 'HEAD') {
-        $base = rtrim((string)Config::get('app_url', ''), '/');
-        if ($base === '') {
-            $host = preg_replace(
-                '/[^A-Za-z0-9.\\-:\\[\\]]/',
-                '',
-                (string)($_SERVER['HTTP_HOST'] ?? '')
-            ) ?: '';
-            $base = $host !== ''
-                ? (Security::isHttpsRequest() ? 'https://' : 'http://').$host
-                : '';
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
         }
-        $endpoint = $base !== '' ? $base.'/connect' : '/connect';
-        teamdarkGateway($endpoint, $method === 'HEAD');
-    }
-"""
-replacement = """    $method = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
-    $requestPath = rawurldecode((string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/connect'), PHP_URL_PATH) ?: '/connect'));
-    $endpointToken = '';
-    if ($requestPath === '/connect' || $requestPath === '/connect/') {
-        $endpointToken = '';
-    } elseif (preg_match('#^/connect/([A-Za-z0-9_-]{8,64})/?$#', $requestPath, $m)) {
-        $endpointToken = (string)$m[1];
-    } else {
-        teamdarkJson(['status'=>false,'reason'=>'Invalid Application']);
+
+        try {
+            Security::audit((int)$actor['id'], 'app_api_status_changed', [
+                'app_id'=>$appId,
+                'enabled'=>$enabled,
+            ]);
+        } catch (Throwable) {
+        }
     }
 
-    $app = AppRegistry::resolveEndpoint($endpointToken);
-    if (!$app) {
-        teamdarkJson(['status'=>false,'reason'=>'Invalid Application']);
-    }
-
-    $endpoint = AppRegistry::endpointUrl($app);
-    if ($method === 'GET' || $method === 'HEAD') {
-        teamdarkGateway($endpoint, (string)$app['name'], $method === 'HEAD');
-    }
-"""
-s = once(s, marker, replacement, p)
-s = once(s, "Security::rateLimit('teamdark-loader-connect', 300, 60);", "Security::rateLimit('teamdark-loader-connect-app-'.(int)$app['id'], 300, 60);", p)
-s = once(
+    public static function rotateEndpoint'''
+s = regex_once(
     s,
-    "        $serial,\n        Security::clientIp()\n    );",
-    "        $serial,\n        Security::clientIp(),\n        (int)$app['id']\n    );",
-    p,
+    r"    public static function setEnabled\(array \$actor, int \$appId, bool \$enabled\): void\n    \{.*?\n    \}\n\n    public static function rotateEndpoint",
+    set_enabled_replacement,
+    'AppRegistry transactional app status',
+    "SELECT id,status,is_official FROM app_registry WHERE id=? LIMIT 1 FOR UPDATE"
 )
-p.write_text(s, encoding='utf-8')
+save(p, s)
 
 
-# -----------------------------------------------------------------------------
-# Rewrites for custom Connect URLs + App API owner controller.
-# -----------------------------------------------------------------------------
-for filename, prefix in [('teamdark-panel/.htaccess', 'public/'), ('teamdark-panel/public/.htaccess', '')]:
-    p, s = read(filename)
-    s = once(s, "RewriteRule ^connect/?$ " + prefix + "connect.php [L,QSA]", "RewriteRule ^connect(?:/[A-Za-z0-9_-]{8,64})?/?$ " + prefix + "connect.php [L,QSA]", p)
-    marker = "# Dedicated panel feature controllers.\n"
-    s = once(s, marker, marker + "RewriteRule ^owner/apps(?:/.*)?$ " + prefix + "app-api-manager.php [L,QSA]\n", p)
-    p.write_text(s, encoding='utf-8')
-
-
-# -----------------------------------------------------------------------------
-# View sidebar: dedicated owner App APIs button.
-# -----------------------------------------------------------------------------
-p, s = read('teamdark-panel/app/View.php')
-s = once(
+# 3) Even internal/direct authentication calls must reject a disabled app.
+p, s = load('teamdark-panel/app/LoaderAuthService.php')
+s = replace_once(
     s,
-    ".self::navLink('/owner/server', 'Server & Maint.', 'dashboard', $path)\n",
-    ".self::navLink('/owner/server', 'Server & Maint.', 'dashboard', $path)\n                .self::navLink('/owner/apps', 'App APIs', 'spark', $path)\n",
-    p,
+    "                 FROM license_keys k\n                 JOIN users u ON u.id=k.owner_user_id\n                 WHERE k.key_hash IN (?,?) AND k.app_id=?",
+    "                 FROM license_keys k\n                 JOIN users u ON u.id=k.owner_user_id\n                 JOIN app_registry a ON a.id=k.app_id AND a.status='active'\n                 WHERE k.key_hash IN (?,?) AND k.app_id=?",
+    'LoaderAuthService active app guard',
+    "JOIN app_registry a ON a.id=k.app_id AND a.status='active'"
 )
-p.write_text(s, encoding='utf-8')
+save(p, s)
 
 
-# -----------------------------------------------------------------------------
-# Main UI: app selector on key generation; app selector on referrals; app labels.
-# -----------------------------------------------------------------------------
-p, s = read('teamdark-panel/public/index.php')
-s = once(s, "    Auth,\n    BroadcastService,", "    AppRegistry,\n    Auth,\n    BroadcastService,", p)
-s = once(s, "    'Auth',\n    'View',", "    'Auth',\n    'View',\n    'AppRegistry',", p)
+# 4) Harden the dedicated registration controller: maintenance/settings/IP
+# parity, safe public errors, locked referral authorization, and correct success
+# state consumed by /register/success.
+p, s = load('teamdark-panel/public/register-relaxed.php')
+s = replace_once(
+    s,
+    "function regTakeFlash(): string\n{\n    $f = $_SESSION['flash'] ?? null;\n    unset($_SESSION['flash']);\n    if (!is_array($f)) return '';\n    return '<div data-flash role=\"status\" class=\"alert '.(($f[0] ?? '') === 'ok' ? 'ok' : '').'\">'.View::e((string)($f[1] ?? '')).'</div>';\n}\n",
+    "function regTakeFlash(): string\n{\n    $f = $_SESSION['flash'] ?? null;\n    unset($_SESSION['flash']);\n    if (!is_array($f)) return '';\n    return '<div data-flash role=\"status\" class=\"alert '.(($f[0] ?? '') === 'ok' ? 'ok' : '').'\">'.View::e((string)($f[1] ?? '')).'</div>';\n}\n\nfunction regSafeMessage(Throwable $e, string $fallback = 'Registration unavailable.'): string\n{\n    if ($e instanceof PDOException) {\n        error_log('TeamDark registration database failure at '.basename($e->getFile()).':'.$e->getLine());\n        return $fallback;\n    }\n    if ($e instanceof RuntimeException) {\n        $message = trim($e->getMessage());\n        return $message === '' ? $fallback : substr($message, 0, 300);\n    }\n    return $fallback;\n}\n",
+    'registration safe message helper',
+    'function regSafeMessage'
+)
+s = replace_once(
+    s,
+    "    if ($method === 'GET') {\n",
+    "    if (PanelControl::blocked(null)) {\n        http_response_code(503);\n        header('Retry-After: 300');\n        View::page('Maintenance', '<section class=\"auth\"><div class=\"card\"><div class=\"eyebrow\">PANEL OFFLINE</div><h1>We will be back.</h1><p class=\"muted\">'.View::e((string)PanelControl::settings()['message']).'</p></div></section>');\n        exit;\n    }\n\n    if ($method === 'GET') {\n",
+    'registration maintenance guard',
+    "if (PanelControl::blocked(null))"
+)
+s = replace_once(
+    s,
+    "            } catch (Throwable $e) {\n                $flash .= '<div class=\"alert\">'.View::e($e->getMessage()).'</div>';\n            }",
+    "            } catch (Throwable $e) {\n                $flash .= '<div class=\"alert\">'.View::e(regSafeMessage($e, 'Referral validation is temporarily unavailable.')).'</div>';\n            }",
+    'registration GET safe error'
+)
+s = replace_once(
+    s,
+    "    Security::verifyCsrf($_POST['csrf'] ?? null);\n    Security::rateLimit('register-ip', 15, 3600);",
+    "    Security::verifyCsrf($_POST['csrf'] ?? null);\n    if (!(bool)(PanelControl::settings()['registration_open'] ?? true)) {\n        regFlash('err', 'New registrations are paused by the owner.');\n        regRedirect('/register');\n    }\n    if (Security::ownerIpPolicyBlocked(null)) {\n        http_response_code(403);\n        regFlash('err', 'Registration is not available from this network.');\n        regRedirect('/register');\n    }\n    Security::rateLimit('register-ip', 15, 3600);",
+    'registration owner controls parity',
+    "New registrations are paused by the owner."
+)
+s = replace_once(
+    s,
+    "    $password = (string)($_POST['password'] ?? '');\n\n    try {",
+    "    $password = (string)($_POST['password'] ?? '');\n    $pdo = null;\n\n    try {",
+    'registration PDO initialization',
+    '$pdo = null;'
+)
+old_lock = r'''        $invite = ReferralManager::validateForRegistration($ref);
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
 
-marker = """        $rows = KeyManager::visibleKeys($user, $filter);
+        $lock = $pdo->prepare(
+            "SELECT i.*,u.role creator_role
+             FROM referral_invites i
+             JOIN users u ON u.id=i.created_by
+             WHERE i.id=? FOR UPDATE"
+        );
+        $lock->execute([(int)$invite['id']]);
+        $invite = $lock->fetch();
 
-        $keyPolicy = PanelControl::settings();
-"""
-addition = """        $rows = KeyManager::visibleKeys($user, $filter);
-
-        $availableApps = AppRegistry::activeForUser($user);
-        $appOptions = '';
-        foreach ($availableApps as $i => $appChoice) {
-            $selected = ((int)$appChoice['id'] === AppRegistry::OFFICIAL_ID || (count($availableApps) === 1 && $i === 0)) ? ' selected' : '';
-            $appOptions .= '<option value="'.(int)$appChoice['id'].'"'.$selected.'>'.View::e((string)$appChoice['name']).'</option>';
+        if (!$invite || $invite['status'] !== 'pending' || ($invite['expires_at'] && strtotime((string)$invite['expires_at']) <= time())) {
+            throw new RuntimeException('This referral is invalid, used, revoked or expired.');
         }
-        $appField = $appOptions !== ''
-            ? '<div class="field"><label>Application API</label><select name="app_id" required>'.$appOptions.'</select><p class="hint">Keys are locked to this app namespace and will be rejected by other Connect URLs.</p></div>'
-            : '<div class="alert">No application API is assigned to this account.</div>';
-
-        $keyPolicy = PanelControl::settings();
-"""
-s = once(s, marker, addition, p)
-s = once(s, "                .View::csrf()\n                .'<div class=\"field\"><label>Custom key", "                .View::csrf()\n                .$appField\n                .'<div class=\"field\"><label>Custom key", p)
-s = once(
-    s,
-    ".'<div class=\"key-meta\"><span>'.View::e($expiry).'</span><span>'.View::e($deviceText).'</span>'.$labelHtml.'</div></div>'",
-    ".'<div class=\"key-meta\"><span class=\"tag\">'.View::e((string)($row['app_name'] ?? 'Official')).'</span><span>'.View::e($expiry).'</span><span>'.View::e($deviceText).'</span>'.$labelHtml.'</div></div>'",
-    p,
-)
-s = once(
-    s,
-    "                $unlimitedDevices,\n                input('custom_key')\n            );",
-    "                $unlimitedDevices,\n                input('custom_key'),\n                (int)($_POST['app_id'] ?? 0)\n            );",
-    p,
-)
-s = once(
-    s,
-    "                'Generated: '.$created['key'].' • Cost: '.$created['cost'].' credit(s).',",
-    "                'Generated for '.$created['app_name'].': '.$created['key'].' • Cost: '.$created['cost'].' credit(s).',",
-    p,
-)
-
-marker = """        foreach ($roles as $role) {
-            $roleOptions .= '<option value="'.View::e($role).'">'.View::e(ucfirst($role)).'</option>';
+        if (!ReferralManager::creatorCanIssueRole((string)$invite['creator_role'], (string)$invite['role'])) {
+            throw new RuntimeException('This referral is no longer authorized.');
         }
-
-        $activeCount = 0;
-"""
-addition = """        foreach ($roles as $role) {
-            $roleOptions .= '<option value="'.View::e($role).'">'.View::e(ucfirst($role)).'</option>';
-        }
-
-        $referralApps = AppRegistry::availableForReferral($user);
-        $defaultReferralApps = array_flip(AppRegistry::defaultReferralAppIds($user));
-        $referralAppChecks = '';
-        foreach ($referralApps as $appChoice) {
-            $appId = (int)$appChoice['id'];
-            $referralAppChecks .= '<label class="system-choice-card"><input type="checkbox" name="app_ids[]" value="'.$appId.'"'.(isset($defaultReferralApps[$appId]) ? ' checked' : '').'>'
-                .'<span><b>'.View::e((string)$appChoice['name']).'</b><small>'.View::e(AppRegistry::endpointUrl($appChoice)).'</small></span></label>';
-        }
-        if ($referralAppChecks === '') {
-            $referralAppChecks = '<div class="alert">No active App API is available to allot. Ask Owner to assign one first.</div>';
-        }
-
-        $activeCount = 0;
-"""
-s = once(s, marker, addition, p)
-s = once(
-    s,
-    "                .'<td><span class=\"tag\">'.View::e($invite['role']).'</span></td>'",
-    "                .'<td><span class=\"tag\">'.View::e($invite['role']).'</span></td>'\n                .'<td>'.View::e((string)($invite['app_names'] ?? 'Official')).'</td>'",
-    p,
-)
-s = once(s, "<tr><td colspan=\"7\">", "<tr><td colspan=\"8\">", p)
-s = once(
-    s,
-    ".'<div class=\"field\"><label>Account role</label><select name=\"role\">'.$roleOptions.'</select></div>'\n            .'<button class=\"primary wide\">Create referral</button>'",
-    ".'<div class=\"field\"><label>Account role</label><select name=\"role\">'.$roleOptions.'</select></div>'\n            .'<div class=\"field\"><label>Application APIs</label><div class=\"system-choice-grid\">'.$referralAppChecks.'</div><p class=\"hint\">Select one or many. The registered account automatically receives exactly these App APIs.</p></div>'\n            .'<button class=\"primary wide\">Create referral</button>'",
-    p,
-)
-s = once(
-    s,
-    "<thead><tr><th>Referral</th><th>Role</th><th>Created by</th><th>Status</th><th>Registered user</th><th>Created</th><th>Action</th></tr></thead>",
-    "<thead><tr><th>Referral</th><th>Role</th><th>App APIs</th><th>Created by</th><th>Status</th><th>Registered user</th><th>Created</th><th>Action</th></tr></thead>",
-    p,
-)
-s = once(
-    s,
-    "$invite = ReferralManager::create($user, input('role', 'user'));",
-    "$invite = ReferralManager::create($user, input('role', 'user'), $_POST['app_ids'] ?? []);",
-    p,
-)
-s = once(
-    s,
-    "                'Referral created: '.$invite['code'],",
-    "                'Referral created: '.$invite['code'].' • App APIs: '.count($invite['app_ids']),",
-    p,
-)
-p.write_text(s, encoding='utf-8')
-
-
-# -----------------------------------------------------------------------------
-# Permanent CI guards.
-# -----------------------------------------------------------------------------
-p, s = read('.github/workflows/teamdark-panel-php-lint.yml')
-marker = "      - name: Verify relaxed password and key editor wiring\n"
-block = r'''      - name: Verify multi-app API registry and key isolation wiring
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f teamdark-panel/app/AppRegistry.php
-          test -f teamdark-panel/public/app-api-manager.php
-          grep -F 'CREATE TABLE IF NOT EXISTS app_registry' teamdark-panel/database/schema.sql >/dev/null
-          grep -F 'CREATE TABLE IF NOT EXISTS user_app_access' teamdark-panel/database/schema.sql >/dev/null
-          grep -F 'CREATE TABLE IF NOT EXISTS referral_app_access' teamdark-panel/database/schema.sql >/dev/null
-          grep -F "'license_keys','app_id'" teamdark-panel/database/schema.sql >/dev/null
-          grep -F "AppRegistry::generationApp" teamdark-panel/app/KeyManager.php >/dev/null
-          grep -F "AND k.app_id=?" teamdark-panel/app/LoaderAuthService.php >/dev/null
-          grep -F "AppRegistry::resolveEndpoint" teamdark-panel/public/connect.php >/dev/null
-          grep -F 'connect(?:/[A-Za-z0-9_-]{8,64})?' teamdark-panel/.htaccess >/dev/null
-          grep -F "'/owner/apps', 'App APIs'" teamdark-panel/app/View.php >/dev/null
-          grep -F 'name="app_ids[]"' teamdark-panel/public/index.php >/dev/null
-
 '''
-s = once(s, marker, block + marker, p)
-p.write_text(s, encoding='utf-8')
+new_lock = r'''        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        $invite = ReferralManager::lockForRegistration($pdo, $ref);
+'''
+s = replace_once(
+    s,
+    old_lock,
+    new_lock,
+    'registration locked referral validation',
+    'ReferralManager::lockForRegistration($pdo, $ref)'
+)
+s = replace_once(
+    s,
+    "    } catch (Throwable $e) {\n        if ($pdo->inTransaction()) $pdo->rollBack();",
+    "    } catch (Throwable $e) {\n        if ($pdo instanceof \\PDO && $pdo->inTransaction()) $pdo->rollBack();",
+    'registration guarded rollback',
+    '$pdo instanceof \\PDO'
+)
+s = replace_once(
+    s,
+    "        'referral'=>$ref,\n        'created_at'=>time(),\n",
+    "        'referral'=>$ref,\n        'signup_bonus'=>$signup,\n        'created_at'=>date('Y-m-d H:i:s'),\n        'created_ts'=>time(),\n",
+    'registration success state contract',
+    "'created_ts'=>time()"
+)
+s = replace_once(
+    s,
+    "    View::page('Registration unavailable', '<section class=\"auth\"><div class=\"card\"><h1>Registration unavailable</h1><div class=\"alert\">'.View::e($e->getMessage()).'</div><a class=\"btn\" href=\"/login\">Go back</a></div></section>');",
+    "    View::page('Registration unavailable', '<section class=\"auth\"><div class=\"card\"><h1>Registration unavailable</h1><div class=\"alert\">'.View::e(regSafeMessage($e)).'</div><a class=\"btn\" href=\"/login\">Go back</a></div></section>');",
+    'registration outer safe error'
+)
+save(p, s)
 
-p, s = read('.github/workflows/teamdark-native-auth-contract.yml')
-marker = "      - name: Run 19-case native auth integration suite\n"
-block = "      - name: Run multi-app API isolation contract\n        shell: bash\n        run: php teamdark-panel/tests/multi_app_contract.php\n\n"
-s = once(s, marker, block + marker, p)
-p.write_text(s, encoding='utf-8')
+
+# 5) Keep the fallback index registration path on the same locked authorization
+# contract so alternative web-server routing cannot weaken app isolation.
+p, s = load('teamdark-panel/public/index.php')
+index_old = r'''        try {
+            $q = $pdo->prepare(
+                "SELECT i.id,i.role,i.created_by,i.expires_at,
+                        u.role creator_role,u.status creator_status
+                 FROM referral_invites i
+                 JOIN users u ON u.id=i.created_by
+                 WHERE i.code=?
+                   AND i.status='pending'
+                   AND (i.expires_at IS NULL OR i.expires_at>NOW())
+                 LIMIT 1
+                 FOR UPDATE"
+            );
+            $q->execute([$ref]);
+            $invite = $q->fetch();
+
+            if (
+                !$invite
+                || $invite['creator_status'] !== 'active'
+                || !ReferralManager::creatorCanIssueRole(
+                    (string)$invite['creator_role'],
+                    (string)$invite['role']
+                )
+            ) {
+                throw new RuntimeException('Invalid or already used referral code.');
+            }
+
+            if (!in_array($invite['role'], ['admin','reseller','user'], true)) {
+                throw new RuntimeException('Invalid referral role.');
+            }
+'''
+index_new = r'''        try {
+            $invite = ReferralManager::lockForRegistration($pdo, $ref);
+
+            if (!in_array($invite['role'], ['admin','reseller','user'], true)) {
+                throw new RuntimeException('Invalid referral role.');
+            }
+'''
+s = replace_once(
+    s,
+    index_old,
+    index_new,
+    'index fallback registration lock',
+    "$invite = ReferralManager::lockForRegistration($pdo, $ref);"
+)
+# JSON license list must expose namespace metadata now that keys are multi-app.
+s = replace_once(
+    s,
+    "                'game'=>$row['game'],\n                'owner'=>$row['owner_name'],",
+    "                'game'=>$row['game'],\n                'app_id'=>(int)($row['app_id_resolved'] ?? $row['app_id'] ?? AppRegistry::OFFICIAL_ID),\n                'app_name'=>(string)($row['app_name'] ?? 'Official'),\n                'owner'=>$row['owner_name'],",
+    'license API app metadata',
+    "'app_name'=>(string)($row['app_name'] ?? 'Official')"
+)
+save(p, s)
+
+
+# 6) Critical migration fix: backfill old accounts/referrals only when each
+# mapping table is first introduced. Re-running schema.sql must never recreate
+# Owner-revoked Official access or add Official to custom-only referrals.
+p, s = load('teamdark-panel/database/schema.sql')
+s = replace_once(
+    s,
+    "CREATE TABLE IF NOT EXISTS user_app_access (",
+    "SET @td_user_app_access_existed := (\n  SELECT COUNT(*) FROM information_schema.TABLES\n  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_app_access'\n);\n\nCREATE TABLE IF NOT EXISTS user_app_access (",
+    'schema user access preexistence guard',
+    '@td_user_app_access_existed'
+)
+s = replace_once(
+    s,
+    "INSERT IGNORE INTO user_app_access(user_id,app_id,granted_by,source)\nSELECT id,1,NULL,'migration' FROM users;",
+    "INSERT IGNORE INTO user_app_access(user_id,app_id,granted_by,source)\nSELECT id,1,NULL,'migration' FROM users\nWHERE @td_user_app_access_existed = 0;",
+    'schema user access one-time backfill'
+)
+s = replace_once(
+    s,
+    "CREATE TABLE IF NOT EXISTS referral_app_access (",
+    "SET @td_referral_app_access_existed := (\n  SELECT COUNT(*) FROM information_schema.TABLES\n  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='referral_app_access'\n);\n\nCREATE TABLE IF NOT EXISTS referral_app_access (",
+    'schema referral access preexistence guard',
+    '@td_referral_app_access_existed'
+)
+s = replace_once(
+    s,
+    "INSERT IGNORE INTO referral_app_access(referral_id,app_id)\nSELECT id,1 FROM referral_invites;",
+    "INSERT IGNORE INTO referral_app_access(referral_id,app_id)\nSELECT id,1 FROM referral_invites\nWHERE @td_referral_app_access_existed = 0;",
+    'schema referral access one-time backfill'
+)
+save(p, s)
+
+
+# 7) Native owner-controls fixture creates a legacy-style referral manually;
+# make its Official mapping explicit now that runtime validation is fail-closed.
+p, s = load('teamdark-panel/tests/owner_controls_integration.php')
+s = replace_once(
+    s,
+    "    )->execute([$registrationRef, $owner['id']]);\n\n    $registrationPage = request($registerClient,'/register?ref='.$registrationRef);",
+    "    )->execute([$registrationRef, $owner['id']]);\n    $registrationInviteId = (int)$pdo->lastInsertId();\n    $pdo->prepare('INSERT INTO referral_app_access(referral_id,app_id) VALUES(?,1)')\n        ->execute([$registrationInviteId]);\n\n    $registrationPage = request($registerClient,'/register?ref='.$registrationRef);",
+    'owner controls explicit referral app fixture',
+    '$registrationInviteId = (int)$pdo->lastInsertId();'
+)
+save(p, s)
+
+
+# 8) Expand the service-level contract to cover disable/re-enable isolation and
+# prevent regression to runtime Official fallback.
+p, s = load('teamdark-panel/tests/multi_app_contract.php')
+extra_tests = r'''
+$ownerBetaKey = KeyManager::create(
+    $owner,
+    'Owner App Beta disable test',
+    86400,
+    false,
+    1,
+    false,
+    'TD-MULTI-APP-BETA-OWNER-KEY',
+    (int)$appB['id']
+);
+$isolationInvite = ReferralManager::create($owner, 'user', [(int)$appB['id']]);
+AppRegistry::setEnabled($owner, (int)$appB['id'], false);
+
+$disabledDirect = LoaderAuthService::authenticate(
+    'PUBG',
+    $ownerBetaKey['key'],
+    'MULTI-APP-DISABLED-BETA',
+    '127.0.0.1',
+    (int)$appB['id']
+);
+multiCheck(
+    ($disabledDirect['status'] ?? true) === false
+    && ($disabledDirect['reason'] ?? '') === 'Invalid Key',
+    'disabled app is rejected even through direct auth service calls'
+);
+
+$statusQ = $pdo->prepare('SELECT status FROM referral_invites WHERE id=?');
+$statusQ->execute([(int)$isolationInvite['id']]);
+multiCheck($statusQ->fetchColumn() === 'revoked', 'disabling the only app atomically revokes its pending referral');
+
+$failClosed = false;
+try {
+    ReferralManager::validateForRegistration((string)$isolationInvite['code']);
+} catch (RuntimeException $e) {
+    $failClosed = str_contains($e->getMessage(), 'invalid')
+        || str_contains($e->getMessage(), 'no active application API');
+}
+multiCheck($failClosed, 'referral without active app never falls back to Official');
+
+AppRegistry::setEnabled($owner, (int)$appB['id'], true);
+multiCheck(
+    (int)(AppRegistry::resolveEndpoint((string)$rotated['endpoint_token'])['id'] ?? 0) === (int)$appB['id'],
+    're-enabled app restores its existing custom Connect endpoint'
+);
+$statusQ->execute([(int)$isolationInvite['id']]);
+multiCheck($statusQ->fetchColumn() === 'revoked', 're-enabling app does not resurrect revoked referrals');
+'''
+s = replace_once(
+    s,
+    "\necho \"Multi-app API contract OK\\n\";",
+    extra_tests + "\necho \"Multi-app API contract OK\\n\";",
+    'multi-app disable/fail-closed tests',
+    'disabled app is rejected even through direct auth service calls'
+)
+save(p, s)
+
+print('TeamDark multi-app audit hardening patch applied.')
