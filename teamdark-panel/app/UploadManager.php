@@ -11,7 +11,7 @@ use Throwable;
 final class UploadManager
 {
     public const USER_FILE_LIMIT = 2;
-    public const MAX_FILE_BYTES = 2147483647; // 2 GiB minus 1 byte; PHP/host limits may be lower.
+    public const MAX_FILE_BYTES = 52428800; // 50 MiB application limit.
     private const ALLOWED_EXTENSIONS = ['so', 'zip'];
 
     public static function ensureSchema(): void
@@ -135,6 +135,7 @@ final class UploadManager
                 'extension'=>$meta['extension'],
                 'size'=>$meta['size'],
             ]);
+            self::purgeCdn($id);
 
             return ['id'=>$id] + $meta;
         } catch (Throwable $e) {
@@ -178,6 +179,7 @@ final class UploadManager
                 'name'=>$meta['name'],
                 'size'=>$meta['size'],
             ]);
+            self::purgeCdn($fileId);
 
             return ['id'=>$fileId] + $meta;
         } catch (Throwable $e) {
@@ -208,6 +210,7 @@ final class UploadManager
                 'owner_id'=>(int)$row['user_id'],
                 'name'=>$row['original_name'],
             ]);
+            self::purgeCdn($fileId);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $e;
@@ -236,6 +239,8 @@ final class UploadManager
         while (ob_get_level() > 0) ob_end_clean();
         header('Content-Type: '.$type);
         header('X-Content-Type-Options: nosniff');
+        // Downloads remain private/authenticated. A Cloudflare Cache Everything rule
+        // must not bypass panel authorization. CDN integration only purges stale URLs.
         header('Cache-Control: private, no-store, max-age=0');
         header('Content-Length: '.(string)filesize($path));
         header('Content-Disposition: attachment; filename="'.addcslashes($fallback, "\\\"").'"; filename*=UTF-8\'\''.rawurlencode($name));
@@ -263,7 +268,7 @@ final class UploadManager
         $error = (int)($file['error'] ?? UPLOAD_ERR_NO_FILE);
         if ($error !== UPLOAD_ERR_OK) {
             $message = match ($error) {
-                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'File exceeds the server upload size limit.',
+                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'File exceeds the server upload size limit. Server PHP must allow at least 50 MB uploads.',
                 UPLOAD_ERR_PARTIAL => 'File upload was interrupted.',
                 UPLOAD_ERR_NO_FILE => 'Choose a .so or .zip file.',
                 default => 'File upload failed.',
@@ -293,7 +298,7 @@ final class UploadManager
             throw new RuntimeException('The uploaded file is empty.');
         }
         if ($size > self::MAX_FILE_BYTES) {
-            throw new RuntimeException('File is larger than the application limit.');
+            throw new RuntimeException('File is larger than the 50 MB application limit.');
         }
 
         $sha = hash_file('sha256', $tmp);
@@ -366,6 +371,18 @@ final class UploadManager
             $path = self::storedPath($userId, $storageName);
             if (is_file($path)) @unlink($path);
         } catch (Throwable) {
+        }
+    }
+
+    private static function purgeCdn(int $fileId): void
+    {
+        try {
+            if (class_exists(CdnCache::class)) {
+                CdnCache::purgeVaultFile($fileId);
+            }
+        } catch (Throwable $e) {
+            // CDN purge must never roll back or block a successful file operation.
+            error_log('TeamDark CDN purge hook failed for vault file #'.$fileId.'.');
         }
     }
 }
