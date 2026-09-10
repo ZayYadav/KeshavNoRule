@@ -20,7 +20,7 @@ jobs:
           ref: TeamDarkLoader
           fetch-depth: 0
 
-      - name: Apply expiry-aware quota fix
+      - name: Apply precise expiry-aware quota fix
         run: python3 .github/tmp-teamdark-referral-expiry-fix.py
 
       - name: PHP lint
