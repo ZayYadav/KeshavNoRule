@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use TeamDark\Panel\{Auth,Config,Crypto,Database,KeyEditor,PanelControl,Security,View};
+use TeamDark\Panel\{Auth,Config,Crypto,Database,KeyEditor,KeyManager,PanelControl,Security,View};
 
 $root = dirname(__DIR__);
-foreach (['Config','Database','Security','Crypto','PanelControl','Auth','View','KeyEditor'] as $file) {
+foreach (['Config','Database','Security','Crypto','PanelControl','Auth','View','KeyManager','KeyEditor'] as $file) {
     require $root.'/app/'.$file.'.php';
 }
 
@@ -32,6 +32,17 @@ function keyEditTakeFlash(): string
     return '<div data-flash role="status" class="alert '.(($f[0] ?? '') === 'ok' ? 'ok' : '').'">'.View::e((string)($f[1] ?? '')).'</div>';
 }
 
+function keyEditSafeMessage(Throwable $e): string
+{
+    if ($e instanceof PDOException) {
+        error_log('TeamDark key editor database failure at '.basename($e->getFile()).':'.$e->getLine());
+        return 'Key update failed. Please try again.';
+    }
+
+    $message = trim($e->getMessage());
+    return $message !== '' ? substr($message, 0, 300) : 'Key update failed.';
+}
+
 try {
     $user = Auth::requireLogin();
     if (PanelControl::blocked($user)) keyEditRedirect('/');
@@ -41,7 +52,7 @@ try {
         Security::verifyCsrf($_POST['csrf'] ?? null);
         $keyId = (int)($_POST['key_id'] ?? 0);
 
-        KeyEditor::save(
+        $cost = KeyEditor::save(
             $user,
             $keyId,
             (string)($_POST['key_value'] ?? ''),
@@ -52,7 +63,10 @@ try {
             isset($_POST['unlimited_devices']) && $_POST['unlimited_devices'] === '1'
         );
 
-        keyEditFlash('ok', 'Key details updated.');
+        keyEditFlash(
+            'ok',
+            'Key details updated.'.($cost > 0 ? ' Upgrade cost: '.$cost.' credit(s).' : '')
+        );
         keyEditRedirect('/keys');
     }
 
@@ -66,12 +80,12 @@ try {
     $days = max(1, (int)ceil(max(86400, (int)$row['duration_seconds']) / 86400));
     $owner = trim((string)($row['owner_display_name'] ?? '')) ?: (string)$row['owner_name'];
 
-    $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-1">'
+    $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-2">'
         .'<section class="hero"><div><span class="eyebrow">LICENSE EDITOR</span><h1>Edit key</h1>'
         .'<p class="muted">Owner: '.View::e($owner).' • Status: '.View::e(strtoupper((string)$row['status'])).'</p></div>'
         .'<a class="ghost" href="/keys">← Back to keys</a></section>'
         .keyEditTakeFlash()
-        .'<div class="card spotlight" style="max-width:900px">'
+        .'<div class="card spotlight key-editor-card">'
         .'<form method="post" action="/key-edit" class="stack" data-busy="Updating license…">'
         .View::csrf().'<input type="hidden" name="key_id" value="'.$keyId.'">'
         .'<div class="field"><label>Key value</label><input name="key_value" value="'.View::e((string)$row['plain_key']).'" minlength="5" maxlength="80" required autocomplete="off"><p class="hint">5–80 characters. Letters, numbers, spaces and symbols are allowed.</p></div>'
@@ -82,6 +96,7 @@ try {
         .'</div>'
         .'<label class="checkline"><input type="checkbox" name="unlimited_expiry" value="1" '.((int)$row['unlimited_expiry'] === 1 ? 'checked' : '').'> Unlimited validity</label>'
         .'<label class="checkline"><input type="checkbox" name="unlimited_devices" value="1" '.((int)$row['unlimited_devices'] === 1 ? 'checked' : '').'> Unlimited devices</label>'
+        .'<p class="hint">For non-owner accounts, increasing validity deducts only the extra credit difference. Downgrades do not refund credits. Owner edits cost 0.</p>'
         .'<div class="security-detail"><span>Activated</span><strong>'.View::e((string)($row['activated_at'] ?: 'Not yet')).'</strong></div>'
         .'<div class="security-detail"><span>Current expiry</span><strong>'.View::e((int)$row['unlimited_expiry'] === 1 ? 'Unlimited' : (string)($row['expires_at'] ?: 'Starts on first use')).'</strong></div>'
         .'<button class="primary wide" type="submit">Save all key changes</button>'
@@ -89,8 +104,8 @@ try {
 
     View::page('Edit Key', $body, $user);
 } catch (Throwable $e) {
-    error_log('TeamDark key edit error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine().' '.$e->getMessage());
+    error_log('TeamDark key edit error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
     Security::startSession();
-    keyEditFlash('err', substr($e->getMessage() ?: 'Key update failed.', 0, 300));
+    keyEditFlash('err', keyEditSafeMessage($e));
     keyEditRedirect('/keys');
 }
