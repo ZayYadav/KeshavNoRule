@@ -28,6 +28,7 @@ RewriteRule ^owner/apps(?:/.*)?$ public/app-api-manager.php [L,QSA]
 RewriteRule ^register/?$ public/register-relaxed.php [L,QSA]
 RewriteRule ^(?:security/password|users/password)/?$ public/password-actions.php [L,QSA]
 RewriteRule ^key-edit/?$ public/key-edit.php [L,QSA]
+RewriteRule ^cdn-files/[0-9]+/[0-9]+/[a-f0-9]{64}/asset\.zip/?$ public/cdn-download.php [L,QSA,NC]
 RewriteRule ^files/download/?$ public/file-download.php [L,QSA]
 RewriteRule ^files(?:/.*)?$ public/vault-entry.php [L,QSA]
 

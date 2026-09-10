@@ -20,6 +20,7 @@ RewriteRule ^owner/apps(?:/.*)?$ app-api-manager.php [L,QSA]
 RewriteRule ^register/?$ register-relaxed.php [L,QSA]
 RewriteRule ^(?:security/password|users/password)/?$ password-actions.php [L,QSA]
 RewriteRule ^key-edit/?$ key-edit.php [L,QSA]
+RewriteRule ^cdn-files/[0-9]+/[0-9]+/[a-f0-9]{64}/asset\.zip/?$ cdn-download.php [L,QSA,NC]
 RewriteRule ^files/download/?$ file-download.php [L,QSA]
 RewriteRule ^files(?:/.*)?$ vault-entry.php [L,QSA]
 

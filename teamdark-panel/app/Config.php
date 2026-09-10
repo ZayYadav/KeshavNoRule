@@ -78,6 +78,7 @@ final class Config
             'cloudflare_cache_enabled' => strtolower($get('CLOUDFLARE_CACHE_ENABLED', 'false')) === 'true',
             'cloudflare_zone_id' => trim($get('CLOUDFLARE_ZONE_ID', '')),
             'cloudflare_api_token' => trim($get('CLOUDFLARE_API_TOKEN', '')),
+            'cdn_file_cache_seconds' => max(300, min(604800, (int)$get('CDN_FILE_CACHE_SECONDS', '86400'))),
         ];
 
         if (self::$data['app_key'] === '') {

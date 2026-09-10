@@ -125,9 +125,13 @@ function vaultFileCard(array $row, bool $ownerView = false): string
     $id = (int)$row['id'];
     $ext = strtoupper((string)$row['extension']);
     $owner = trim((string)($row['name'] ?? '')) ?: (string)($row['username'] ?? 'user');
-    $downloadPath = '/files/download?id='.$id;
+    $privatePath = '/files/download?id='.$id;
+    $cdnUrl = CdnCache::enabled() ? CdnCache::vaultUrl($row) : '';
+    $downloadPath = $cdnUrl !== '' ? $cdnUrl : $privatePath;
     $base = vaultBaseUrl();
-    $downloadUrl = $base !== '' ? $base.$downloadPath : $downloadPath;
+    $downloadUrl = $cdnUrl !== '' ? $cdnUrl : ($base !== '' ? $base.$privatePath : $privatePath);
+    $downloadLabel = $cdnUrl !== '' ? 'CDN Download' : 'Download';
+    $copyLabel = $cdnUrl !== '' ? 'Copy CDN link' : 'Copy link';
     $ownerLine = $ownerView
         ? '<div class="vault-owner"><span class="mini-avatar">'.View::e(strtoupper(substr($owner, 0, 1))).'</span><span><strong>'.View::e($owner).'</strong><small>@'.View::e((string)$row['username']).' • User #'.(int)$row['user_id'].'</small></span></div>'
         : '';
@@ -139,8 +143,8 @@ function vaultFileCard(array $row, bool $ownerView = false): string
         .'<div class="vault-file-meta"><span><b>SHA-256</b><code>'.View::e(substr((string)$row['sha256'], 0, 16)).'…</code></span>'
         .'<span><b>Updated</b><strong>'.View::e((string)$row['updated_at']).'</strong></span></div>'
         .'<div class="vault-file-actions">'
-        .'<a class="primary compact" href="'.View::e($downloadPath).'">Download</a>'
-        .'<button type="button" class="ghost compact" data-copy="'.View::e($downloadUrl).'">Copy link</button>'
+        .'<a class="primary compact" href="'.View::e($downloadPath).'">'.View::e($downloadLabel).'</a>'
+        .'<button type="button" class="ghost compact" data-copy="'.View::e($downloadUrl).'">'.View::e($copyLabel).'</button>'
         .'</div>'
         .'<form method="post" action="/files/replace" enctype="multipart/form-data" class="vault-replace stack" data-busy="Replacing private file…">'
         .View::csrf()
@@ -244,9 +248,9 @@ try {
     }
 
     $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-3">'
-        .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE FILE MANAGER</span><h1>File Manager</h1><p class="muted">Private .so / .zip storage with isolated per-user slots and protected downloads.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
+        .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE FILE MANAGER</span><h1>File Manager</h1><p class="muted">Private .so / .zip storage with isolated slots. When CDN is enabled, the first signed download fills Cloudflare cache and replacements purge the previous version globally.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
         .vaultTakeFlash()
-        .'<section class="premium-section" id="my-files"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. Copied download links still require an authorized panel session.</p></div></div>'
+        .'<section class="premium-section" id="my-files"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. CDN links are signed bearer links: keep them private; replacing or deleting the file invalidates the current version and purges its cached URL.</p></div></div>'
         .$uploadForm
         .$minePager
         .'<div class="vault-grid">'.$cards.'</div>'

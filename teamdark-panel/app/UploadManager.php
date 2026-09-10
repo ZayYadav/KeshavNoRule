@@ -179,7 +179,7 @@ final class UploadManager
                 'name'=>$meta['name'],
                 'size'=>$meta['size'],
             ]);
-            self::purgeCdn($fileId);
+            self::purgeCdn($fileId, $row);
 
             return ['id'=>$fileId] + $meta;
         } catch (Throwable $e) {
@@ -210,7 +210,7 @@ final class UploadManager
                 'owner_id'=>(int)$row['user_id'],
                 'name'=>$row['original_name'],
             ]);
-            self::purgeCdn($fileId);
+            self::purgeCdn($fileId, $row);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $e;
@@ -374,7 +374,7 @@ final class UploadManager
         }
     }
 
-    private static function purgeCdn(int $fileId): void
+    private static function purgeCdn(int $fileId, ?array $oldRow = null): void
     {
         try {
             if (!class_exists(CdnCache::class, false)) {
@@ -385,7 +385,11 @@ final class UploadManager
             }
 
             if (class_exists(CdnCache::class, false)) {
-                CdnCache::purgeVaultFile($fileId);
+                if ($oldRow !== null) {
+                    CdnCache::purgeVaultRow($oldRow);
+                } else {
+                    CdnCache::purgeVaultFile($fileId);
+                }
             }
         } catch (Throwable $e) {
             // CDN purge must never roll back or block a successful file operation.
