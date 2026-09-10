@@ -23,6 +23,12 @@ RewriteRule ^connect/?$ public/connect.php [L,QSA]
 # Telegram Bot API webhook endpoint.
 RewriteRule ^telegram/webhook/?$ public/telegram-webhook.php [L,QSA]
 
+# Dedicated panel feature controllers.
+RewriteRule ^register/?$ public/register-relaxed.php [L,QSA]
+RewriteRule ^(?:security/password|users/password)/?$ public/password-actions.php [L,QSA]
+RewriteRule ^key-edit/?$ public/key-edit.php [L,QSA]
+RewriteRule ^files(?:/.*)?$ public/vault.php [L,QSA]
+
 # Serve static public assets when the hosting document root is teamdark-panel/.
 RewriteRule ^assets/(.*)$ public/assets/$1 [L,NC]
 
