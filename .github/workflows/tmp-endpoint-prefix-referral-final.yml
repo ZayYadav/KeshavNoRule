@@ -49,8 +49,7 @@ jobs:
                   teamdark-panel/public/app-api-manager.php \
                   teamdark-panel/public/index.php \
                   teamdark-panel/public/register-relaxed.php \
-                  teamdark-panel/tests/multi_app_contract.php \
-                  .github/workflows/teamdark-panel-php-lint.yml
+                  teamdark-panel/tests/multi_app_contract.php
           git diff --cached --check
           git commit -m 'Add custom endpoint prefixes and strict referral API access'
           git push origin HEAD:TeamDarkLoader
