@@ -29,6 +29,17 @@ function simplePasswordValid(string $password): bool
     return strlen($password) >= 1 && strlen($password) <= 200;
 }
 
+function passwordSafeMessage(Throwable $e): string
+{
+    if ($e instanceof PDOException) {
+        error_log('TeamDark password database failure at '.basename($e->getFile()).':'.$e->getLine());
+        return 'Password action failed. Please try again.';
+    }
+
+    $message = trim($e->getMessage());
+    return $message !== '' ? substr($message, 0, 300) : 'Password action failed.';
+}
+
 try {
     if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
         http_response_code(405);
@@ -36,6 +47,11 @@ try {
     }
 
     $user = Auth::requireLogin();
+    if (PanelControl::blocked($user)) {
+        passwordFlash('err', (string)PanelControl::settings()['message']);
+        passwordRedirect('/');
+    }
+
     Security::verifyCsrf($_POST['csrf'] ?? null);
     $path = '/'.ltrim((string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH) ?: '/'), '/');
 
@@ -123,8 +139,8 @@ try {
     http_response_code(404);
     exit;
 } catch (Throwable $e) {
-    error_log('TeamDark password action error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine().' '.$e->getMessage());
-    passwordFlash('err', substr($e->getMessage() ?: 'Password action failed.', 0, 300));
+    error_log('TeamDark password action error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
+    passwordFlash('err', passwordSafeMessage($e));
     $fallback = (isset($path) && $path === '/users/password') ? '/users' : '/dashboard';
     passwordRedirect($fallback);
 }
