@@ -225,6 +225,59 @@ final class Security
         return (ord($ipBin[$whole]) & $mask) === (ord($networkBin[$whole]) & $mask);
     }
 
+    /**
+     * Owner is intentionally exempt from request throttles once identity has
+     * already been established by a signed-in web session, a pending 2FA
+     * challenge, or a valid Bearer token. Anonymous login throttling remains in
+     * place so attackers cannot bypass brute-force protection by naming Owner.
+     */
+    private static function ownerRateLimitBypass(): bool
+    {
+        try {
+            $userId = 0;
+
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                $userId = (int)($_SESSION['uid'] ?? 0);
+                if ($userId <= 0 && is_array($_SESSION['pending_2fa'] ?? null)) {
+                    $userId = (int)($_SESSION['pending_2fa']['user_id'] ?? 0);
+                }
+            }
+
+            if ($userId > 0) {
+                $q = Database::pdo()->prepare(
+                    "SELECT 1 FROM users WHERE id=? AND role='owner' AND status='active' LIMIT 1"
+                );
+                $q->execute([$userId]);
+                if ((bool)$q->fetchColumn()) {
+                    return true;
+                }
+            }
+
+            $auth = trim((string)($_SERVER['HTTP_AUTHORIZATION'] ?? ''));
+            if (preg_match('/^Bearer\\s+([A-Za-z0-9_-]{40,200})$/', $auth, $m)) {
+                $tokenHash = hash('sha256', $m[1]);
+                $q = Database::pdo()->prepare(
+                    "SELECT 1
+                     FROM api_tokens t
+                     JOIN users u ON u.id=t.user_id
+                     WHERE t.token_hash=?
+                       AND t.expires_at>NOW()
+                       AND u.role='owner'
+                       AND u.status='active'
+                     LIMIT 1"
+                );
+                $q->execute([$tokenHash]);
+                if ((bool)$q->fetchColumn()) {
+                    return true;
+                }
+            }
+        } catch (\Throwable) {
+            // Never weaken normal throttling if owner detection cannot be proven.
+        }
+
+        return false;
+    }
+
     private static function rateLimitHash(string $bucket, ?string $subject = null): string
     {
         $identity = $subject === null ? self::clientIp() : trim($subject);
@@ -237,6 +290,10 @@ final class Security
         int $windowSeconds,
         ?string $subject = null
     ): void {
+        if (self::ownerRateLimitBypass()) {
+            return;
+        }
+
         $pdo = Database::pdo();
         $identity = self::rateLimitHash($bucket, $subject);
         $max = max(1, $max);
