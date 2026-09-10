@@ -1,8 +1,8 @@
-# Team Dark Private Binary Vault
+# Team Dark File Manager & Owner System
 
-The panel includes an authenticated `/files` vault for `.so` and `.zip` files.
+The panel includes an authenticated `/files` File Manager for `.so` and `.zip` files plus a modular Owner System console. Internal storage/controller names remain stable for backward compatibility even though the visible product name is now **File Manager**.
 
-## Storage model
+## File Manager storage model
 
 - Files are stored under `storage/private_uploads/u<USER_ID>/`.
 - The original upload name is never used as the disk filename.
@@ -53,11 +53,11 @@ memory_limit = 256M
 
 `post_max_size` is intentionally larger than 50M so multipart form overhead does not reject an otherwise valid 50M upload.
 
-Some hosts enforce a lower web-server/account-level request limit that `.user.ini` cannot override. If a 5 MB or larger upload is still rejected after deployment, verify the active values in cPanel MultiPHP INI Editor / PHP Info and raise the hosting-level limit there.
+Some hosts enforce a lower web-server/account-level request limit that `.user.ini` cannot override. If an upload is still rejected after deployment, verify the active values in cPanel MultiPHP INI Editor / PHP Info and raise the hosting-level limit there.
 
 ## Optional Cloudflare purge hook
 
-Binary Vault can purge the exact download URL from Cloudflare after upload, replace/update, or delete. Purge failures are logged but never roll back a successful file operation.
+File Manager can purge the exact download URL from Cloudflare after upload, replace/update, or delete. Purge failures are logged but never roll back a successful file operation.
 
 Configure only in the server `.env`:
 
@@ -75,4 +75,34 @@ The purge target is the canonical authenticated URL:
 APP_URL/files/download?id=<FILE_ID>
 ```
 
-Downloads deliberately keep `Cache-Control: private, no-store` because access is session-protected. Do not add a Cloudflare Cache Everything rule that serves `/files/download` without reaching origin authentication; that could expose one user's private file to another user. The purge integration is safe to leave enabled for invalidation/defensive cleanup without changing the private download authorization model.
+Downloads deliberately keep `Cache-Control: private, no-store` because access is session-protected. Do not add a Cloudflare Cache Everything rule that serves `/files/download` without reaching origin authentication; that could expose one user's private file to another user.
+
+## Modular Owner System
+
+Owner controls are intentionally separated into focused pages instead of one oversized Server Controls screen:
+
+- `/owner/system` — System overview
+- `/owner/server` — Server & Maintenance
+- `/owner/device-policy` — One Device / default device policy
+- `/owner/key-format` — generated key prefix and random length
+- `/owner/pricing` — finite-key credit pricing
+- `/owner/ip-management` — exact IP/CIDR deny policy with Owner bypass
+- `/owner/rebranding` — panel brand, mark, footer and cinematic splash
+- `/owner/security` — security/activity posture
+- `/owner/session-controls` — API-token and active device-binding revocation
+- `/owner/packages` — release/package metadata attached to an Owner File Manager object
+- `/owner/alerts` — panel and Telegram announcement center
+- `/owner/update` — release label and optional manual CDN invalidation
+- `/owner/settings` — environment/system summary
+- `/owner/developer` — existing `/connect` integration reference
+- `/activity` — activity logs
+
+`/keys/extend` is the dedicated Extend Duration view and delegates changes to the existing permission-aware Key Editor.
+
+The new Owner System does **not** change the Loader `/connect` request or response contract.
+
+## Deployment checklist
+
+Deploy the complete `teamdark-panel/` directory from `TeamDarkLoader`, not only individual PHP pages. In particular, keep `app/OwnerSystem.php`, `public/assets/system-console.css`, `app/CdnCache.php`, File Manager controllers, `.htaccess`, `.user.ini`, and the existing application classes in sync.
+
+After deployment, hard-refresh the browser once if an older panel shell is still cached. If Cloudflare purge is enabled, Owner can also use **Panel Update → Purge CDN now** to invalidate the known panel shell URLs.
