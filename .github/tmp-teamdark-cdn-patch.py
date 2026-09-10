@@ -1,0 +1,406 @@
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str, label: str) -> None:
+    p = Path(path)
+    text = p.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{label}: expected 1 marker, found {count}")
+    p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+Path("teamdark-panel/app/CdnCache.php").write_text(r'''<?php
+declare(strict_types=1);
+
+namespace TeamDark\Panel;
+
+use Throwable;
+
+final class CdnCache
+{
+    public static function enabled(): bool
+    {
+        return (bool)Config::get('cloudflare_cache_enabled', false);
+    }
+
+    public static function cacheSeconds(): int
+    {
+        return max(300, min(604800, (int)Config::get('cdn_file_cache_seconds', 86400)));
+    }
+
+    public static function vaultUrl(array $row): string
+    {
+        if (!self::enabled()) return '';
+
+        $base = rtrim((string)Config::get('app_url', ''), '/');
+        $id = (int)($row['id'] ?? 0);
+        $version = (int)($row['version'] ?? 0);
+        $userId = (int)($row['user_id'] ?? 0);
+        $sha = strtolower(trim((string)($row['sha256'] ?? '')));
+        if ($base === '' || $id <= 0 || $version <= 0 || $userId <= 0 || !preg_match('/^[a-f0-9]{64}$/', $sha)) {
+            return '';
+        }
+
+        $signature = self::vaultSignature($id, $version, $userId, $sha);
+        if ($signature === '') return '';
+
+        return $base.'/cdn-files/'.$id.'/'.$version.'/'.$signature.'/asset.zip';
+    }
+
+    public static function verifyVaultSignature(array $row, string $signature): bool
+    {
+        $id = (int)($row['id'] ?? 0);
+        $version = (int)($row['version'] ?? 0);
+        $userId = (int)($row['user_id'] ?? 0);
+        $sha = strtolower(trim((string)($row['sha256'] ?? '')));
+        $signature = strtolower(trim($signature));
+        if ($id <= 0 || $version <= 0 || $userId <= 0 || !preg_match('/^[a-f0-9]{64}$/', $sha) || !preg_match('/^[a-f0-9]{64}$/', $signature)) {
+            return false;
+        }
+
+        $expected = self::vaultSignature($id, $version, $userId, $sha);
+        return $expected !== '' && hash_equals($expected, $signature);
+    }
+
+    public static function purgeVaultFile(int $fileId): bool
+    {
+        if (!self::enabled() || $fileId <= 0) return true;
+        $base = rtrim((string)Config::get('app_url', ''), '/');
+        if ($base === '') {
+            error_log('TeamDark CDN purge skipped: APP_URL is empty.');
+            return false;
+        }
+        return self::purgeUrls([$base.'/files/download?id='.$fileId]);
+    }
+
+    public static function purgeVaultRow(array $row): bool
+    {
+        if (!self::enabled()) return true;
+        $id = (int)($row['id'] ?? 0);
+        $base = rtrim((string)Config::get('app_url', ''), '/');
+        if ($id <= 0 || $base === '') return false;
+
+        $urls = [$base.'/files/download?id='.$id];
+        $cdn = self::vaultUrl($row);
+        if ($cdn !== '') $urls[] = $cdn;
+        return self::purgeUrls($urls);
+    }
+
+    public static function purgeUrls(array $urls): bool
+    {
+        if (!self::enabled()) return true;
+
+        $zoneId = trim((string)Config::get('cloudflare_zone_id', ''));
+        $apiToken = trim((string)Config::get('cloudflare_api_token', ''));
+        if ($zoneId === '' || $apiToken === '') {
+            error_log('TeamDark CDN purge skipped: Cloudflare zone ID or API token is not configured.');
+            return false;
+        }
+        if (!function_exists('curl_init')) {
+            error_log('TeamDark CDN purge skipped: PHP cURL extension is unavailable.');
+            return false;
+        }
+
+        $files = [];
+        foreach ($urls as $url) {
+            $url = trim((string)$url);
+            if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL)) $files[$url] = $url;
+        }
+        $files = array_values($files);
+        if ($files === []) return true;
+
+        try {
+            $payload = json_encode(['files'=>$files], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        } catch (Throwable) {
+            error_log('TeamDark CDN purge failed while encoding request.');
+            return false;
+        }
+
+        $ch = curl_init('https://api.cloudflare.com/client/v4/zones/'.rawurlencode($zoneId).'/purge_cache');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer '.$apiToken,
+                'Content-Type: application/json',
+                'Accept: application/json',
+            ],
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => 12,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Purge/2.0',
+        ]);
+
+        $response = curl_exec($ch);
+        $curlError = curl_error($ch);
+        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        curl_close($ch);
+
+        if (!is_string($response)) {
+            error_log('TeamDark CDN purge failed: cURL request error'.($curlError !== '' ? ' (network)' : '').'.');
+            return false;
+        }
+
+        $decoded = json_decode($response, true);
+        $success = $status >= 200 && $status < 300 && is_array($decoded) && ($decoded['success'] ?? false) === true;
+        if (!$success) error_log('TeamDark CDN purge failed: Cloudflare HTTP '.$status.'.');
+        return $success;
+    }
+
+    private static function vaultSignature(int $id, int $version, int $userId, string $sha): string
+    {
+        $raw = base64_decode((string)Config::get('app_key', ''), true);
+        if ($raw === false || strlen($raw) < 32) return '';
+        $key = hash_hmac('sha256', 'TeamDark CDN signed file v1', $raw, true);
+        return hash_hmac('sha256', $id.'|'.$version.'|'.$userId.'|'.$sha, $key);
+    }
+}
+''', encoding="utf-8")
+
+
+Path("teamdark-panel/public/cdn-download.php").write_text(r'''<?php
+declare(strict_types=1);
+
+use TeamDark\Panel\{CdnCache,Config,Database,UploadManager};
+
+$root = dirname(__DIR__);
+foreach (['Config','Database','CdnCache','UploadManager'] as $file) {
+    require_once $root.'/app/'.$file.'.php';
+}
+Config::load($root);
+
+function cdnFail(int $status, string $message): never
+{
+    http_response_code($status);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: private, no-store, max-age=0');
+    header('X-Content-Type-Options: nosniff');
+    echo $message;
+    exit;
+}
+
+try {
+    if (!CdnCache::enabled()) cdnFail(404, 'File not found.');
+
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (!in_array($method, ['GET','HEAD'], true)) cdnFail(405, 'Method not allowed.');
+
+    $path = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
+    if (!preg_match('#/cdn-files/(\d+)/(\d+)/([a-f0-9]{64})/asset\.zip/?$#i', $path, $m)) {
+        cdnFail(404, 'File not found.');
+    }
+
+    $fileId = (int)$m[1];
+    $version = (int)$m[2];
+    $signature = strtolower($m[3]);
+    if ($fileId <= 0 || $version <= 0) cdnFail(404, 'File not found.');
+
+    UploadManager::ensureSchema();
+    $q = Database::pdo()->prepare('SELECT * FROM user_uploads WHERE id=? AND version=? LIMIT 1');
+    $q->execute([$fileId, $version]);
+    $row = $q->fetch();
+    if (!$row || !CdnCache::verifyVaultSignature($row, $signature)) cdnFail(404, 'File not found.');
+
+    $storageName = (string)$row['storage_name'];
+    if (!preg_match('/^[a-f0-9]{48}\.blob$/', $storageName)) cdnFail(404, 'File not found.');
+
+    $filePath = $root.DIRECTORY_SEPARATOR.'storage'.DIRECTORY_SEPARATOR.'private_uploads'
+        .DIRECTORY_SEPARATOR.'u'.(int)$row['user_id']
+        .DIRECTORY_SEPARATOR.$storageName;
+    if (!is_file($filePath) || !is_readable($filePath)) cdnFail(404, 'File not found.');
+
+    $size = filesize($filePath);
+    if ($size === false || $size < 0) cdnFail(500, 'Could not read file.');
+
+    $name = (string)$row['original_name'];
+    $fallback = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?: 'download.'.(string)$row['extension'];
+    $type = strtolower((string)$row['extension']) === 'zip' ? 'application/zip' : 'application/octet-stream';
+    $ttl = CdnCache::cacheSeconds();
+    $etag = '"'.strtolower((string)$row['sha256']).'-v'.$version.'"';
+    $mtime = filemtime($filePath) ?: time();
+
+    $start = 0;
+    $end = max(0, $size - 1);
+    $partial = false;
+    $range = trim((string)($_SERVER['HTTP_RANGE'] ?? ''));
+    if ($range !== '' && $size > 0) {
+        if (!preg_match('/^bytes=(\d*)-(\d*)$/', $range, $rm)) {
+            header('Content-Range: bytes */'.$size);
+            cdnFail(416, 'Requested range is not satisfiable.');
+        }
+        $startRaw = $rm[1];
+        $endRaw = $rm[2];
+        if ($startRaw === '' && $endRaw === '') {
+            header('Content-Range: bytes */'.$size);
+            cdnFail(416, 'Requested range is not satisfiable.');
+        }
+        if ($startRaw === '') {
+            $suffix = (int)$endRaw;
+            if ($suffix <= 0) {
+                header('Content-Range: bytes */'.$size);
+                cdnFail(416, 'Requested range is not satisfiable.');
+            }
+            $suffix = min($suffix, $size);
+            $start = $size - $suffix;
+            $end = $size - 1;
+        } else {
+            $start = (int)$startRaw;
+            $end = $endRaw === '' ? $size - 1 : (int)$endRaw;
+            if ($start >= $size || $end < $start) {
+                header('Content-Range: bytes */'.$size);
+                cdnFail(416, 'Requested range is not satisfiable.');
+            }
+            $end = min($end, $size - 1);
+        }
+        $partial = true;
+    }
+
+    while (ob_get_level() > 0) ob_end_clean();
+    @set_time_limit(0);
+    header('Content-Type: '.$type);
+    header('X-Content-Type-Options: nosniff');
+    header('X-Robots-Tag: noindex, nofollow, noarchive');
+    header('Referrer-Policy: no-referrer');
+    header('Accept-Ranges: bytes');
+    header('ETag: '.$etag);
+    header('Last-Modified: '.gmdate('D, d M Y H:i:s', $mtime).' GMT');
+    header('Cache-Control: public, max-age=300, s-maxage='.$ttl.', immutable');
+    header('CDN-Cache-Control: public, max-age='.$ttl);
+    header('Cloudflare-CDN-Cache-Control: public, max-age='.$ttl);
+    header('X-TeamDark-CDN: signed-versioned-v1');
+    header('Content-Disposition: attachment; filename="'.addcslashes($fallback, "\\\"").'"; filename*=UTF-8\'\''.rawurlencode($name));
+
+    $length = $size === 0 ? 0 : ($end - $start + 1);
+    if ($partial) {
+        http_response_code(206);
+        header('Content-Range: bytes '.$start.'-'.$end.'/'.$size);
+    } else {
+        http_response_code(200);
+    }
+    header('Content-Length: '.$length);
+
+    if ($method === 'HEAD' || $length === 0) exit;
+
+    $handle = fopen($filePath, 'rb');
+    if ($handle === false) cdnFail(500, 'Could not open file.');
+    if ($start > 0 && fseek($handle, $start) !== 0) {
+        fclose($handle);
+        cdnFail(500, 'Could not seek file.');
+    }
+
+    $remaining = $length;
+    $chunkSize = 1024 * 1024;
+    while ($remaining > 0 && !feof($handle)) {
+        $chunk = fread($handle, min($chunkSize, $remaining));
+        if ($chunk === false) break;
+        $bytes = strlen($chunk);
+        if ($bytes === 0) break;
+        echo $chunk;
+        $remaining -= $bytes;
+        flush();
+        if (connection_aborted()) break;
+    }
+    fclose($handle);
+    exit;
+} catch (Throwable $e) {
+    error_log('TeamDark CDN download error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
+    cdnFail(500, 'Download failed.');
+}
+''', encoding="utf-8")
+
+
+replace_once(
+    "teamdark-panel/app/Config.php",
+    "            'cloudflare_api_token' => trim($get('CLOUDFLARE_API_TOKEN', '')),\n",
+    "            'cloudflare_api_token' => trim($get('CLOUDFLARE_API_TOKEN', '')),\n            'cdn_file_cache_seconds' => max(300, min(604800, (int)$get('CDN_FILE_CACHE_SECONDS', '86400'))),\n",
+    "Config CDN TTL",
+)
+
+
+p = Path("teamdark-panel/app/UploadManager.php")
+text = p.read_text(encoding="utf-8")
+marker = "            self::purgeCdn($fileId);"
+if text.count(marker) != 2:
+    raise SystemExit(f"UploadManager purge calls: expected 2, found {text.count(marker)}")
+text = text.replace(marker, "            self::purgeCdn($fileId, $row);")
+old_sig = "    private static function purgeCdn(int $fileId): void\n"
+if text.count(old_sig) != 1:
+    raise SystemExit("UploadManager purge helper signature not found")
+text = text.replace(old_sig, "    private static function purgeCdn(int $fileId, ?array $oldRow = null): void\n", 1)
+old_call = "                CdnCache::purgeVaultFile($fileId);"
+if text.count(old_call) != 1:
+    raise SystemExit("UploadManager CdnCache purge call not found")
+text = text.replace(
+    old_call,
+    "                if ($oldRow !== null) {\n                    CdnCache::purgeVaultRow($oldRow);\n                } else {\n                    CdnCache::purgeVaultFile($fileId);\n                }",
+    1,
+)
+p.write_text(text, encoding="utf-8")
+
+
+p = Path("teamdark-panel/public/vault.php")
+text = p.read_text(encoding="utf-8")
+old = "    $downloadPath = '/files/download?id='.$id;\n    $base = vaultBaseUrl();\n    $downloadUrl = $base !== '' ? $base.$downloadPath : $downloadPath;\n"
+new = "    $privatePath = '/files/download?id='.$id;\n    $cdnUrl = CdnCache::enabled() ? CdnCache::vaultUrl($row) : '';\n    $downloadPath = $cdnUrl !== '' ? $cdnUrl : $privatePath;\n    $base = vaultBaseUrl();\n    $downloadUrl = $cdnUrl !== '' ? $cdnUrl : ($base !== '' ? $base.$privatePath : $privatePath);\n    $downloadLabel = $cdnUrl !== '' ? 'CDN Download' : 'Download';\n    $copyLabel = $cdnUrl !== '' ? 'Copy CDN link' : 'Copy link';\n"
+if text.count(old) != 1:
+    raise SystemExit("vault download URL marker not found")
+text = text.replace(old, new, 1)
+old = "        .'<a class=\"primary compact\" href=\"'.View::e($downloadPath).'\">Download</a>'\n        .'<button type=\"button\" class=\"ghost compact\" data-copy=\"'.View::e($downloadUrl).'\">Copy link</button>'\n"
+new = "        .'<a class=\"primary compact\" href=\"'.View::e($downloadPath).'\">'.View::e($downloadLabel).'</a>'\n        .'<button type=\"button\" class=\"ghost compact\" data-copy=\"'.View::e($downloadUrl).'\">'.View::e($copyLabel).'</button>'\n"
+if text.count(old) != 1:
+    raise SystemExit("vault action button marker not found")
+text = text.replace(old, new, 1)
+text = text.replace(
+    '<p class="muted">Private .so / .zip storage with isolated per-user slots and protected downloads.</p>',
+    '<p class="muted">Private .so / .zip storage with isolated slots. When CDN is enabled, the first signed download fills Cloudflare cache and replacements purge the previous version globally.</p>',
+    1,
+)
+text = text.replace(
+    '<p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. Copied download links still require an authorized panel session.</p>',
+    '<p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. CDN links are signed bearer links: keep them private; replacing or deleting the file invalidates the current version and purges its cached URL.</p>',
+    1,
+)
+p.write_text(text, encoding="utf-8")
+
+
+replace_once(
+    "teamdark-panel/.htaccess",
+    "RewriteRule ^files/download/?$ public/file-download.php [L,QSA]\n",
+    "RewriteRule ^cdn-files/[0-9]+/[0-9]+/[a-f0-9]{64}/asset\\.zip/?$ public/cdn-download.php [L,QSA,NC]\nRewriteRule ^files/download/?$ public/file-download.php [L,QSA]\n",
+    "root CDN route",
+)
+replace_once(
+    "teamdark-panel/public/.htaccess",
+    "RewriteRule ^files/download/?$ file-download.php [L,QSA]\n",
+    "RewriteRule ^cdn-files/[0-9]+/[0-9]+/[a-f0-9]{64}/asset\\.zip/?$ cdn-download.php [L,QSA,NC]\nRewriteRule ^files/download/?$ file-download.php [L,QSA]\n",
+    "public CDN route",
+)
+
+
+p = Path("teamdark-panel/.env.example")
+text = p.read_text(encoding="utf-8")
+old = '# Optional Cloudflare cache purge hook for Binary Vault file URLs.\n# false = no Cloudflare API calls. true = purge the exact file download URL globally after upload/replace/delete.\nCLOUDFLARE_CACHE_ENABLED="false"\n# Keep these server-side only. Use a token restricted to cache purge for this zone.\nCLOUDFLARE_ZONE_ID=""\nCLOUDFLARE_API_TOKEN=""\n'
+new = '# Optional Cloudflare signed CDN delivery + purge for File Manager downloads.\n# false = private origin downloads only. true = first signed download fills CDN cache; replace/delete purges the old URL globally.\nCLOUDFLARE_CACHE_ENABLED="false"\n# Edge cache lifetime in seconds (300..604800). Default: 86400 = 24 hours.\nCDN_FILE_CACHE_SECONDS="86400"\n# Keep these server-side only. Use a token restricted to cache purge for this zone.\nCLOUDFLARE_ZONE_ID=""\nCLOUDFLARE_API_TOKEN=""\n'
+if text.count(old) != 1:
+    raise SystemExit(".env CDN block marker not found")
+p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+p = Path("teamdark-panel/public/assets/app.css")
+text = p.read_text(encoding="utf-8")
+old = '.ui-dialog-actions button{width:100%}.ui-dialog-actions button[hidden]{display:none}.ui-dialog-actions button[hidden]+button{grid-column:1/-1}'
+new = '.ui-dialog-actions button{width:100%;min-width:0;min-height:46px;border-radius:12px}.ui-dialog-actions button[hidden]{display:none}.ui-dialog-actions [data-dialog-copy]:not([hidden]){grid-column:1/-1}.ui-dialog-actions [data-dialog-cancel][hidden]+[data-dialog-ok]{grid-column:1/-1}.ui-dialog-actions [data-dialog-ok]{box-shadow:0 12px 30px rgba(45,212,191,.16)}'
+if text.count(old) != 1:
+    raise SystemExit("dialog action CSS marker not found")
+p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+replace_once(
+    "teamdark-panel/app/View.php",
+    '<link rel="stylesheet" href="/assets/app.css?v=20260910-2">',
+    '<link rel="stylesheet" href="/assets/app.css?v=20260910-4">',
+    "app.css cache bust",
+)
