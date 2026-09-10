@@ -279,6 +279,12 @@ final class OwnerSystem
                 $base.'/assets/system-console.css',
                 $base.'/assets/app.js',
                 $base.'/assets/owner-tools.js',
+                $base.'/assets/app.css?v=20260910-2',
+                $base.'/assets/themes.css?v=20260910-2',
+                $base.'/assets/owner-tools.css?v=20260910-2',
+                $base.'/assets/system-console.css?v=20260910-1',
+                $base.'/assets/app.js?v=20260910-2',
+                $base.'/assets/owner-tools.js?v=20260910-2',
             ]);
             Security::audit((int)$actor['id'], 'owner_cdn_cache_purge', ['success'=>$ok]);
             if (!$ok) throw new RuntimeException('Cloudflare purge request failed. Check server logs and .env.');

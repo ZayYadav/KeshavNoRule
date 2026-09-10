@@ -344,7 +344,7 @@ KOTLIN);
                 .'<span class="brand-mark"><b>'.$brandMark.'</b><i></i></span>'
                 .'<span><strong>'.$app.'</strong><small>'.$brandSubtitle.'</small></span></a>'
                 .(in_array($path, ['/login','/login/2fa','/register','/register/success'], true)
-                    ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
+                    ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">'.$app.' / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
                     : $body).'</main><script src="/assets/themes.js?v=20260910-2" defer></script><script src="/assets/owner-tools.js?v=20260910-2" defer></script><script src="/assets/app.js?v=20260910-2" defer></script></body></html>';
             return;
         }
@@ -407,7 +407,7 @@ KOTLIN);
         }
 
         if (!$settings['panel_online']) {
-            $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
+            $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/server">Server controls</a></div>';
         }
 
         if (($user['role'] ?? '') === 'owner' && $path === '/owner/developer') {

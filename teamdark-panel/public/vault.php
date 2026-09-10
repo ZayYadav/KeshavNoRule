@@ -193,7 +193,7 @@ try {
 
     if ($path !== '/files' || $method !== 'GET') {
         http_response_code(404);
-        View::page('Not found', '<section class="auth"><div class="card"><h1>404</h1><p class="muted">File route not found.</p><a class="btn" href="/files">Open vault</a></div></section>', $user);
+        View::page('Not found', '<section class="auth"><div class="card"><h1>404</h1><p class="muted">File route not found.</p><a class="btn" href="/files">Open File Manager</a></div></section>', $user);
         exit;
     }
 
@@ -211,14 +211,14 @@ try {
     $cards = '';
     foreach ($mine as $row) $cards .= vaultFileCard($row, false);
     if ($cards === '') {
-        $cards = '<div class="empty-state vault-empty"><div class="empty-orb">↑</div><h3>Your vault is empty</h3><p class="muted">Upload a private .so or .zip file. Each account uses isolated storage.</p></div>';
+        $cards = '<div class="empty-state vault-empty"><div class="empty-orb">↑</div><h3>Your File Manager is empty</h3><p class="muted">Upload a private .so or .zip file. Each account uses isolated storage.</p></div>';
     }
 
     $uploadForm = $canAdd
         ? '<form method="post" action="/files/upload" enctype="multipart/form-data" class="vault-upload-panel stack" data-busy="Uploading private file…">'
             .View::csrf()
             .'<div class="field"><label>Select .so or .zip</label><input type="file" name="file" accept=".so,.zip" required></div>'
-            .'<button class="primary wide" type="submit">Upload to private vault</button>'
+            .'<button class="primary wide" type="submit">Upload to File Manager</button>'
             .'<p class="hint">The original filename is display-only. Disk storage uses a random private ID, so matching filenames across users never overwrite each other.</p>'
             .'</form>'
         : '<div class="vault-limit-note"><strong>2-file limit reached.</strong><span>Replace either slot as many times as you want, or delete one to upload a different file.</span></div>';
@@ -268,5 +268,5 @@ try {
 
     http_response_code(400);
     try { $u = Auth::user(); } catch (Throwable) { $u = null; }
-    View::page('File vault unavailable', '<section class="auth"><div class="card"><h1>File vault unavailable</h1><div class="alert">'.View::e($message).'</div><a class="btn" href="/dashboard">Go back</a></div></section>', $u);
+    View::page('File Manager unavailable', '<section class="auth"><div class="card"><h1>File Manager unavailable</h1><div class="alert">'.View::e($message).'</div><a class="btn" href="/dashboard">Go back</a></div></section>', $u);
 }

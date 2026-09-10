@@ -1561,7 +1561,7 @@ try {
 
             $actions = $canRevealSecret
                 ? '<button type="button" class="ghost compact" data-copy="'.View::e($plain).'">Copy</button>'
-                    .'<a class="ghost compact" href="/key-edit?id='.(int)$row['id'].'">Extend / Edit</a>'
+                    .'<a class="ghost compact" data-key-edit-link="1" href="/key-edit?id='.(int)$row['id'].'">Extend / Edit</a>'
                 : '<span class="tag">SECRET PROTECTED</span>';
 
             if ($row['status'] === 'disabled') {
