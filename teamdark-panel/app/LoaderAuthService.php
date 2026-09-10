@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace TeamDark\Panel;
 
+require_once __DIR__.'/AppRegistry.php';
+
 use PDOException;
 use RuntimeException;
 use Throwable;
@@ -45,12 +47,17 @@ final class LoaderAuthService
         string $game,
         string $userKey,
         string $serial,
-        string $ipAddress
+        string $ipAddress,
+        int $appId = 1
     ): array {
         $game = trim($game);
         $userKey = trim($userKey);
         $serial = trim($serial);
         $ipAddress = substr(trim($ipAddress), 0, 45);
+
+        if ($appId <= 0) {
+            return self::fail('Invalid Application');
+        }
 
         if ($game === '' || $userKey === '' || $serial === '') {
             return self::fail('Missing Parameters');
@@ -78,15 +85,15 @@ final class LoaderAuthService
                 Crypto::licenseLookupHashes($userKey);
 
             $q = $pdo->prepare(
-                "SELECT k.*, u.status AS account_status
+                "SELECT k.*, u.status AS account_status,u.role AS account_role
                  FROM license_keys k
                  JOIN users u ON u.id=k.owner_user_id
-                 WHERE k.key_hash IN (?,?)
+                 WHERE k.key_hash IN (?,?) AND k.app_id=?
                  ORDER BY CASE WHEN k.key_hash=? THEN 0 ELSE 1 END
                  LIMIT 1
                  FOR UPDATE"
             );
-            $q->execute([$keyHash, $legacyKeyHash, $keyHash]);
+            $q->execute([$keyHash, $legacyKeyHash, $appId, $keyHash]);
             $key = $q->fetch();
 
             if (!$key) {
@@ -115,6 +122,11 @@ final class LoaderAuthService
             if (($key['game'] ?? 'PUBG') !== $game) {
                 $pdo->rollBack();
                 return self::fail('Invalid Game');
+            }
+
+            if (!AppRegistry::userHasApp((int)$key['owner_user_id'], (string)($key['account_role'] ?? ''), $appId)) {
+                $pdo->rollBack();
+                return self::fail('Application Access Revoked');
             }
 
             if (($key['account_status'] ?? 'active') !== 'active') {
@@ -355,6 +367,7 @@ final class LoaderAuthService
                             16
                         ),
                         'used_devices'=>$usedDevices,
+                        'app_id'=>$appId,
                     ]
                 );
             } catch (Throwable) {

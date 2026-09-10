@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 use TeamDark\Panel\{
+    AppRegistry,
     Auth,
     BroadcastService,
     Config,
@@ -28,6 +29,7 @@ foreach ([
     'Crypto',
     'Auth',
     'View',
+    'AppRegistry',
     'LoaderAuthService',
     'KeyManager',
     'LicenseService',
@@ -910,6 +912,12 @@ try {
             ]);
 
             $uid = (int)$pdo->lastInsertId();
+            $grantedAppIds = ReferralManager::grantInviteAppsToUser(
+                $pdo,
+                (int)$invite['id'],
+                $uid,
+                (int)$invite['created_by']
+            );
 
             $pdo->prepare(
                 "UPDATE referral_invites
@@ -957,6 +965,7 @@ try {
                 'role'=>$invite['role'],
                 'referred_by'=>(int)$invite['created_by'],
                 'invite_id'=>(int)$invite['id'],
+            'app_ids'=>$grantedAppIds,
             ]);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -1472,6 +1481,16 @@ try {
         $filter = $path === '/keys/expired' ? 'expired' : 'current';
         $rows = KeyManager::visibleKeys($user, $filter);
 
+        $availableApps = AppRegistry::activeForUser($user);
+        $appOptions = '';
+        foreach ($availableApps as $i => $appChoice) {
+            $selected = ((int)$appChoice['id'] === AppRegistry::OFFICIAL_ID || (count($availableApps) === 1 && $i === 0)) ? ' selected' : '';
+            $appOptions .= '<option value="'.(int)$appChoice['id'].'"'.$selected.'>'.View::e((string)$appChoice['name']).'</option>';
+        }
+        $appField = $appOptions !== ''
+            ? '<div class="field"><label>Application API</label><select name="app_id" required>'.$appOptions.'</select><p class="hint">Keys are locked to this app namespace and will be rejected by other Connect URLs.</p></div>'
+            : '<div class="alert">No application API is assigned to this account.</div>';
+
         $keyPolicy = PanelControl::settings();
         $defaultDevices = (bool)($keyPolicy['force_one_device_new_keys'] ?? false)
             ? 1
@@ -1510,6 +1529,7 @@ try {
                 .'<p class="muted">The key is automatically assigned to your own account.</p>'
                 .'<form method="post" action="/keys/create" class="stack" data-action="Generate key" data-confirm="Generate this key with the selected validity and device limit?" data-busy="Generating secure key…">'
                 .View::csrf()
+                .$appField
                 .'<div class="field"><label>Custom key <span class="optional">optional</span></label>'
                 .'<input name="custom_key" minlength="5" maxlength="80" placeholder="Custom key • 5–80 characters" autocomplete="off"></div>'
                 .'<div class="field"><label>Label <span class="optional">optional</span></label>'
@@ -1605,7 +1625,7 @@ try {
                 .'<span class="key">'.View::e($plain).'</span>'
                 .'<span class="status-chip status-'.View::e($row['status']).'">'.View::e($statusText).'</span>'
                 .'</div>'
-                .'<div class="key-meta"><span>'.View::e($expiry).'</span><span>'.View::e($deviceText).'</span>'.$labelHtml.'</div></div>'
+                .'<div class="key-meta"><span class="tag">'.View::e((string)($row['app_name'] ?? 'Official')).'</span><span>'.View::e($expiry).'</span><span>'.View::e($deviceText).'</span>'.$labelHtml.'</div></div>'
                 .'<div class="key-actions">'.$actions.'</div>'
                 .'</article>';
         }
@@ -1673,12 +1693,13 @@ try {
                 $unlimitedExpiry,
                 $maxDevices,
                 $unlimitedDevices,
-                input('custom_key')
+                input('custom_key'),
+                (int)($_POST['app_id'] ?? 0)
             );
 
             flash(
                 'ok',
-                'Generated: '.$created['key'].' • Cost: '.$created['cost'].' credit(s).',
+                'Generated for '.$created['app_name'].': '.$created['key'].' • Cost: '.$created['cost'].' credit(s).',
                 (string)$created['key'],
                 'Copy key'
             );
@@ -1988,6 +2009,18 @@ try {
             $roleOptions .= '<option value="'.View::e($role).'">'.View::e(ucfirst($role)).'</option>';
         }
 
+        $referralApps = AppRegistry::availableForReferral($user);
+        $defaultReferralApps = array_flip(AppRegistry::defaultReferralAppIds($user));
+        $referralAppChecks = '';
+        foreach ($referralApps as $appChoice) {
+            $appId = (int)$appChoice['id'];
+            $referralAppChecks .= '<label class="system-choice-card"><input type="checkbox" name="app_ids[]" value="'.$appId.'"'.(isset($defaultReferralApps[$appId]) ? ' checked' : '').'>'
+                .'<span><b>'.View::e((string)$appChoice['name']).'</b><small>'.View::e(AppRegistry::endpointUrl($appChoice)).'</small></span></label>';
+        }
+        if ($referralAppChecks === '') {
+            $referralAppChecks = '<div class="alert">No active App API is available to allot. Ask Owner to assign one first.</div>';
+        }
+
         $activeCount = 0;
         $disabledCount = 0;
         $linkedCount = 0;
@@ -2079,6 +2112,7 @@ try {
                 .'<td><span class="key">'.View::e($invite['code']).'</span><br>'
                 .'<button type="button" class="ghost compact" data-copy="'.View::e($invite['code']).'">Copy</button></td>'
                 .'<td><span class="tag">'.View::e($invite['role']).'</span></td>'
+                .'<td>'.View::e((string)($invite['app_names'] ?? 'Official')).'</td>'
                 .'<td>'.View::e($invite['creator_username']).'</td>'
                 .'<td><span class="status-chip status-'.View::e($invite['status']).'">'.View::e(strtoupper($invite['status'])).'</span></td>'
                 .'<td>'.$usedBy.'</td>'
@@ -2088,7 +2122,7 @@ try {
         }
 
         if ($inviteRows === '') {
-            $inviteRows = '<tr><td colspan="7"><div class="empty-state"><div class="empty-orb">＋</div><h3>No invites yet</h3><p class="muted">Create a secure one-time registration invite.</p></div></td></tr>';
+            $inviteRows = '<tr><td colspan="8"><div class="empty-state"><div class="empty-orb">＋</div><h3>No invites yet</h3><p class="muted">Create a secure one-time registration invite.</p></div></td></tr>';
         }
 
         $bulkBar = $user['role'] === 'owner'
@@ -2137,11 +2171,12 @@ try {
             .'<form method="post" action="/referrals/create" class="stack">'
             .View::csrf()
             .'<div class="field"><label>Account role</label><select name="role">'.$roleOptions.'</select></div>'
+            .'<div class="field"><label>Application APIs</label><div class="system-choice-grid">'.$referralAppChecks.'</div><p class="hint">Select one or many. The registered account automatically receives exactly these App APIs.</p></div>'
             .'<button class="primary wide">Create referral</button>'
             .'</form></div>'
             .'<div class="card"><div class="toolbar"><h3>Referral invites</h3><span class="tag">'.count($invites).' visible</span></div>'
             .'<div class="table-wrap"><table class="compact-table">'
-            .'<thead><tr><th>Referral</th><th>Role</th><th>Created by</th><th>Status</th><th>Registered user</th><th>Created</th><th>Action</th></tr></thead>'
+            .'<thead><tr><th>Referral</th><th>Role</th><th>App APIs</th><th>Created by</th><th>Status</th><th>Registered user</th><th>Created</th><th>Action</th></tr></thead>'
             .'<tbody>'.$inviteRows.'</tbody></table></div></div>'
             .'<div class="card"><div class="toolbar"><div><h3>User directory</h3><span class="muted">Search and control every visible account</span></div>'
             .'<div class="toolbar-controls"><div class="search-wrap"><input class="control-input" type="search" placeholder="Search name or username" data-user-search></div>'
@@ -2163,10 +2198,10 @@ try {
         Security::rateLimit('referral-create-'.$user['id'], 30, 3600);
 
         try {
-            $invite = ReferralManager::create($user, input('role', 'user'));
+            $invite = ReferralManager::create($user, input('role', 'user'), $_POST['app_ids'] ?? []);
             flash(
                 'ok',
-                'Referral created: '.$invite['code'],
+                'Referral created: '.$invite['code'].' • App APIs: '.count($invite['app_ids']),
                 (string)$invite['code'],
                 'Copy referral'
             );

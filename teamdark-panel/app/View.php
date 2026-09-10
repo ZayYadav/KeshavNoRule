@@ -378,6 +378,7 @@ KOTLIN);
             $nav .= '<div class="nav-group system-group"><span class="nav-label">System</span>'
                 .self::navLink('/owner/system', 'System Overview', 'dashboard', $path)
                 .self::navLink('/owner/server', 'Server & Maint.', 'dashboard', $path)
+                .self::navLink('/owner/apps', 'App APIs', 'spark', $path)
                 .self::navLink('/owner/device-policy', 'One Device', 'keys', $path)
                 .self::navLink('/owner/key-format', 'Key Format', 'keys', $path)
                 .self::navLink('/owner/pricing', 'Pricing', 'spark', $path)

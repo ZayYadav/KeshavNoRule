@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace TeamDark\Panel;
 
+require_once __DIR__.'/AppRegistry.php';
+
 use RuntimeException;
 use Throwable;
 
@@ -79,11 +81,14 @@ final class KeyManager
 
         $sql = "SELECT k.*,u.username owner_name,u.role owner_role,
                        c.username creator_name,
+                       COALESCE(a.name,'Official') app_name,
+                       COALESCE(a.id,1) app_id_resolved,
                        (SELECT COUNT(*) FROM license_devices d
                         WHERE d.license_key_id=k.id AND d.active=1) AS device_count
                 FROM license_keys k
                 JOIN users u ON u.id=k.owner_user_id
-                JOIN users c ON c.id=k.created_by";
+                JOIN users c ON c.id=k.created_by
+                LEFT JOIN app_registry a ON a.id=k.app_id";
 
         $where = [
             "(k.key_source<>'telegram_guest' OR k.telegram_user_id IS NULL OR EXISTS (SELECT 1 FROM telegram_users tgvis WHERE tgvis.id=k.telegram_user_id AND tgvis.linked_user_id IS NOT NULL))"
@@ -130,9 +135,11 @@ final class KeyManager
         bool $unlimitedExpiry,
         int $maxDevices,
         bool $unlimitedDevices,
-        string $customKey = ''
+        string $customKey = '',
+        ?int $appId = null
     ): array {
         PanelControl::assertGeneration($actor);
+        $app = AppRegistry::generationApp($actor, $appId);
 
         if (($actor['role'] ?? '') !== 'owner' && ($unlimitedExpiry || $unlimitedDevices)) {
             throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');
@@ -184,7 +191,7 @@ final class KeyManager
                         $actor['id'],
                         $actor['id'],
                         -$cost,
-                        'PUBG license generation',
+                        (string)$app['name'].' license generation',
                     ]);
                 }
             }
@@ -195,10 +202,10 @@ final class KeyManager
             $pdo->prepare(
                 "INSERT INTO license_keys(
                     owner_user_id,created_by,key_hash,key_hash_version,key_cipher,key_iv,key_tag,
-                    label,game,duration_seconds,unlimited_expiry,
+                    label,game,app_id,duration_seconds,unlimited_expiry,
                     activated_at,expires_at,last_used_at,
                     max_devices,unlimited_devices,status
-                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',?,?,NULL,NULL,NULL,?,?,'unused')"
+                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',?,?,?,NULL,NULL,NULL,?,?,'unused')"
             )->execute([
                 $actor['id'],
                 $actor['id'],
@@ -208,6 +215,7 @@ final class KeyManager
                 $iv,
                 $tag,
                 substr(trim($label), 0, 100),
+                (int)$app['id'],
                 $unlimitedExpiry ? 0 : max(86400, $durationSeconds),
                 $unlimitedExpiry ? 1 : 0,
                 $unlimitedDevices ? 1 : max(1, $maxDevices),
@@ -222,6 +230,8 @@ final class KeyManager
                 'custom'=>$customKey !== '',
                 'unlimited_expiry'=>$unlimitedExpiry,
                 'unlimited_devices'=>$unlimitedDevices,
+                'app_id'=>(int)$app['id'],
+                'app_name'=>(string)$app['name'],
             ]);
             $pdo->commit();
 
@@ -229,6 +239,8 @@ final class KeyManager
                 'id'=>$id,
                 'key'=>$plain,
                 'cost'=>$cost,
+                'app_id'=>(int)$app['id'],
+                'app_name'=>(string)$app['name'],
             ];
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -294,10 +306,10 @@ final class KeyManager
             $pdo->prepare(
                 "INSERT INTO license_keys(
                     owner_user_id,created_by,key_hash,key_hash_version,key_cipher,key_iv,key_tag,
-                    label,game,duration_seconds,unlimited_expiry,
+                    label,game,app_id,duration_seconds,unlimited_expiry,
                     activated_at,expires_at,last_used_at,
                     max_devices,unlimited_devices,status,key_source,telegram_user_id
-                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',7200,0,NULL,NULL,NULL,1,0,'unused','telegram_guest',?)"
+                 ) VALUES(?,?,?,?,?,?,?,?,'PUBG',1,7200,0,NULL,NULL,NULL,1,0,'unused','telegram_guest',?)"
             )->execute([
                 $ownerActor['id'],
                 $ownerActor['id'],

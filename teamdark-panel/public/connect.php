@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use TeamDark\Panel\{Config,Database,Security,Crypto,LoaderAuthService};
+use TeamDark\Panel\{AppRegistry,Config,Database,Security,Crypto,LoaderAuthService};
 
 ini_set('display_errors', '0');
 ini_set('html_errors', '0');
@@ -32,7 +32,7 @@ function teamdarkJson(array $payload): never
     exit;
 }
 
-function teamdarkGateway(string $endpoint, bool $headOnly = false): never
+function teamdarkGateway(string $endpoint, string $appName, bool $headOnly = false): never
 {
     while (ob_get_level() > 0) {
         ob_end_clean();
@@ -53,6 +53,7 @@ function teamdarkGateway(string $endpoint, bool $headOnly = false): never
         ENT_QUOTES | ENT_SUBSTITUTE,
         'UTF-8'
     );
+    $safeAppName = htmlspecialchars($appName, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
     echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
@@ -76,7 +77,7 @@ function teamdarkGateway(string $endpoint, bool $headOnly = false): never
         .'<div class="gw-mark" aria-hidden="true"><b>TD</b></div>'
         .'<div class="gw-subkicker">API GATEWAY // CHANNEL VERIFIED</div>'
         .'<h1 class="gw-title">CONNECT</h1>'
-        .'<p class="gw-copy">Encrypted license gateway for authorized Team Dark clients. Browser view is presentation-only; authenticated client traffic continues through the protected POST channel.</p>'
+        .'<p class="gw-copy">'.$safeAppName.' application license gateway for authorized Team Dark clients. Browser view is presentation-only; authenticated client traffic continues through the protected POST channel.</p>'
         .'<div class="gw-status">'
         .'<span>Gateway online</span><span>TLS protected</span><span>Auth required</span>'
         .'</div>'
@@ -108,6 +109,7 @@ try {
         'Security',
         'Crypto',
         'LoaderAuthService',
+        'AppRegistry',
     ] as $file) {
         require $root.'/app/'.$file.'.php';
     }
@@ -122,21 +124,24 @@ try {
     header('Cloudflare-CDN-Cache-Control: no-store');
 
     $method = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    $requestPath = rawurldecode((string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? '/connect'), PHP_URL_PATH) ?: '/connect'));
+    $endpointToken = '';
+    if ($requestPath === '/connect' || $requestPath === '/connect/') {
+        $endpointToken = '';
+    } elseif (preg_match('#^/connect/([A-Za-z0-9_-]{8,64})/?$#', $requestPath, $m)) {
+        $endpointToken = (string)$m[1];
+    } else {
+        teamdarkJson(['status'=>false,'reason'=>'Invalid Application']);
+    }
 
+    $app = AppRegistry::resolveEndpoint($endpointToken);
+    if (!$app) {
+        teamdarkJson(['status'=>false,'reason'=>'Invalid Application']);
+    }
+
+    $endpoint = AppRegistry::endpointUrl($app);
     if ($method === 'GET' || $method === 'HEAD') {
-        $base = rtrim((string)Config::get('app_url', ''), '/');
-        if ($base === '') {
-            $host = preg_replace(
-                '/[^A-Za-z0-9.\-:\[\]]/',
-                '',
-                (string)($_SERVER['HTTP_HOST'] ?? '')
-            ) ?: '';
-            $base = $host !== ''
-                ? (Security::isHttpsRequest() ? 'https://' : 'http://').$host
-                : '';
-        }
-        $endpoint = $base !== '' ? $base.'/connect' : '/connect';
-        teamdarkGateway($endpoint, $method === 'HEAD');
+        teamdarkGateway($endpoint, (string)$app['name'], $method === 'HEAD');
     }
 
     if ($method !== 'POST') {
@@ -166,13 +171,14 @@ try {
     }
 
     // Per-IP protection; exact auth/device checks remain transactional below.
-    Security::rateLimit('teamdark-loader-connect', 300, 60);
+    Security::rateLimit('teamdark-loader-connect-app-'.(int)$app['id'], 300, 60);
 
     $result = LoaderAuthService::authenticate(
         $game,
         $userKey,
         $serial,
-        Security::clientIp()
+        Security::clientIp(),
+        (int)$app['id']
     );
 
     teamdarkJson($result);

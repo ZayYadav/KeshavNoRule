@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace TeamDark\Panel;
 
+require_once __DIR__.'/AppRegistry.php';
+
 use RuntimeException;
 use Throwable;
 
@@ -21,35 +23,34 @@ final class ReferralManager
         return [];
     }
 
-    public static function create(array $actor, string $role): array
+    public static function create(array $actor, string $role, mixed $appIds = []): array
     {
         $allowed = self::allowedRoles($actor);
-
         if (!in_array($role, $allowed, true)) {
             throw new RuntimeException('You cannot create a referral for this role.');
         }
 
+        $selectedApps = AppRegistry::validateReferralApps($actor, $appIds);
         $pdo = Database::pdo();
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
             $code = 'TD-REF-'.strtoupper(bin2hex(random_bytes(6)));
-
+            $pdo->beginTransaction();
             try {
                 $pdo->prepare(
                     "INSERT INTO referral_invites(code,created_by,role,status,expires_at)
                      VALUES(?,?,?,'pending',DATE_ADD(NOW(),INTERVAL 7 DAY))"
-                )->execute([
-                    $code,
-                    $actor['id'],
-                    $role,
-                ]);
+                )->execute([$code, $actor['id'], $role]);
 
                 $id = (int)$pdo->lastInsertId();
+                AppRegistry::attachAppsToReferral($pdo, $actor, $id, $selectedApps);
+                $pdo->commit();
 
                 try {
                     Security::audit((int)$actor['id'], 'referral_created', [
                         'invite_id'=>$id,
                         'role'=>$role,
+                        'app_ids'=>$selectedApps,
                     ]);
                 } catch (Throwable) {
                 }
@@ -58,15 +59,23 @@ final class ReferralManager
                     'id'=>$id,
                     'code'=>$code,
                     'role'=>$role,
+                    'app_ids'=>$selectedApps,
                 ];
             } catch (\PDOException $e) {
-                if ($e->getCode() !== '23000') {
-                    throw $e;
-                }
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                if ($e->getCode() !== '23000') throw $e;
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                throw $e;
             }
         }
 
         throw new RuntimeException('Could not generate a unique referral. Try again.');
+    }
+
+    public static function grantInviteAppsToUser(\PDO $pdo, int $inviteId, int $userId, int $grantedBy): array
+    {
+        return AppRegistry::grantReferralToUser($pdo, $inviteId, $userId, $grantedBy);
     }
 
     public static function creatorCanIssueRole(string $creatorRole, string $inviteRole): bool
@@ -151,7 +160,12 @@ final class ReferralManager
 
         $sql = "SELECT i.id,i.code,i.role,i.status,i.created_at,i.used_at,
                        c.username creator_username,
-                       u.username used_username,u.name used_name
+                       u.username used_username,u.name used_name,
+                       COALESCE((SELECT GROUP_CONCAT(a.name ORDER BY a.is_official DESC,a.name SEPARATOR ', ')
+                                 FROM referral_app_access ra
+                                 JOIN app_registry a ON a.id=ra.app_id
+                                 WHERE ra.referral_id=i.id),'No App API') AS app_names,
+                       (SELECT COUNT(*) FROM referral_app_access ra2 WHERE ra2.referral_id=i.id) AS app_count
                 FROM referral_invites i
                 JOIN users c ON c.id=i.created_by
                 LEFT JOIN users u ON u.id=i.used_by";

@@ -118,6 +118,47 @@ CALL td_add_index(
   'ALTER TABLE users ADD UNIQUE INDEX uq_users_telegram_chat(telegram_chat_id)'
 );
 
+CREATE TABLE IF NOT EXISTS app_registry (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(80) NOT NULL,
+  endpoint_token VARCHAR(64) NOT NULL UNIQUE,
+  notes VARCHAR(240) NOT NULL DEFAULT '',
+  status ENUM('active','disabled') NOT NULL DEFAULT 'active',
+  is_official TINYINT(1) NOT NULL DEFAULT 0,
+  created_by BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_app_registry_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  UNIQUE KEY uq_app_registry_name(name),
+  INDEX idx_app_registry_status(status),
+  INDEX idx_app_registry_official(is_official)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO app_registry(id,name,endpoint_token,notes,status,is_official,created_by)
+VALUES(1,'Official','official','Permanent backward-compatible /connect application API.','active',1,NULL)
+ON DUPLICATE KEY UPDATE
+  name=IF(is_official=1,name,VALUES(name)),
+  status=IF(is_official=1,'active',status),
+  is_official=IF(id=1,1,is_official);
+
+CREATE TABLE IF NOT EXISTS user_app_access (
+  user_id BIGINT UNSIGNED NOT NULL,
+  app_id BIGINT UNSIGNED NOT NULL,
+  granted_by BIGINT UNSIGNED NULL,
+  source VARCHAR(24) NOT NULL DEFAULT 'owner',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(user_id,app_id),
+  CONSTRAINT fk_user_app_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_app_app FOREIGN KEY (app_id) REFERENCES app_registry(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_app_granter FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_user_app_app(app_id),
+  INDEX idx_user_app_granter(granted_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Existing accounts keep the historical Official application automatically.
+INSERT IGNORE INTO user_app_access(user_id,app_id,granted_by,source)
+SELECT id,1,NULL,'migration' FROM users;
+
 CREATE TABLE IF NOT EXISTS user_uploads (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id BIGINT UNSIGNED NOT NULL,
@@ -160,6 +201,20 @@ CALL td_add_column(
 UPDATE referral_invites
 SET expires_at=DATE_ADD(created_at,INTERVAL 7 DAY)
 WHERE expires_at IS NULL AND status='pending';
+
+CREATE TABLE IF NOT EXISTS referral_app_access (
+  referral_id BIGINT UNSIGNED NOT NULL,
+  app_id BIGINT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(referral_id,app_id),
+  CONSTRAINT fk_ref_app_referral FOREIGN KEY (referral_id) REFERENCES referral_invites(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ref_app_app FOREIGN KEY (app_id) REFERENCES app_registry(id) ON DELETE CASCADE,
+  INDEX idx_ref_app_app(app_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Existing pending/used referrals preserve old behavior by granting Official.
+INSERT IGNORE INTO referral_app_access(referral_id,app_id)
+SELECT id,1 FROM referral_invites;
 
 CREATE TABLE IF NOT EXISTS telegram_users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -261,6 +316,13 @@ CALL td_add_column(
   'license_keys','telegram_user_id',
   'ALTER TABLE license_keys ADD COLUMN telegram_user_id BIGINT UNSIGNED NULL AFTER key_source'
 );
+CALL td_add_column(
+  'license_keys','app_id',
+  'ALTER TABLE license_keys ADD COLUMN app_id BIGINT UNSIGNED NOT NULL DEFAULT 1 AFTER telegram_user_id'
+);
+
+UPDATE license_keys SET app_id=1 WHERE app_id IS NULL OR app_id=0;
+
 
 ALTER TABLE license_keys
   MODIFY status ENUM('unused','active','expired','disabled','revoked') NOT NULL DEFAULT 'unused';
@@ -289,6 +351,11 @@ CALL td_add_index(
   'license_keys','idx_keys_source',
   'ALTER TABLE license_keys ADD INDEX idx_keys_source(key_source)'
 );
+CALL td_add_index(
+  'license_keys','idx_keys_app',
+  'ALTER TABLE license_keys ADD INDEX idx_keys_app(app_id)'
+);
+
 
 CREATE TABLE IF NOT EXISTS license_devices (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

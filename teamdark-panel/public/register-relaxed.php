@@ -151,7 +151,13 @@ try {
             $invite['created_by'],
         ]);
 
-        $uid = (int)$pdo->lastInsertId();
+            $uid = (int)$pdo->lastInsertId();
+            $grantedAppIds = ReferralManager::grantInviteAppsToUser(
+                $pdo,
+                (int)$invite['id'],
+                $uid,
+                (int)$invite['created_by']
+            );
         $pdo->prepare("UPDATE referral_invites SET status='used',used_by=?,used_at=NOW() WHERE id=? AND status='pending'")
             ->execute([$uid, $invite['id']]);
 
@@ -172,6 +178,7 @@ try {
             'role'=>$invite['role'],
             'referred_by'=>(int)$invite['created_by'],
             'invite_id'=>(int)$invite['id'],
+            'app_ids'=>$grantedAppIds,
         ]);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();

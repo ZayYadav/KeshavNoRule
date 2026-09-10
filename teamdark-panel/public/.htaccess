@@ -10,12 +10,13 @@ RewriteCond %{REQUEST_METHOD} !^(?:GET|POST|HEAD)$ [NC]
 RewriteRule ^ - [R=405,L]
 
 # Existing TeamDarkLoader native endpoint. Contract intentionally unchanged.
-RewriteRule ^connect/?$ connect.php [L,QSA]
+RewriteRule ^connect(?:/[A-Za-z0-9_-]{8,64})?/?$ connect.php [L,QSA]
 
 # Telegram Bot API webhook endpoint.
 RewriteRule ^telegram/webhook/?$ telegram-webhook.php [L,QSA]
 
 # Dedicated panel feature controllers.
+RewriteRule ^owner/apps(?:/.*)?$ app-api-manager.php [L,QSA]
 RewriteRule ^register/?$ register-relaxed.php [L,QSA]
 RewriteRule ^(?:security/password|users/password)/?$ password-actions.php [L,QSA]
 RewriteRule ^key-edit/?$ key-edit.php [L,QSA]
