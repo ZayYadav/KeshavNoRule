@@ -81,6 +81,8 @@ final class KeyEditor
                 throw new RuntimeException('That key value already exists.');
             }
 
+            $newHash = Crypto::licenseLookupHash($plainKey);
+            $keyChanged = !hash_equals((string)$row['key_hash'], $newHash);
             [$cipher, $iv, $tag] = Crypto::encrypt($plainKey);
             $durationSeconds = $unlimitedExpiry ? 0 : $durationDays * 86400;
             $expiresAt = null;
@@ -104,7 +106,7 @@ final class KeyEditor
                 'UPDATE license_keys SET key_hash=?,key_hash_version=2,key_cipher=?,key_iv=?,key_tag=?,label=?,duration_seconds=?,unlimited_expiry=?,expires_at=?,max_devices=?,unlimited_devices=?,status=? WHERE id=?'
             );
             $q->execute([
-                Crypto::licenseLookupHash($plainKey),
+                $newHash,
                 $cipher,
                 $iv,
                 $tag,
@@ -125,10 +127,7 @@ final class KeyEditor
                 'unlimited_expiry'=>$unlimitedExpiry,
                 'max_devices'=>$unlimitedDevices ? null : $maxDevices,
                 'unlimited_devices'=>$unlimitedDevices,
-                'key_value_changed'=>!hash_equals(
-                    Crypto::licenseLookupHash(Crypto::decrypt($row['key_cipher'], $row['key_iv'], $row['key_tag'])),
-                    Crypto::licenseLookupHash($plainKey)
-                ),
+                'key_value_changed'=>$keyChanged,
             ]);
 
             $pdo->commit();
