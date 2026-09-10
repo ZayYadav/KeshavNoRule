@@ -37,8 +37,6 @@ final class KeyEditor
         int $maxDevices,
         bool $unlimitedDevices
     ): int {
-        // Editing validity/device entitlement is a generation-class action.
-        // Owner always bypasses this switch through PanelControl::assertGeneration().
         PanelControl::assertGeneration($actor);
 
         $plainKey = trim($plainKey);
@@ -87,12 +85,29 @@ final class KeyEditor
 
             $durationSeconds = $unlimitedExpiry ? 0 : $durationDays * 86400;
             $oldUnlimited = (bool)$row['unlimited_expiry'];
-            $oldDuration = (int)$row['duration_seconds'];
-            $oldPrice = KeyManager::price($oldDuration, $oldUnlimited);
-            $newPrice = KeyManager::price($durationSeconds, $unlimitedExpiry);
-            $upgradeCost = ($actor['role'] ?? '') === 'owner'
-                ? 0
-                : max(0, $newPrice - $oldPrice);
+            $oldDuration = max(0, (int)$row['duration_seconds']);
+            $upgradeCost = 0;
+
+            if (($actor['role'] ?? '') !== 'owner') {
+                if (!$oldUnlimited && $unlimitedExpiry) {
+                    // Finite -> unlimited is an entitlement upgrade. Charge only
+                    // any positive difference under the panel's configured price model.
+                    $upgradeCost = max(
+                        0,
+                        KeyManager::price(0, true)
+                        - KeyManager::price($oldDuration, false)
+                    );
+                } elseif (!$oldUnlimited && !$unlimitedExpiry && $durationSeconds > $oldDuration) {
+                    // Finite -> longer finite: charge only the additional days/price.
+                    $upgradeCost = max(
+                        0,
+                        KeyManager::price($durationSeconds, false)
+                        - KeyManager::price($oldDuration, false)
+                    );
+                }
+                // Unlimited -> finite is always a downgrade, regardless of the
+                // numeric configured prices, so it must never create a charge.
+            }
 
             if ($upgradeCost > 0) {
                 $balanceQ = $pdo->prepare(
