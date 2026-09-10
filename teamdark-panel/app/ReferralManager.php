@@ -157,9 +157,29 @@ final class ReferralManager
 
     public static function grantInviteBalanceToUser(\PDO $pdo, array $invite, int $userId): int
     {
-        $grant = (int)($invite['grant_balance'] ?? 0);
+        $inviteId = (int)($invite['id'] ?? 0);
+        if ($inviteId <= 0 || $userId <= 0) {
+            throw new RuntimeException('Referral balance grant is invalid.');
+        }
+
+        // Treat the database row as authoritative. Do not trust caller-provided
+        // grant/creator values, which may be compact, stale or accidentally altered.
+        $inviteQ = $pdo->prepare(
+            "SELECT created_by,grant_balance
+             FROM referral_invites
+             WHERE id=? AND status='pending'
+             LIMIT 1"
+        );
+        $inviteQ->execute([$inviteId]);
+        $storedInvite = $inviteQ->fetch();
+        if (!$storedInvite) {
+            throw new RuntimeException('Referral balance grant is no longer available.');
+        }
+
+        $grant = (int)$storedInvite['grant_balance'];
+        $creatorId = (int)$storedInvite['created_by'];
         if ($grant <= 0) return 0;
-        if ($grant > self::MAX_REFERRAL_BALANCE) {
+        if ($grant > self::MAX_REFERRAL_BALANCE || $creatorId <= 0) {
             throw new RuntimeException('Referral balance grant is invalid.');
         }
 
@@ -173,7 +193,7 @@ final class ReferralManager
             'INSERT INTO balance_ledger(user_id,actor_user_id,amount,reason) VALUES(?,?,?,?)'
         )->execute([
             $userId,
-            (int)$invite['created_by'],
+            $creatorId,
             $grant,
             'Referral balance grant',
         ]);
