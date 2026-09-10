@@ -36,7 +36,9 @@ function regValidName(string $name): bool
 {
     $name = trim($name);
     $bytes = strlen($name);
-    return $bytes >= 2 && $bytes <= 240 && !preg_match('/[\x00-\x1F\x7F]/u', $name);
+    return $bytes >= 2
+        && $bytes <= 80
+        && !preg_match('/[\x00-\x1F\x7F]/u', $name);
 }
 
 function regValidUsername(string $username): bool
@@ -51,6 +53,18 @@ function regReferralCode(): string
 
 try {
     if (Auth::user()) regRedirect('/dashboard');
+
+    $settings = PanelControl::settings();
+    if (!$settings['panel_online']) {
+        http_response_code(503);
+        header('Retry-After: 300');
+        View::page(
+            'Maintenance',
+            '<section class="auth"><div class="card"><div class="eyebrow">PANEL OFFLINE</div><h1>We will be back.</h1><p class="muted">'.View::e((string)$settings['message']).'</p><a class="ghost" href="/login">Owner sign in</a></div></section>'
+        );
+        exit;
+    }
+
     $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
     if ($method === 'GET') {
@@ -63,7 +77,7 @@ try {
             .'<div class="field"><label>Referral code</label><input name="referral" value="'.$prefill.'" required maxlength="40" autocomplete="off"></div>'
             .'<div class="field"><label>Name</label><input name="name" required minlength="2" maxlength="80" autocomplete="name" placeholder="Your name"></div>'
             .'<div class="field"><label>Username</label><input name="username" required minlength="3" maxlength="32" autocomplete="username"></div>'
-            .'<div class="field"><label>Password</label><input type="password" name="password" required maxlength="200" autocomplete="new-password"><p class="hint">Any password from 1 to 200 characters is accepted. No letter/number/symbol combination is required.</p></div>'
+            .'<div class="field"><label>Password</label><input type="password" name="password" required minlength="1" maxlength="200" autocomplete="new-password"><p class="hint">Any non-empty password up to 200 characters is accepted. No letter/number/symbol combination is required.</p></div>'
             .'<button class="primary">Create account</button></form></div></section>';
         View::page('Register', $body);
         exit;
@@ -75,7 +89,7 @@ try {
     }
 
     Security::verifyCsrf($_POST['csrf'] ?? null);
-    if (!PanelControl::settings()['registration_open']) {
+    if (!$settings['registration_open']) {
         regFlash('err', 'New registrations are paused by the owner.');
         regRedirect('/register');
     }
@@ -161,7 +175,16 @@ try {
         ]);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
-        $message = $e instanceof RuntimeException ? substr($e->getMessage(), 0, 300) : 'Registration failed.';
+
+        if ($e instanceof PDOException) {
+            error_log('TeamDark registration database failure at '.basename($e->getFile()).':'.$e->getLine());
+            $message = 'Registration failed.';
+        } elseif ($e instanceof RuntimeException) {
+            $message = substr($e->getMessage(), 0, 300);
+        } else {
+            $message = 'Registration failed.';
+        }
+
         regFlash('err', $message);
         regRedirect('/register?ref='.urlencode($ref));
     }
@@ -179,7 +202,7 @@ try {
 
     regRedirect('/register/success');
 } catch (Throwable $e) {
-    error_log('TeamDark registration error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine().' '.$e->getMessage());
+    error_log('TeamDark registration error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
     regFlash('err', 'Registration request failed.');
     regRedirect('/register');
 }
