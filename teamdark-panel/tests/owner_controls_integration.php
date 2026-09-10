@@ -49,6 +49,8 @@ $owner = $pdo->query("SELECT * FROM users WHERE username='contract-owner'")->fet
 if (!$owner) throw new RuntimeException('Run seed_native_auth.php first.');
 $pdo->prepare("INSERT INTO users(name,username,password_hash,role,balance,referral_code,status) VALUES('History Test','history-test',?,'user',100,'TDHISTORYTEST','active')")->execute([Security::passwordHash('ContractTest@12345')]);
 $uid = (int)$pdo->lastInsertId();
+$pdo->prepare("INSERT INTO user_app_access(user_id,app_id,granted_by,source) VALUES(?,1,?,'test_fixture')")
+    ->execute([$uid, (int)$owner['id']]);
 $q = $pdo->prepare('SELECT * FROM users WHERE id=?'); $q->execute([$uid]); $user = $q->fetch();
 $ownerClient = client(); $userClient = client(); $guest = client();
 try {
