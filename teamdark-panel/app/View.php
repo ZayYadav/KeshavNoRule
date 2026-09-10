@@ -349,6 +349,7 @@ KOTLIN);
         $nav = '<div class="nav-group"><span class="nav-label">Workspace</span>'
             .self::navLink('/dashboard', 'Overview', 'dashboard', $path)
             .self::navLink('/keys', 'License keys', 'keys', $path)
+            .self::navLink('/files', 'Binary Vault', 'spark', $path)
             .'</div>';
 
         if (in_array($user['role'], ['owner','admin'], true)) {
