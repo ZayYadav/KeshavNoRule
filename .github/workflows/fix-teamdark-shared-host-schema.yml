@@ -19,7 +19,7 @@ jobs:
           ref: TeamDarkLoader
           fetch-depth: 0
 
-      - name: Remove CREATE ROUTINE dependency and harden direct webhook bootstrap
+      - name: Remove routine dependency and harden direct webhook bootstrap
         shell: bash
         run: |
           python3 - <<'PY'
@@ -41,7 +41,7 @@ jobs:
           text = (
               text[:start]
               + "-- Shared-host-safe idempotent migrations below use prepared statements.\n"
-              + "-- No CREATE ROUTINE / CREATE PROCEDURE privilege is required.\n"
+              + "-- No stored-routine creation privilege is required.\n"
               + text[end:]
           )
 
