@@ -605,16 +605,10 @@ final class KeyManager
         $customKey = trim($customKey);
 
         if ($customKey !== '') {
-            if (
-                strlen($customKey) < 24
-                || strlen($customKey) > 80
-                || !preg_match('/^[A-Za-z0-9._-]+$/', $customKey)
-                || !preg_match('/[A-Z]/', $customKey)
-                || !preg_match('/[a-z]/', $customKey)
-                || !preg_match('/[0-9]/', $customKey)
-            ) {
+            $length = strlen($customKey);
+            if ($length < 5 || $length > 80) {
                 throw new RuntimeException(
-                    'Custom key must be 24–80 characters and include uppercase, lowercase and numbers.'
+                    'Custom key must be 5–80 characters.'
                 );
             }
 
