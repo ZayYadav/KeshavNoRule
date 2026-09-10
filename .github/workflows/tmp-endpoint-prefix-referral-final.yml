@@ -1,0 +1,56 @@
+name: TeamDark Endpoint Prefix Referral Finalizer
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/tmp-endpoint-prefix-referral-final.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+          fetch-depth: 0
+
+      - name: Apply endpoint and referral patch
+        run: python3 .github/tmp-endpoint-prefix-referral-final.py
+
+      - name: Validate syntax and required wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l teamdark-panel/app/AppRegistry.php
+          php -l teamdark-panel/app/ReferralManager.php
+          php -l teamdark-panel/public/app-api-manager.php
+          php -l teamdark-panel/public/index.php
+          php -l teamdark-panel/public/register-relaxed.php
+          php -l teamdark-panel/tests/multi_app_contract.php
+          grep -F 'MAX_ENDPOINT_PREFIX = 24' teamdark-panel/app/AppRegistry.php >/dev/null
+          grep -F 'newEndpointToken' teamdark-panel/app/AppRegistry.php >/dev/null
+          grep -F 'name="endpoint_prefix"' teamdark-panel/public/app-api-manager.php >/dev/null
+          grep -F 'REFERRAL APP API' teamdark-panel/public/register-relaxed.php >/dev/null
+          grep -F 'ASSIGNED APP API ACCESS' teamdark-panel/public/index.php >/dev/null
+
+      - name: Commit final changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TeamDark CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add teamdark-panel/app/AppRegistry.php \
+                  teamdark-panel/app/ReferralManager.php \
+                  teamdark-panel/public/app-api-manager.php \
+                  teamdark-panel/public/index.php \
+                  teamdark-panel/public/register-relaxed.php \
+                  teamdark-panel/tests/multi_app_contract.php \
+                  .github/workflows/teamdark-panel-php-lint.yml
+          git diff --cached --check
+          git commit -m 'Add custom endpoint prefixes and strict referral API access'
+          git push origin HEAD:TeamDarkLoader
