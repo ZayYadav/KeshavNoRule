@@ -4,7 +4,7 @@ declare(strict_types=1);
 $root = dirname(__DIR__);
 $path = '/'.ltrim((string)(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'), '/');
 
-// Mirror production rewrites so Official and app-scoped Connect endpoints are exercised identically in CI.
+// Mirror production rewrites so Official and app-scoped Connect endpoints, including namespace isolation, are exercised identically in CI.
 if (
     $path === '/connect'
     || $path === '/connect/'
