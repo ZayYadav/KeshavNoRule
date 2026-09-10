@@ -52,7 +52,7 @@ jobs:
             node --check "$file"
           done
 
-      - name: Verify private vault route ordering and controllers
+      - name: Verify private File Manager route ordering and controllers
         shell: bash
         run: |
           set -euo pipefail
@@ -87,6 +87,32 @@ jobs:
           grep -F 'cloudflare_cache_enabled' teamdark-panel/app/Config.php >/dev/null
           grep -F 'CdnCache::purgeVaultFile' teamdark-panel/app/UploadManager.php >/dev/null
           grep -F '/purge_cache' teamdark-panel/app/CdnCache.php >/dev/null
+
+      - name: Verify modular Owner System and screenshot-inspired navigation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f teamdark-panel/app/OwnerSystem.php
+          test -f teamdark-panel/public/assets/system-console.css
+          grep -F "'File Manager'" teamdark-panel/app/View.php >/dev/null
+          grep -F "'/keys/extend'" teamdark-panel/public/index.php >/dev/null
+          grep -F "'Extend Duration'" teamdark-panel/app/View.php >/dev/null
+          grep -F "'/owner/server'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/device-policy'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/key-format'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/pricing'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/ip-management'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/rebranding'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/security'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/session-controls'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/packages'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/alerts'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F "'/owner/update'" teamdark-panel/app/OwnerSystem.php >/dev/null
+          grep -F 'generated_key_prefix' teamdark-panel/app/KeyManager.php >/dev/null
+          grep -F 'key_cost_per_day' teamdark-panel/app/KeyManager.php >/dev/null
+          grep -F 'force_one_device_new_keys' teamdark-panel/app/KeyManager.php >/dev/null
+          grep -F 'ownerIpPolicyBlocked' teamdark-panel/app/Security.php >/dev/null
+          grep -F 'data-key-edit-link="1"' teamdark-panel/public/index.php >/dev/null
 
       - name: Verify relaxed password and key editor wiring
         shell: bash
