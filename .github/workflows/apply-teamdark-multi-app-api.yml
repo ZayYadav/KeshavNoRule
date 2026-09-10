@@ -44,7 +44,7 @@ jobs:
       - name: Apply multi-app API patch
         run: python3 scripts/apply_teamdark_multi_app_api.py
 
-      - name: Validate PHP JavaScript and wiring
+      - name: Validate PHP and multi-app wiring
         shell: bash
         run: |
           set -euo pipefail
@@ -64,12 +64,12 @@ jobs:
           grep -F 'name="app_ids[]"' teamdark-panel/public/index.php >/dev/null
           grep -F "'/owner/apps', 'App APIs'" teamdark-panel/app/View.php >/dev/null
 
-      - name: Commit application changes
+      - name: Commit application changes only
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'TeamDark CI'
           git config user.email 'actions@users.noreply.github.com'
-          git add teamdark-panel .github/workflows/teamdark-panel-php-lint.yml .github/workflows/teamdark-native-auth-contract.yml
+          git add teamdark-panel
           git commit -m 'Add referral-scoped multi-app API isolation'
           git push origin HEAD:TeamDarkLoader
