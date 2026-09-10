@@ -37,7 +37,7 @@ foreach ([
     'KeyManager',
     'TelegramBot',
 ] as $file) {
-    require $root.'/app/'.$file.'.php';
+    require_once $root.'/app/'.$file.'.php';
 }
 
 try {

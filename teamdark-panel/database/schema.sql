@@ -36,87 +36,72 @@ CREATE TABLE IF NOT EXISTS users (
   INDEX idx_users_ref(referred_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-DROP PROCEDURE IF EXISTS td_add_column;
-DROP PROCEDURE IF EXISTS td_add_index;
+-- Shared-host-safe idempotent migrations below use prepared statements.
+-- No stored-routine creation privilege is required.
 
-DELIMITER $$
 
-CREATE PROCEDURE td_add_column(
-  IN p_table VARCHAR(64),
-  IN p_column VARCHAR(64),
-  IN p_ddl TEXT
-)
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA=DATABASE()
-      AND TABLE_NAME=p_table
-      AND COLUMN_NAME=p_column
-  ) THEN
-    SET @td_sql=p_ddl;
-    PREPARE td_stmt FROM @td_sql;
-    EXECUTE td_stmt;
-    DEALLOCATE PREPARE td_stmt;
-  END IF;
-END$$
-
-CREATE PROCEDURE td_add_index(
-  IN p_table VARCHAR(64),
-  IN p_index VARCHAR(64),
-  IN p_ddl TEXT
-)
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA=DATABASE()
-      AND TABLE_NAME=p_table
-      AND INDEX_NAME=p_index
-  ) THEN
-    SET @td_sql=p_ddl;
-    PREPARE td_stmt FROM @td_sql;
-    EXECUTE td_stmt;
-    DEALLOCATE PREPARE td_stmt;
-  END IF;
-END$$
-
-DELIMITER ;
-
-CALL td_add_column(
-  'users','name',
-  'ALTER TABLE users ADD COLUMN name VARCHAR(100) NOT NULL DEFAULT '''' AFTER id'
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='name'
 );
-CALL td_add_column(
-  'users','telegram_chat_id',
-  'ALTER TABLE users ADD COLUMN telegram_chat_id BIGINT NULL AFTER created_by'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE users ADD COLUMN name VARCHAR(100) NOT NULL DEFAULT '''' AFTER id', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='telegram_chat_id'
 );
-CALL td_add_column(
-  'users','telegram_2fa_enabled',
-  'ALTER TABLE users ADD COLUMN telegram_2fa_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER telegram_chat_id'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE users ADD COLUMN telegram_chat_id BIGINT NULL AFTER created_by', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='telegram_2fa_enabled'
 );
-CALL td_add_column(
-  'users','telegram_2fa_enabled_at',
-  'ALTER TABLE users ADD COLUMN telegram_2fa_enabled_at DATETIME NULL AFTER telegram_2fa_enabled'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE users ADD COLUMN telegram_2fa_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER telegram_chat_id', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='telegram_2fa_enabled_at'
 );
-CALL td_add_column(
-  'users','auth_version',
-  'ALTER TABLE users ADD COLUMN auth_version INT UNSIGNED NOT NULL DEFAULT 1 AFTER telegram_2fa_enabled_at'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE users ADD COLUMN telegram_2fa_enabled_at DATETIME NULL AFTER telegram_2fa_enabled', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='auth_version'
 );
-CALL td_add_column(
-  'users','login_not_before',
-  'ALTER TABLE users ADD COLUMN login_not_before DATETIME NULL AFTER auth_version'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE users ADD COLUMN auth_version INT UNSIGNED NOT NULL DEFAULT 1 AFTER telegram_2fa_enabled_at', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND COLUMN_NAME='login_not_before'
 );
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE users ADD COLUMN login_not_before DATETIME NULL AFTER auth_version', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
 
 ALTER TABLE users
   MODIFY balance BIGINT UNSIGNED NOT NULL DEFAULT 0;
 
 UPDATE users SET name=username WHERE name='';
 
-CALL td_add_index(
-  'users','uq_users_telegram_chat',
-  'ALTER TABLE users ADD UNIQUE INDEX uq_users_telegram_chat(telegram_chat_id)'
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='users' AND INDEX_NAME='uq_users_telegram_chat'
 );
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE users ADD UNIQUE INDEX uq_users_telegram_chat(telegram_chat_id)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
 
 CREATE TABLE IF NOT EXISTS app_registry (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -199,10 +184,14 @@ CREATE TABLE IF NOT EXISTS referral_invites (
   INDEX idx_invite_role(role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CALL td_add_column(
-  'referral_invites','expires_at',
-  'ALTER TABLE referral_invites ADD COLUMN expires_at DATETIME NULL AFTER status'
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='referral_invites' AND COLUMN_NAME='expires_at'
 );
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE referral_invites ADD COLUMN expires_at DATETIME NULL AFTER status', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
 
 UPDATE referral_invites
 SET expires_at=DATE_ADD(created_at,INTERVAL 7 DAY)
@@ -280,58 +269,110 @@ CREATE TABLE IF NOT EXISTS license_keys (
   INDEX idx_keys_source(key_source)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CALL td_add_column(
-  'license_keys','key_hash_version',
-  'ALTER TABLE license_keys ADD COLUMN key_hash_version TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER key_hash'
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='key_hash_version'
 );
-CALL td_add_column(
-  'license_keys','game',
-  'ALTER TABLE license_keys ADD COLUMN game VARCHAR(16) NOT NULL DEFAULT ''PUBG'' AFTER label'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN key_hash_version TINYINT UNSIGNED NOT NULL DEFAULT 1 AFTER key_hash', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='game'
 );
-CALL td_add_column(
-  'license_keys','duration_seconds',
-  'ALTER TABLE license_keys ADD COLUMN duration_seconds BIGINT UNSIGNED NOT NULL DEFAULT 86400 AFTER game'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN game VARCHAR(16) NOT NULL DEFAULT ''PUBG'' AFTER label', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='duration_seconds'
 );
-CALL td_add_column(
-  'license_keys','unlimited_expiry',
-  'ALTER TABLE license_keys ADD COLUMN unlimited_expiry TINYINT(1) NOT NULL DEFAULT 0 AFTER duration_seconds'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN duration_seconds BIGINT UNSIGNED NOT NULL DEFAULT 86400 AFTER game', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='unlimited_expiry'
 );
-CALL td_add_column(
-  'license_keys','activated_at',
-  'ALTER TABLE license_keys ADD COLUMN activated_at DATETIME NULL AFTER unlimited_expiry'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN unlimited_expiry TINYINT(1) NOT NULL DEFAULT 0 AFTER duration_seconds', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='activated_at'
 );
-CALL td_add_column(
-  'license_keys','expires_at',
-  'ALTER TABLE license_keys ADD COLUMN expires_at DATETIME NULL AFTER activated_at'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN activated_at DATETIME NULL AFTER unlimited_expiry', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='expires_at'
 );
-CALL td_add_column(
-  'license_keys','last_used_at',
-  'ALTER TABLE license_keys ADD COLUMN last_used_at DATETIME NULL AFTER expires_at'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN expires_at DATETIME NULL AFTER activated_at', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='last_used_at'
 );
-CALL td_add_column(
-  'license_keys','max_devices',
-  'ALTER TABLE license_keys ADD COLUMN max_devices INT UNSIGNED NOT NULL DEFAULT 10 AFTER last_used_at'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN last_used_at DATETIME NULL AFTER expires_at', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='max_devices'
 );
-CALL td_add_column(
-  'license_keys','unlimited_devices',
-  'ALTER TABLE license_keys ADD COLUMN unlimited_devices TINYINT(1) NOT NULL DEFAULT 0 AFTER max_devices'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN max_devices INT UNSIGNED NOT NULL DEFAULT 10 AFTER last_used_at', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='unlimited_devices'
 );
-CALL td_add_column(
-  'license_keys','status',
-  'ALTER TABLE license_keys ADD COLUMN status ENUM(''unused'',''active'',''expired'',''disabled'',''revoked'') NOT NULL DEFAULT ''unused'''
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN unlimited_devices TINYINT(1) NOT NULL DEFAULT 0 AFTER max_devices', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='status'
 );
-CALL td_add_column(
-  'license_keys','key_source',
-  'ALTER TABLE license_keys ADD COLUMN key_source VARCHAR(24) NOT NULL DEFAULT ''panel'' AFTER status'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN status ENUM(''unused'',''active'',''expired'',''disabled'',''revoked'') NOT NULL DEFAULT ''unused''', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='key_source'
 );
-CALL td_add_column(
-  'license_keys','telegram_user_id',
-  'ALTER TABLE license_keys ADD COLUMN telegram_user_id BIGINT UNSIGNED NULL AFTER key_source'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN key_source VARCHAR(24) NOT NULL DEFAULT ''panel'' AFTER status', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='telegram_user_id'
 );
-CALL td_add_column(
-  'license_keys','app_id',
-  'ALTER TABLE license_keys ADD COLUMN app_id BIGINT UNSIGNED NOT NULL DEFAULT 1 AFTER telegram_user_id'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN telegram_user_id BIGINT UNSIGNED NULL AFTER key_source', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND COLUMN_NAME='app_id'
 );
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD COLUMN app_id BIGINT UNSIGNED NOT NULL DEFAULT 1 AFTER telegram_user_id', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
 
 UPDATE license_keys SET app_id=1 WHERE app_id IS NULL OR app_id=0;
 
@@ -347,26 +388,46 @@ UPDATE license_keys
 SET key_source='panel'
 WHERE key_source='' OR key_source IS NULL;
 
-CALL td_add_index(
-  'license_keys','idx_keys_expiry',
-  'ALTER TABLE license_keys ADD INDEX idx_keys_expiry(expires_at)'
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND INDEX_NAME='idx_keys_expiry'
 );
-CALL td_add_index(
-  'license_keys','idx_keys_game',
-  'ALTER TABLE license_keys ADD INDEX idx_keys_game(game)'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD INDEX idx_keys_expiry(expires_at)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND INDEX_NAME='idx_keys_game'
 );
-CALL td_add_index(
-  'license_keys','idx_keys_tg',
-  'ALTER TABLE license_keys ADD INDEX idx_keys_tg(telegram_user_id)'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD INDEX idx_keys_game(game)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND INDEX_NAME='idx_keys_tg'
 );
-CALL td_add_index(
-  'license_keys','idx_keys_source',
-  'ALTER TABLE license_keys ADD INDEX idx_keys_source(key_source)'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD INDEX idx_keys_tg(telegram_user_id)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND INDEX_NAME='idx_keys_source'
 );
-CALL td_add_index(
-  'license_keys','idx_keys_app',
-  'ALTER TABLE license_keys ADD INDEX idx_keys_app(app_id)'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD INDEX idx_keys_source(key_source)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_keys' AND INDEX_NAME='idx_keys_app'
 );
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_keys ADD INDEX idx_keys_app(app_id)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
 
 
 CREATE TABLE IF NOT EXISTS license_devices (
@@ -385,18 +446,30 @@ CREATE TABLE IF NOT EXISTS license_devices (
   INDEX idx_device_active(license_key_id, active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CALL td_add_column(
-  'license_devices','serial',
-  'ALTER TABLE license_devices ADD COLUMN serial VARCHAR(255) NOT NULL DEFAULT '''' AFTER device_hash'
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_devices' AND COLUMN_NAME='serial'
 );
-CALL td_add_column(
-  'license_devices','ip_address',
-  'ALTER TABLE license_devices ADD COLUMN ip_address VARCHAR(45) NOT NULL DEFAULT '''' AFTER last_seen_at'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_devices ADD COLUMN serial VARCHAR(255) NOT NULL DEFAULT '''' AFTER device_hash', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_devices' AND COLUMN_NAME='ip_address'
 );
-CALL td_add_column(
-  'license_devices','active',
-  'ALTER TABLE license_devices ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1 AFTER ip_address'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_devices ADD COLUMN ip_address VARCHAR(45) NOT NULL DEFAULT '''' AFTER last_seen_at', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_devices' AND COLUMN_NAME='active'
 );
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_devices ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1 AFTER ip_address', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
 
 UPDATE license_devices
 SET serial=CONCAT('legacy-',id,'-',LEFT(device_hash,16))
@@ -411,18 +484,30 @@ UPDATE license_devices
 SET ip_address=''
 WHERE ip_address<>'' AND ip_address NOT LIKE 'h:%';
 
-CALL td_add_index(
-  'license_devices','uq_key_serial',
-  'ALTER TABLE license_devices ADD UNIQUE INDEX uq_key_serial(license_key_id,serial)'
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_devices' AND INDEX_NAME='uq_key_serial'
 );
-CALL td_add_index(
-  'license_devices','uq_key_device_hash',
-  'ALTER TABLE license_devices ADD UNIQUE INDEX uq_key_device_hash(license_key_id,device_hash)'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_devices ADD UNIQUE INDEX uq_key_serial(license_key_id,serial)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_devices' AND INDEX_NAME='uq_key_device_hash'
 );
-CALL td_add_index(
-  'license_devices','idx_device_active',
-  'ALTER TABLE license_devices ADD INDEX idx_device_active(license_key_id,active)'
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_devices ADD UNIQUE INDEX uq_key_device_hash(license_key_id,device_hash)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='license_devices' AND INDEX_NAME='idx_device_active'
 );
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE license_devices ADD INDEX idx_device_active(license_key_id,active)', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
 
 CREATE TABLE IF NOT EXISTS balance_ledger (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -492,10 +577,14 @@ CREATE TABLE IF NOT EXISTS login_2fa_challenges (
   INDEX idx_login_2fa_used(used_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CALL td_add_column(
-  'login_2fa_challenges','continuation_hash',
-  'ALTER TABLE login_2fa_challenges ADD COLUMN continuation_hash CHAR(64) NULL AFTER code_hash'
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='login_2fa_challenges' AND COLUMN_NAME='continuation_hash'
 );
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE login_2fa_challenges ADD COLUMN continuation_hash CHAR(64) NULL AFTER code_hash', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
 
 CREATE TABLE IF NOT EXISTS telegram_update_ids (
   update_id BIGINT PRIMARY KEY,
@@ -574,5 +663,3 @@ SET expires_at=NULL,status='unused'
 WHERE activated_at IS NULL
   AND status='active';
 
-DROP PROCEDURE IF EXISTS td_add_column;
-DROP PROCEDURE IF EXISTS td_add_index;
