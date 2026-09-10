@@ -114,6 +114,21 @@ jobs:
           grep -F 'ownerIpPolicyBlocked' teamdark-panel/app/Security.php >/dev/null
           grep -F 'data-key-edit-link="1"' teamdark-panel/public/index.php >/dev/null
 
+      - name: Verify user App API access and referral starting balance
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'grant_balance BIGINT UNSIGNED NOT NULL DEFAULT 0' teamdark-panel/database/schema.sql >/dev/null
+          grep -F "MAX_REFERRAL_BALANCE = 1000000000" teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F 'grantInviteBalanceToUser' teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F "Referral balance grant" teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F "AND (expires_at IS NULL OR expires_at>NOW())" teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F "AND (expires_at IS NULL OR expires_at>NOW())" teamdark-panel/public/index.php >/dev/null
+          grep -F "'/my-apps'" teamdark-panel/app/View.php >/dev/null
+          grep -F "My App APIs" teamdark-panel/public/index.php >/dev/null
+          grep -F "name=\"grant_balance\"" teamdark-panel/public/index.php >/dev/null
+          grep -F 'grantInviteBalanceToUser' teamdark-panel/public/register-relaxed.php >/dev/null
+
       - name: Verify relaxed password and key editor wiring
         shell: bash
         run: |
