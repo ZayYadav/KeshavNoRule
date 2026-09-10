@@ -234,6 +234,48 @@
     document.body.setAttribute('data-teamdark-ui', '5');
   }
 
+  function installPanelExtensions() {
+    var path = window.location.pathname || '/';
+    var nav = document.querySelector('.sidebar nav .nav-group');
+    if (nav && !document.querySelector('[data-private-vault-link]')) {
+      var vault = document.createElement('a');
+      vault.href = '/files';
+      vault.setAttribute('data-private-vault-link', '1');
+      if (path.indexOf('/files') === 0) vault.className = 'active';
+      vault.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16v13H4z"/><path d="M7 7V4h10v3"/><path d="M8 12h8M8 16h5"/></svg><span>Binary Vault</span>' + (path.indexOf('/files') === 0 ? '<i></i>' : '');
+      nav.appendChild(vault);
+    }
+
+    if (path.indexOf('/key-edit') === 0) {
+      var keyNav = document.querySelector('.sidebar nav a[href="/keys"]');
+      if (keyNav) keyNav.classList.add('active');
+    }
+
+    document.querySelectorAll('input[name="new_password"],input[name="confirm_password"],form[action="/users/password"] input[name="password"]').forEach(function (input) {
+      input.minLength = 1;
+      input.maxLength = 200;
+      input.removeAttribute('pattern');
+      input.setAttribute('title', 'Any password from 1 to 200 characters');
+      if (input.closest('form[action="/users/password"]')) input.setAttribute('placeholder', 'Any password');
+    });
+
+    document.querySelectorAll('.key-card').forEach(function (card) {
+      var actions = card.querySelector('.key-actions');
+      if (!actions || actions.querySelector('[data-key-edit-link]')) return;
+      if (!actions.querySelector('[data-copy]')) return;
+      var idInput = actions.querySelector('input[name="key_id"]');
+      if (!idInput || !idInput.value) return;
+      var edit = document.createElement('a');
+      edit.className = 'ghost compact';
+      edit.setAttribute('data-key-edit-link', '1');
+      edit.href = '/key-edit?id=' + encodeURIComponent(idInput.value);
+      edit.textContent = 'Edit';
+      actions.insertBefore(edit, actions.firstChild ? actions.firstChild.nextSibling : null);
+    });
+  }
+
+  installPanelExtensions();
+
   document.querySelectorAll('input[name="custom_key"]').forEach(function (input) {
     input.minLength = 5;
     input.maxLength = 80;
