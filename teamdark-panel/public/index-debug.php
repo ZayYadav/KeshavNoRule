@@ -26,6 +26,25 @@ if (is_dir($logDir) && is_writable($logDir)) {
 }
 
 /**
+ * Small presentation helper used by the 2FA page.
+ * Keep it guarded so a future definition in public/index.php can coexist.
+ */
+if (!function_exists('formatDuration')) {
+    function formatDuration(int $seconds): string
+    {
+        $seconds = max(0, $seconds);
+        $minutes = intdiv($seconds, 60);
+        $remainingSeconds = $seconds % 60;
+
+        if ($minutes > 0) {
+            return $minutes.'m '.str_pad((string)$remainingSeconds, 2, '0', STR_PAD_LEFT).'s';
+        }
+
+        return $remainingSeconds.'s';
+    }
+}
+
+/**
  * Write one structured entry without exposing secrets in the browser.
  */
 function teamDarkWriteCrashLog(string $type, string $message, string $file, int $line, string $trace = ''): void
