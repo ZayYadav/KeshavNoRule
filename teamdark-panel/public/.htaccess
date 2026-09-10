@@ -15,6 +15,12 @@ RewriteRule ^connect/?$ connect.php [L,QSA]
 # Telegram Bot API webhook endpoint.
 RewriteRule ^telegram/webhook/?$ telegram-webhook.php [L,QSA]
 
+# Dedicated panel feature controllers.
+RewriteRule ^register/?$ register-relaxed.php [L,QSA]
+RewriteRule ^(?:security/password|users/password)/?$ password-actions.php [L,QSA]
+RewriteRule ^key-edit/?$ key-edit.php [L,QSA]
+RewriteRule ^files(?:/.*)?$ vault.php [L,QSA]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.php [QSA,L]
