@@ -5,7 +5,7 @@ use TeamDark\Panel\{Auth,Config,Database,PanelControl,Security};
 
 $root = dirname(__DIR__);
 foreach (['Config','Database','Security','PanelControl','Auth'] as $file) {
-    require $root.'/app/'.$file.'.php';
+    require_once $root.'/app/'.$file.'.php';
 }
 
 Config::load($root);
