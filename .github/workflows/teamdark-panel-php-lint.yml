@@ -29,7 +29,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo_mysql, openssl, json, fileinfo
+          extensions: pdo_mysql, openssl, json, fileinfo, curl
           coverage: none
 
       - name: Lint every TeamDark PHP file
@@ -56,22 +56,37 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -f teamdark-panel/public/vault-entry.php
           test -f teamdark-panel/public/vault.php
           test -f teamdark-panel/public/file-download.php
           test -f teamdark-panel/app/UploadManager.php
+          test -f teamdark-panel/app/CdnCache.php
           test -f teamdark-panel/storage/private_uploads/.htaccess
 
           grep -F 'files/download/?$ public/file-download.php' teamdark-panel/.htaccess >/dev/null
-          grep -F 'files(?:/.*)?$ public/vault.php' teamdark-panel/.htaccess >/dev/null
+          grep -F 'files(?:/.*)?$ public/vault-entry.php' teamdark-panel/.htaccess >/dev/null
           grep -F 'files/download/?$ file-download.php' teamdark-panel/public/.htaccess >/dev/null
-          grep -F 'files(?:/.*)?$ vault.php' teamdark-panel/public/.htaccess >/dev/null
+          grep -F 'files(?:/.*)?$ vault-entry.php' teamdark-panel/public/.htaccess >/dev/null
 
           root_download=$(grep -n -F 'files/download/?$ public/file-download.php' teamdark-panel/.htaccess | head -1 | cut -d: -f1)
-          root_catchall=$(grep -n -F 'files(?:/.*)?$ public/vault.php' teamdark-panel/.htaccess | head -1 | cut -d: -f1)
+          root_catchall=$(grep -n -F 'files(?:/.*)?$ public/vault-entry.php' teamdark-panel/.htaccess | head -1 | cut -d: -f1)
           public_download=$(grep -n -F 'files/download/?$ file-download.php' teamdark-panel/public/.htaccess | head -1 | cut -d: -f1)
-          public_catchall=$(grep -n -F 'files(?:/.*)?$ vault.php' teamdark-panel/public/.htaccess | head -1 | cut -d: -f1)
+          public_catchall=$(grep -n -F 'files(?:/.*)?$ vault-entry.php' teamdark-panel/public/.htaccess | head -1 | cut -d: -f1)
           test "$root_download" -lt "$root_catchall"
           test "$public_download" -lt "$public_catchall"
+
+      - name: Verify 50 MB upload and optional CDN purge wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'MAX_FILE_BYTES = 52428800' teamdark-panel/app/UploadManager.php >/dev/null
+          grep -F 'upload_max_filesize = 50M' teamdark-panel/.user.ini >/dev/null
+          grep -F 'post_max_size = 55M' teamdark-panel/.user.ini >/dev/null
+          grep -F 'upload_max_filesize = 50M' teamdark-panel/public/.user.ini >/dev/null
+          grep -F 'CLOUDFLARE_CACHE_ENABLED' teamdark-panel/.env.example >/dev/null
+          grep -F 'cloudflare_cache_enabled' teamdark-panel/app/Config.php >/dev/null
+          grep -F 'CdnCache::purgeVaultFile' teamdark-panel/app/UploadManager.php >/dev/null
+          grep -F '/purge_cache' teamdark-panel/app/CdnCache.php >/dev/null
 
       - name: Verify relaxed password and key editor wiring
         shell: bash
