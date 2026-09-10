@@ -65,17 +65,27 @@ final class View
 
         $title = self::e((string)($settings['splash_title'] ?? 'TEAM DARK'));
         $subtitle = self::e((string)($settings['splash_subtitle'] ?? 'Secure control plane'));
+        $stars = str_repeat('<i></i>', 18);
 
-        return '<div class="td-splash" data-site-splash data-splash-version="'.self::e($version).'" data-splash-duration="'.$duration.'" role="dialog" aria-modal="true" aria-label="Team Dark opening splash">'
+        return '<div class="td-splash" data-site-splash data-splash-version="'.self::e($version).'" data-splash-duration="'.$duration.'" role="dialog" aria-modal="true" aria-label="Team Dark cinematic opening">'
+            .'<div class="td-cinema-letterbox top" aria-hidden="true"></div>'
+            .'<div class="td-cinema-letterbox bottom" aria-hidden="true"></div>'
+            .'<div class="td-cinema-stars" aria-hidden="true">'.$stars.'</div>'
             .'<div class="td-splash-grid" aria-hidden="true"></div>'
             .'<div class="td-splash-glow td-splash-glow-a" aria-hidden="true"></div>'
             .'<div class="td-splash-glow td-splash-glow-b" aria-hidden="true"></div>'
+            .'<div class="td-cinema-beam a" aria-hidden="true"></div>'
+            .'<div class="td-cinema-beam b" aria-hidden="true"></div>'
+            .'<div class="td-cinema-flare" aria-hidden="true"></div>'
+            .'<div class="td-cinema-vignette" aria-hidden="true"></div>'
+            .'<div class="td-cinema-grain" aria-hidden="true"></div>'
             .'<div class="td-splash-stage">'
-            .'<div class="td-splash-orbit" aria-hidden="true"><i></i><i></i><i></i></div>'
+            .'<div class="td-cinema-overline"><span>TEAM DARK</span><i></i><span>SECURE PREMIERE</span></div>'
             .'<div class="td-splash-logo"><span>TD</span><i></i></div>'
-            .'<div class="td-splash-kicker"><i></i> SECURE ACCESS INITIALIZING <i></i></div>'
+            .'<div class="td-splash-kicker"><i></i> ACCESS SEQUENCE INITIALIZING <i></i></div>'
             .'<h1>'.$title.'</h1>'
             .'<p>'.$subtitle.'</p>'
+            .'<div class="td-cinema-status"><span>TLS CHANNEL</span><span>CONTROL PLANE</span><span>SESSION READY</span></div>'
             .'<div class="td-splash-progress"><span></span></div>'
             .'<div class="td-splash-foot"><span><i></i> Protected workspace</span>'
             .'<button type="button" data-splash-skip>Enter now</button></div>'
@@ -96,6 +106,205 @@ final class View
             .'</select></div>';
     }
 
+    private static function codeCard(
+        string $id,
+        string $badge,
+        string $title,
+        string $subtitle,
+        string $code
+    ): string {
+        return '<article class="owner-code-card">'
+            .'<div class="owner-code-head"><div class="owner-code-title">'
+            .'<span class="owner-code-lang">'.self::e($badge).'</span><div><strong>'.self::e($title).'</strong><small>'.self::e($subtitle).'</small></div></div>'
+            .'<button class="owner-copy-btn" type="button" data-copy-target="'.self::e($id).'">Copy code</button></div>'
+            .'<pre><code id="'.self::e($id).'">'.self::e($code).'</code></pre></article>';
+    }
+
+    private static function ownerConnectSection(): string
+    {
+        $base = rtrim((string)Config::get('app_url', ''), '/');
+        if ($base === '') {
+            $host = preg_replace('/[^A-Za-z0-9.\-:\[\]]/', '', (string)($_SERVER['HTTP_HOST'] ?? '')) ?: '';
+            $base = $host !== ''
+                ? (Security::isHttpsRequest() ? 'https://' : 'http://').$host
+                : '';
+        }
+        $endpoint = $base !== '' ? $base.'/connect' : '/connect';
+
+        $curl = str_replace('{{ENDPOINT}}', $endpoint, <<<'CURL'
+curl --request POST '{{ENDPOINT}}' \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/x-www-form-urlencoded' \
+  --data-urlencode 'game=PUBG' \
+  --data-urlencode 'user_key=USER_KEY' \
+  --data-urlencode 'serial=DEVICE_UUID'
+CURL);
+
+        $cpp = str_replace('{{ENDPOINT}}', $endpoint, <<<'CPP'
+#include <curl/curl.h>
+#include <string>
+
+std::string TeamDarkLogin(const std::string& userKey,
+                          const std::string& serial) {
+    const std::string endpoint = "{{ENDPOINT}}";
+    CURL* curl = curl_easy_init();
+    if (!curl) return {};
+
+    char* keyEsc = curl_easy_escape(curl, userKey.c_str(), 0);
+    char* serialEsc = curl_easy_escape(curl, serial.c_str(), 0);
+    if (!keyEsc || !serialEsc) {
+        if (keyEsc) curl_free(keyEsc);
+        if (serialEsc) curl_free(serialEsc);
+        curl_easy_cleanup(curl);
+        return {};
+    }
+
+    std::string body = "game=PUBG&user_key=" + std::string(keyEsc)
+                     + "&serial=" + std::string(serialEsc);
+    curl_free(keyEsc);
+    curl_free(serialEsc);
+
+    std::string response;
+    struct curl_slist* headers = nullptr;
+    headers = curl_slist_append(headers, "Accept: application/json");
+    headers = curl_slist_append(headers,
+        "Content-Type: application/x-www-form-urlencoded");
+
+    curl_easy_setopt(curl, CURLOPT_URL, endpoint.c_str());
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+    curl_easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_TLSv1_2);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 8L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION,
+        +[](char* p, size_t s, size_t n, void* out) -> size_t {
+            static_cast<std::string*>(out)->append(p, s * n);
+            return s * n;
+        });
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+
+    CURLcode result = curl_easy_perform(curl);
+    curl_slist_free_all(headers);
+    curl_easy_cleanup(curl);
+    return result == CURLE_OK ? response : std::string{};
+}
+CPP);
+
+        $java = str_replace('{{ENDPOINT}}', $endpoint, <<<'JAVA'
+import javax.net.ssl.HttpsURLConnection;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+
+public final class TeamDarkApi {
+    private static final String ENDPOINT = "{{ENDPOINT}}";
+
+    public static String login(String userKey, String serial) throws Exception {
+        String body = "game=" + enc("PUBG")
+                + "&user_key=" + enc(userKey)
+                + "&serial=" + enc(serial);
+
+        HttpsURLConnection con = (HttpsURLConnection)
+                new URL(ENDPOINT).openConnection();
+        // HttpsURLConnection keeps certificate + hostname verification enabled.
+        con.setRequestMethod("POST");
+        con.setConnectTimeout(8000);
+        con.setReadTimeout(15000);
+        con.setDoOutput(true);
+        con.setRequestProperty("Accept", "application/json");
+        con.setRequestProperty("Content-Type",
+                "application/x-www-form-urlencoded; charset=UTF-8");
+
+        try (OutputStream out = con.getOutputStream()) {
+            out.write(body.getBytes(StandardCharsets.UTF_8));
+        }
+
+        InputStream stream = con.getResponseCode() < 400
+                ? con.getInputStream() : con.getErrorStream();
+        return read(stream);
+    }
+
+    private static String enc(String value) throws Exception {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+    }
+
+    private static String read(InputStream in) throws Exception {
+        if (in == null) return "";
+        try (BufferedReader r = new BufferedReader(
+                new InputStreamReader(in, StandardCharsets.UTF_8))) {
+            StringBuilder b = new StringBuilder();
+            String line;
+            while ((line = r.readLine()) != null) b.append(line);
+            return b.toString();
+        }
+    }
+}
+JAVA);
+
+        $kotlin = str_replace('{{ENDPOINT}}', $endpoint, <<<'KOTLIN'
+import java.net.URL
+import java.net.URLEncoder
+import javax.net.ssl.HttpsURLConnection
+
+object TeamDarkApi {
+    private const val ENDPOINT = "{{ENDPOINT}}"
+
+    fun login(userKey: String, serial: String): String {
+        val body = listOf(
+            "game" to "PUBG",
+            "user_key" to userKey,
+            "serial" to serial
+        ).joinToString("&") { (k, v) ->
+            "${enc(k)}=${enc(v)}"
+        }
+
+        val con = (URL(ENDPOINT).openConnection() as HttpsURLConnection).apply {
+            // Default Android TLS certificate + hostname verification stays ON.
+            requestMethod = "POST"
+            connectTimeout = 8_000
+            readTimeout = 15_000
+            doOutput = true
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty(
+                "Content-Type",
+                "application/x-www-form-urlencoded; charset=UTF-8"
+            )
+        }
+
+        con.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+        val stream = if (con.responseCode < 400) con.inputStream else con.errorStream
+        return stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
+    }
+
+    private fun enc(value: String): String =
+        URLEncoder.encode(value, Charsets.UTF_8.name())
+}
+KOTLIN);
+
+        return '<section class="premium-section owner-connect-api" id="connect-api">'
+            .'<div class="owner-connect-shell">'
+            .'<div class="owner-connect-head"><div><span class="eyebrow">OWNER DEVELOPER CONSOLE</span>'
+            .'<h2>Connect API</h2><p>Runtime-generated integration samples for the live Team Dark Loader endpoint. The URL is resolved from the current server APP_URL every time this page renders, so this UI does not carry a second hardcoded domain.</p></div>'
+            .'<span class="owner-connect-live"><i></i> Live endpoint</span></div>'
+            .'<div class="owner-endpoint-card"><div class="owner-endpoint-top"><span>Resolved endpoint</span>'
+            .'<button class="owner-copy-btn" type="button" data-copy-target="td-connect-endpoint">Copy URL</button></div>'
+            .'<div class="owner-endpoint-value" id="td-connect-endpoint">'.self::e($endpoint).'</div>'
+            .'<div class="owner-contract-grid">'
+            .'<span><b>METHOD</b>POST</span><span><b>CONTENT TYPE</b>Form URL encoded</span><span><b>FIELDS</b>game • user_key • serial</span><span><b>TRANSPORT</b>HTTPS / TLS verified</span>'
+            .'</div></div>'
+            .'<div class="owner-code-grid">'
+            .self::codeCard('td-code-curl', 'CLI', 'cURL request', 'Exact request contract', $curl)
+            .self::codeCard('td-code-cpp', 'C++', 'C++ / libcurl', 'TLS peer + hostname verification ON', $cpp)
+            .self::codeCard('td-code-java', 'JAVA', 'Java / Android', 'HttpsURLConnection with standard TLS validation', $java)
+            .self::codeCard('td-code-kotlin', 'KT', 'Kotlin / Android', 'HttpsURLConnection with standard TLS validation', $kotlin)
+            .'</div>'
+            .'<div class="owner-connect-note"><span>i</span><div><b>Owner-only reference.</b> Samples contain placeholders only; no panel password, Bot token, APP_KEY or native secret is exposed. If APP_URL changes, reload this page and the displayed endpoint/snippets update automatically.</div></div>'
+            .'</div></section>';
+    }
+
     public static function page(string $title, string $body, ?array $user = null): void
     {
         $app = self::e(Config::get('app_name'));
@@ -111,13 +320,15 @@ final class View
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             .'<title>'.$safeTitle.' • '.$app.'</title>'
-            .'<link rel="stylesheet" href="/assets/app.css?v=20260910-1">'
-            .'<link rel="stylesheet" href="/assets/themes.css?v=20260910-1">'
-            .'<meta name="theme-color" content="#05070b">'
+            .'<link rel="stylesheet" href="/assets/app.css?v=20260910-2">'
+            .'<link rel="stylesheet" href="/assets/themes.css?v=20260910-2">'
+            .'<link rel="stylesheet" href="/assets/owner-tools.css?v=20260910-2">'
+            .'<link rel="stylesheet" href="/assets/cinematic.css?v=20260910-2">'
+            .'<meta name="theme-color" content="#020305">'
             .'<meta name="color-scheme" content="dark light"></head>';
 
         if (!$user) {
-            echo $head.'<body data-teamdark-ui="6" data-theme="obsidian" data-theme-user="guest" class="guest-body">'.$splash
+            echo $head.'<body data-teamdark-ui="7" data-theme="obsidian" data-theme-user="guest" class="guest-body">'.$splash
                 .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
                 .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
                 .'<div class="cursor-aura" aria-hidden="true"></div>'
@@ -126,7 +337,7 @@ final class View
                 .'<span><strong>'.$app.'</strong><small>Secure control plane</small></span></a>'
                 .(in_array($path, ['/login','/login/2fa','/register','/register/success'], true)
                     ? '<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2><p>Manage licenses, users and access from one secure workspace.</p><div class="auth-capabilities"><span>01 <strong>License management</strong></span><span>02 <strong>Account controls</strong></span><span>03 <strong>Activity visibility</strong></span></div></aside>'.$body.'</div>'
-                    : $body).'</main><script src="/assets/themes.js?v=20260910-1" defer></script><script src="/assets/app.js?v=20260910-1" defer></script></body></html>';
+                    : $body).'</main><script src="/assets/themes.js?v=20260910-2" defer></script><script src="/assets/owner-tools.js?v=20260910-2" defer></script><script src="/assets/app.js?v=20260910-2" defer></script></body></html>';
             return;
         }
 
@@ -166,7 +377,12 @@ final class View
         if (!$settings['panel_online']) {
             $notice .= '<div class="alert">Panel is OFF for non-owner users. <a href="/owner/settings">Server controls</a></div>';
         }
-        echo $head.'<body data-teamdark-ui="6" data-theme="obsidian" data-theme-user="'.$themeUser.'">'.$splash
+
+        if (($user['role'] ?? '') === 'owner' && $path === '/owner/settings') {
+            $body .= self::ownerConnectSection();
+        }
+
+        echo $head.'<body data-teamdark-ui="7" data-theme="obsidian" data-theme-user="'.$themeUser.'">'.$splash
             .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
             .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
             .'<div class="cursor-aura" aria-hidden="true"></div>'
@@ -187,7 +403,7 @@ final class View
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'
             .'<main class="page-content">'.$notice.$body.'</main>'
             .'<footer><span><i class="footer-dot"></i> TeamDark secure control plane</span><span>Session encrypted • Personal theme enabled</span></footer>'
-            .'</div></div><script src="/assets/themes.js?v=20260910-1" defer></script><script src="/assets/app.js?v=20260910-1" defer></script></body></html>';
+            .'</div></div><script src="/assets/themes.js?v=20260910-2" defer></script><script src="/assets/owner-tools.js?v=20260910-2" defer></script><script src="/assets/app.js?v=20260910-2" defer></script></body></html>';
     }
 
     public static function csrf(): string
