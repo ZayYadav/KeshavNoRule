@@ -40,12 +40,40 @@ function vaultBytes(int $bytes): string
     return $bytes.' B';
 }
 
-function vaultFileCard(array $row, array $viewer, bool $ownerView = false): string
+function vaultSafeMessage(Throwable $e): string
+{
+    if ($e instanceof PDOException) {
+        error_log('TeamDark vault database failure at '.basename($e->getFile()).':'.$e->getLine());
+        return 'File action failed. Please try again.';
+    }
+
+    $message = trim($e->getMessage());
+    return $message !== '' ? substr($message, 0, 300) : 'File action failed.';
+}
+
+function vaultBaseUrl(): string
+{
+    $base = rtrim((string)Config::get('app_url', ''), '/');
+    if ($base !== '') return $base;
+
+    $host = preg_replace(
+        '/[^A-Za-z0-9.\-:\[\]]/',
+        '',
+        (string)($_SERVER['HTTP_HOST'] ?? '')
+    ) ?: '';
+
+    if ($host === '') return '';
+    return (Security::isHttpsRequest() ? 'https://' : 'http://').$host;
+}
+
+function vaultFileCard(array $row, bool $ownerView = false): string
 {
     $id = (int)$row['id'];
     $ext = strtoupper((string)$row['extension']);
     $owner = trim((string)($row['name'] ?? '')) ?: (string)($row['username'] ?? 'user');
-    $download = '/files/download?id='.$id;
+    $downloadPath = '/files/download?id='.$id;
+    $base = vaultBaseUrl();
+    $downloadUrl = $base !== '' ? $base.$downloadPath : $downloadPath;
     $ownerLine = $ownerView
         ? '<div class="vault-owner"><span class="mini-avatar">'.View::e(strtoupper(substr($owner, 0, 1))).'</span><span><strong>'.View::e($owner).'</strong><small>@'.View::e((string)$row['username']).' • User #'.(int)$row['user_id'].'</small></span></div>'
         : '';
@@ -57,9 +85,8 @@ function vaultFileCard(array $row, array $viewer, bool $ownerView = false): stri
         .'<div class="vault-file-meta"><span><b>SHA-256</b><code>'.View::e(substr((string)$row['sha256'], 0, 16)).'…</code></span>'
         .'<span><b>Updated</b><strong>'.View::e((string)$row['updated_at']).'</strong></span></div>'
         .'<div class="vault-file-actions">'
-        .'<a class="primary compact" href="'.$download.'">Download</a>'
-        .'<button type="button" class="ghost compact" data-copy="'.View::e($download).'">Copy link</button>'
-        .'<a class="ghost compact" href="/key-edit" style="display:none" aria-hidden="true"></a>'
+        .'<a class="primary compact" href="'.View::e($downloadPath).'">Download</a>'
+        .'<button type="button" class="ghost compact" data-copy="'.View::e($downloadUrl).'">Copy link</button>'
         .'</div>'
         .'<form method="post" action="/files/replace" enctype="multipart/form-data" class="vault-replace stack" data-busy="Replacing private file…">'
         .View::csrf()
@@ -117,11 +144,14 @@ try {
     }
 
     $mine = UploadManager::listOwn($user);
-    $limitText = ($user['role'] ?? '') === 'owner' ? 'Unlimited files' : count($mine).' / '.UploadManager::USER_FILE_LIMIT.' files used';
-    $canAdd = ($user['role'] ?? '') === 'owner' || count($mine) < UploadManager::USER_FILE_LIMIT;
+    $limitText = ($user['role'] ?? '') === 'owner'
+        ? 'Unlimited files'
+        : count($mine).' / '.UploadManager::USER_FILE_LIMIT.' files used';
+    $canAdd = ($user['role'] ?? '') === 'owner'
+        || count($mine) < UploadManager::USER_FILE_LIMIT;
 
     $cards = '';
-    foreach ($mine as $row) $cards .= vaultFileCard($row, $user, false);
+    foreach ($mine as $row) $cards .= vaultFileCard($row, false);
     if ($cards === '') {
         $cards = '<div class="empty-state vault-empty"><div class="empty-orb">↑</div><h3>Your vault is empty</h3><p class="muted">Upload a private .so or .zip file. Each account uses isolated storage.</p></div>';
     }
@@ -139,20 +169,20 @@ try {
     if (($user['role'] ?? '') === 'owner') {
         $all = UploadManager::listAll($user);
         $allCards = '';
-        foreach ($all as $row) $allCards .= vaultFileCard($row, $user, true);
+        foreach ($all as $row) $allCards .= vaultFileCard($row, true);
         if ($allCards === '') {
             $allCards = '<div class="empty-state"><div class="empty-orb">TD</div><h3>No uploaded files yet</h3><p class="muted">User uploads will appear here.</p></div>';
         }
 
         $ownerSection = '<section class="premium-section vault-owner-section">'
-            .'<div class="section-heading"><div><span class="eyebrow">OWNER VIEW</span><h2>All user uploads</h2><p>Every account remains isolated. Owner can review, download, replace or delete any stored file.</p></div><span class="tag">'.count($all).' total</span></div>'
+            .'<div class="section-heading"><div><span class="eyebrow">OWNER VIEW</span><h2>All user uploads</h2><p>Every account remains isolated. Owner can review, download, replace or delete any stored file.</p></div><span class="tag">'.count($all).' shown</span></div>'
             .'<div class="vault-grid">'.$allCards.'</div></section>';
     }
 
-    $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-1">'
+    $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-2">'
         .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE STORAGE</span><h1>Binary Vault</h1><p class="muted">Private .so / .zip storage with isolated per-user slots and protected downloads.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
         .vaultTakeFlash()
-        .'<section class="premium-section"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots.</p></div></div>'
+        .'<section class="premium-section"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. Copied download links still require an authorized panel session.</p></div></div>'
         .$uploadForm
         .'<div class="vault-grid">'.$cards.'</div></section>'
         .$ownerSection;
@@ -160,13 +190,16 @@ try {
     Security::audit((int)$user['id'], 'page_viewed', ['path'=>'/files']);
     View::page('Binary Vault', $body, $user);
 } catch (Throwable $e) {
-    error_log('TeamDark vault error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine().' '.$e->getMessage());
+    error_log('TeamDark vault error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
+    $message = vaultSafeMessage($e);
+
     if (isset($method) && $method === 'POST') {
         Security::startSession();
-        vaultFlash('err', substr($e->getMessage() ?: 'File action failed.', 0, 300));
+        vaultFlash('err', $message);
         vaultRedirect('/files');
     }
+
     http_response_code(400);
     try { $u = Auth::user(); } catch (Throwable) { $u = null; }
-    View::page('File vault unavailable', '<section class="auth"><div class="card"><h1>File vault unavailable</h1><div class="alert">'.View::e(substr($e->getMessage() ?: 'Request failed.', 0, 300)).'</div><a class="btn" href="/dashboard">Go back</a></div></section>', $u);
+    View::page('File vault unavailable', '<section class="auth"><div class="card"><h1>File vault unavailable</h1><div class="alert">'.View::e($message).'</div><a class="btn" href="/dashboard">Go back</a></div></section>', $u);
 }
