@@ -19,6 +19,7 @@ RewriteRule ^telegram/webhook/?$ telegram-webhook.php [L,QSA]
 RewriteRule ^register/?$ register-relaxed.php [L,QSA]
 RewriteRule ^(?:security/password|users/password)/?$ password-actions.php [L,QSA]
 RewriteRule ^key-edit/?$ key-edit.php [L,QSA]
+RewriteRule ^files/download/?$ file-download.php [L,QSA]
 RewriteRule ^files(?:/.*)?$ vault.php [L,QSA]
 
 RewriteCond %{REQUEST_FILENAME} !-f
