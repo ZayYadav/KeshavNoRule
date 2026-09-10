@@ -66,6 +66,30 @@ function vaultBaseUrl(): string
     return (Security::isHttpsRequest() ? 'https://' : 'http://').$host;
 }
 
+function vaultOwnerPageData(int $requestedPage): array
+{
+    $pageSize = 100;
+    $total = (int)Database::pdo()->query('SELECT COUNT(*) FROM user_uploads')->fetchColumn();
+    $pages = max(1, (int)ceil($total / $pageSize));
+    $page = min(max(1, $requestedPage), $pages);
+    $offset = ($page - 1) * $pageSize;
+
+    $rows = Database::pdo()->query(
+        'SELECT f.*,u.username,u.name,u.role
+         FROM user_uploads f
+         JOIN users u ON u.id=f.user_id
+         ORDER BY f.updated_at DESC,f.id DESC
+         LIMIT '.$pageSize.' OFFSET '.$offset
+    )->fetchAll() ?: [];
+
+    return [
+        'rows'=>$rows,
+        'total'=>$total,
+        'page'=>$page,
+        'pages'=>$pages,
+    ];
+}
+
 function vaultFileCard(array $row, bool $ownerView = false): string
 {
     $id = (int)$row['id'];
@@ -167,19 +191,32 @@ try {
 
     $ownerSection = '';
     if (($user['role'] ?? '') === 'owner') {
-        $all = UploadManager::listAll($user);
+        $ownerPage = vaultOwnerPageData((int)($_GET['owner_page'] ?? 1));
         $allCards = '';
-        foreach ($all as $row) $allCards .= vaultFileCard($row, true);
+        foreach ($ownerPage['rows'] as $row) $allCards .= vaultFileCard($row, true);
         if ($allCards === '') {
             $allCards = '<div class="empty-state"><div class="empty-orb">TD</div><h3>No uploaded files yet</h3><p class="muted">User uploads will appear here.</p></div>';
         }
 
-        $ownerSection = '<section class="premium-section vault-owner-section">'
-            .'<div class="section-heading"><div><span class="eyebrow">OWNER VIEW</span><h2>All user uploads</h2><p>Every account remains isolated. Owner can review, download, replace or delete any stored file.</p></div><span class="tag">'.count($all).' shown</span></div>'
-            .'<div class="vault-grid">'.$allCards.'</div></section>';
+        $pager = '<div class="vault-pager">';
+        if ($ownerPage['page'] > 1) {
+            $pager .= '<a class="ghost compact" href="/files?owner_page='.($ownerPage['page'] - 1).'#owner-uploads">← Previous</a>';
+        }
+        $pager .= '<span>Page '.$ownerPage['page'].' of '.$ownerPage['pages'].'</span>';
+        if ($ownerPage['page'] < $ownerPage['pages']) {
+            $pager .= '<a class="ghost compact" href="/files?owner_page='.($ownerPage['page'] + 1).'#owner-uploads">Next →</a>';
+        }
+        $pager .= '</div>';
+
+        $ownerSection = '<section class="premium-section vault-owner-section" id="owner-uploads">'
+            .'<div class="section-heading"><div><span class="eyebrow">OWNER VIEW</span><h2>All user uploads</h2><p>Every account remains isolated. Owner can review, download, replace or delete any stored file.</p></div><span class="tag">'.$ownerPage['total'].' total</span></div>'
+            .$pager
+            .'<div class="vault-grid">'.$allCards.'</div>'
+            .$pager
+            .'</section>';
     }
 
-    $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-2">'
+    $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-3">'
         .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE STORAGE</span><h1>Binary Vault</h1><p class="muted">Private .so / .zip storage with isolated per-user slots and protected downloads.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
         .vaultTakeFlash()
         .'<section class="premium-section"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. Copied download links still require an authorized panel session.</p></div></div>'
