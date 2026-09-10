@@ -1,5 +1,11 @@
 'use strict';
 (function () {
+  // The deep premium visual system in app.css is currently scoped to UI v5.
+  // Keep the rendered markup compatible until those selectors are versionless.
+  if (document.body && document.body.getAttribute('data-teamdark-ui') !== '5') {
+    document.body.setAttribute('data-teamdark-ui', '5');
+  }
+
   function copyText(value) {
     if (!value) return Promise.reject(new Error('Empty value'));
     if (navigator.clipboard && window.isSecureContext) {
