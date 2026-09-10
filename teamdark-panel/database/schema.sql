@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS referral_invites (
   code VARCHAR(40) NOT NULL UNIQUE,
   created_by BIGINT UNSIGNED NOT NULL,
   role ENUM('admin','reseller','user') NOT NULL DEFAULT 'user',
+  grant_balance BIGINT UNSIGNED NOT NULL DEFAULT 0,
   status ENUM('pending','used','revoked') NOT NULL DEFAULT 'pending',
   expires_at DATETIME NULL,
   used_by BIGINT UNSIGNED NULL,
@@ -189,6 +190,15 @@ SET @td_exists := (
   WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='referral_invites' AND COLUMN_NAME='expires_at'
 );
 SET @td_sql := IF(@td_exists=0, 'ALTER TABLE referral_invites ADD COLUMN expires_at DATETIME NULL AFTER status', 'SELECT 1');
+PREPARE td_stmt FROM @td_sql;
+EXECUTE td_stmt;
+DEALLOCATE PREPARE td_stmt;
+
+SET @td_exists := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='referral_invites' AND COLUMN_NAME='grant_balance'
+);
+SET @td_sql := IF(@td_exists=0, 'ALTER TABLE referral_invites ADD COLUMN grant_balance BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER role', 'SELECT 1');
 PREPARE td_stmt FROM @td_sql;
 EXECUTE td_stmt;
 DEALLOCATE PREPARE td_stmt;

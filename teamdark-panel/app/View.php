@@ -359,6 +359,7 @@ KOTLIN);
             .self::navLink('/keys#key-generator', 'Generate Key', 'spark', $path)
             .self::navLink('/keys?generator=random#key-generator', 'Random Keys', 'spark', $path)
             .self::navLink('/files', 'File Manager', 'spark', $path)
+            .self::navLink('/my-apps', 'My App APIs', 'spark', $path)
             .'</div>';
 
         if (in_array($user['role'], ['owner','admin'], true)) {

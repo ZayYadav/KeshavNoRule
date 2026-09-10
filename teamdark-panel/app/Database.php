@@ -133,6 +133,12 @@ final class Database
                 );
             }
 
+            if (!self::columnExists($pdo, 'referral_invites', 'grant_balance')) {
+                $pdo->exec(
+                    'ALTER TABLE referral_invites ADD COLUMN grant_balance BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER role'
+                );
+            }
+
             $pdo->exec(
                 "CREATE TABLE IF NOT EXISTS referral_app_access (
                     referral_id BIGINT UNSIGNED NOT NULL,

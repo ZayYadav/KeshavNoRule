@@ -768,7 +768,9 @@ try {
             .'<div><span>Username</span><strong>@'.View::e($state['username']).'</strong></div>'
             .'<div><span>Role</span><strong>'.View::e(strtoupper((string)$state['role'])).'</strong></div>'
             .'<div><span>Referral used</span><strong class="key">'.View::e($state['referral']).'</strong></div>'
-            .'<div><span>Signup balance</span><strong>'.View::e((string)$state['signup_bonus']).' credits</strong></div>'
+            .'<div><span>Signup bonus</span><strong>'.View::e(number_format((int)($state['signup_bonus'] ?? 0))).' credits</strong></div>'
+            .'<div><span>Referral balance</span><strong>'.View::e(number_format((int)($state['referral_balance'] ?? 0))).' credits</strong></div>'
+            .'<div><span>Starting balance</span><strong>'.View::e(number_format((int)($state['starting_balance'] ?? (($state['signup_bonus'] ?? 0) + ($state['referral_balance'] ?? 0))))).' credits</strong></div>'
             .'<div><span>Created</span><strong>'.View::e((string)$state['created_at']).'</strong></div>'
             .'<div><span>Password</span><strong>Saved securely • not displayed</strong></div>'
             .'</div>'
@@ -897,6 +899,7 @@ try {
                 $uid,
                 (int)$invite['created_by']
             );
+            $referralGrant = ReferralManager::grantInviteBalanceToUser($pdo, $invite, $uid);
 
             $pdo->prepare(
                 "UPDATE referral_invites
@@ -944,7 +947,8 @@ try {
                 'role'=>$invite['role'],
                 'referred_by'=>(int)$invite['created_by'],
                 'invite_id'=>(int)$invite['id'],
-            'app_ids'=>$grantedAppIds,
+                'app_ids'=>$grantedAppIds,
+                'referral_balance'=>$referralGrant,
             ]);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
@@ -971,6 +975,8 @@ try {
             'role'=>$invite['role'],
             'referral'=>$ref,
             'signup_bonus'=>$signup,
+            'referral_balance'=>$referralGrant,
+            'starting_balance'=>$signup + $referralGrant,
             'created_at'=>date('Y-m-d H:i:s'),
             'created_ts'=>time(),
         ];
@@ -1032,7 +1038,7 @@ try {
             ]);
         }
     }
-    if ($method === 'GET' && (in_array($path, ['/dashboard','/keys','/keys/expired','/keys/extend','/keys/devices','/users','/telegram-users','/activity','/owner/users'], true) || str_starts_with($path, '/owner/'))) {
+    if ($method === 'GET' && (in_array($path, ['/dashboard','/my-apps','/keys','/keys/expired','/keys/extend','/keys/devices','/users','/telegram-users','/activity','/owner/users'], true) || str_starts_with($path, '/owner/'))) {
         Security::audit((int)$user['id'], 'page_viewed', ['path'=>$path]);
     }
     if ($path === '/owner/system/save' && $method === 'POST') {
@@ -1132,6 +1138,31 @@ try {
     }
     if ($path === '/owner/users' && $method === 'GET') {
         OwnerConsole::users($user, $_GET);
+        exit;
+    }
+
+    if ($path === '/my-apps' && $method === 'GET') {
+        $apps = AppRegistry::activeForUser($user);
+        $cards = '';
+        foreach ($apps as $app) {
+            $endpoint = AppRegistry::endpointUrl($app);
+            $isOfficial = (int)($app['is_official'] ?? 0) === 1;
+            $notes = trim((string)($app['notes'] ?? ''));
+            $cards .= '<div class="card half spotlight">'
+                .'<div class="toolbar"><div><div class="eyebrow">'.($isOfficial ? 'OFFICIAL API' : 'ASSIGNED APP API').'</div><h3>'.View::e((string)$app['name']).'</h3></div>'
+                .'<span class="status-chip status-active">ACTIVE</span></div>'
+                .($notes !== '' ? '<p class="muted">'.View::e($notes).'</p>' : '<p class="muted">This Connect endpoint is assigned to your account.</p>')
+                .'<div class="verify-box"><div class="eyebrow">CONNECT ENDPOINT</div><div class="key">'.View::e($endpoint).'</div></div>'
+                .'<button type="button" class="primary wide" data-copy="'.View::e($endpoint).'">Copy endpoint</button>'
+                .'</div>';
+        }
+        if ($cards === '') {
+            $cards = '<div class="card"><div class="empty-state"><div class="empty-orb">API</div><h3>No App API assigned</h3><p class="muted">Ask the Owner to allot an application API to your account.</p></div></div>';
+        }
+        $body = '<section class="hero keys-hero"><div><div class="eyebrow">YOUR APPLICATION ACCESS</div><h1>My App APIs</h1><p class="muted">Only keys generated for an assigned App API work on that App API Connect endpoint.</p></div></section>'
+            .takeFlash()
+            .'<div class="grid">'.$cards.'</div>';
+        View::page('My App APIs', $body, $user);
         exit;
     }
 
@@ -1999,6 +2030,14 @@ try {
         if ($referralAppChecks === '') {
             $referralAppChecks = '<div class="alert">No active App API is available to allot. Ask Owner to assign one first.</div>';
         }
+        $referralBalanceEnabled = $user['role'] === 'owner'
+            || (bool)Config::get('admin_balance_adjustments_enabled', false);
+        $referralBalanceMax = $user['role'] === 'owner'
+            ? ReferralManager::MAX_REFERRAL_BALANCE
+            : min(ReferralManager::MAX_REFERRAL_BALANCE, (int)Config::get('admin_balance_daily_limit', 10000));
+        $referralBalanceField = $referralBalanceEnabled
+            ? '<div class="field"><label>Starting balance <span class="optional">optional</span></label><input name="grant_balance" type="number" min="0" max="'.$referralBalanceMax.'" value="0" inputmode="numeric"><p class="hint">Credits are granted once, when this invite is successfully registered. Pending Admin grants reserve quota until used or revoked.</p></div>'
+            : '<div class="field field-disabled"><label>Starting balance</label><input type="number" value="0" disabled><p class="hint">Owner has disabled Admin balance grants.</p></div>';
 
         $activeCount = 0;
         $disabledCount = 0;
@@ -2092,6 +2131,7 @@ try {
                 .'<button type="button" class="ghost compact" data-copy="'.View::e($invite['code']).'">Copy</button></td>'
                 .'<td><span class="tag">'.View::e($invite['role']).'</span></td>'
                 .'<td>'.View::e((string)($invite['app_names'] ?? 'Official')).'</td>'
+                .'<td>'.View::e(number_format((int)($invite['grant_balance'] ?? 0))).' credits</td>'
                 .'<td>'.View::e($invite['creator_username']).'</td>'
                 .'<td><span class="status-chip status-'.View::e($invite['status']).'">'.View::e(strtoupper($invite['status'])).'</span></td>'
                 .'<td>'.$usedBy.'</td>'
@@ -2101,7 +2141,7 @@ try {
         }
 
         if ($inviteRows === '') {
-            $inviteRows = '<tr><td colspan="8"><div class="empty-state"><div class="empty-orb">＋</div><h3>No invites yet</h3><p class="muted">Create a secure one-time registration invite.</p></div></td></tr>';
+            $inviteRows = '<tr><td colspan="9"><div class="empty-state"><div class="empty-orb">＋</div><h3>No invites yet</h3><p class="muted">Create a secure one-time registration invite.</p></div></td></tr>';
         }
 
         $bulkBar = $user['role'] === 'owner'
@@ -2151,11 +2191,12 @@ try {
             .View::csrf()
             .'<div class="field"><label>Account role</label><select name="role">'.$roleOptions.'</select></div>'
             .'<div class="field"><label>Application APIs</label><div class="system-choice-grid">'.$referralAppChecks.'</div><p class="hint">Select one or many. The registered account automatically receives exactly these App APIs.</p></div>'
+            .$referralBalanceField
             .'<button class="primary wide">Create referral</button>'
             .'</form></div>'
             .'<div class="card"><div class="toolbar"><h3>Referral invites</h3><span class="tag">'.count($invites).' visible</span></div>'
             .'<div class="table-wrap"><table class="compact-table">'
-            .'<thead><tr><th>Referral</th><th>Role</th><th>App APIs</th><th>Created by</th><th>Status</th><th>Registered user</th><th>Created</th><th>Action</th></tr></thead>'
+            .'<thead><tr><th>Referral</th><th>Role</th><th>App APIs</th><th>Balance grant</th><th>Created by</th><th>Status</th><th>Registered user</th><th>Created</th><th>Action</th></tr></thead>'
             .'<tbody>'.$inviteRows.'</tbody></table></div></div>'
             .'<div class="card"><div class="toolbar"><div><h3>User directory</h3><span class="muted">Search and control every visible account</span></div>'
             .'<div class="toolbar-controls"><div class="search-wrap"><input class="control-input" type="search" placeholder="Search name or username" data-user-search></div>'
@@ -2177,10 +2218,15 @@ try {
         Security::rateLimit('referral-create-'.$user['id'], 30, 3600);
 
         try {
-            $invite = ReferralManager::create($user, input('role', 'user'), $_POST['app_ids'] ?? []);
+            $invite = ReferralManager::create(
+                $user,
+                input('role', 'user'),
+                $_POST['app_ids'] ?? [],
+                input('grant_balance', '0')
+            );
             flash(
                 'ok',
-                'Referral created: '.$invite['code'].' • App APIs: '.count($invite['app_ids']),
+                'Referral created: '.$invite['code'].' • App APIs: '.count($invite['app_ids']).' • Balance: '.number_format((int)$invite['grant_balance']).' credits',
                 (string)$invite['code'],
                 'Copy referral'
             );
@@ -2492,6 +2538,10 @@ try {
         $pdo->beginTransaction();
 
         try {
+            if ($user['role'] === 'admin' && $amount > 0) {
+                $actorLock = $pdo->prepare('SELECT id FROM users WHERE id=? LIMIT 1 FOR UPDATE');
+                $actorLock->execute([(int)$user['id']]);
+            }
             $q = $pdo->prepare(
                 'SELECT balance FROM users WHERE id=? FOR UPDATE'
             );
@@ -2511,13 +2561,20 @@ try {
                      FROM balance_ledger
                      WHERE actor_user_id=?
                        AND amount>0
-                       AND reason='Manual balance adjustment'
+                       AND reason IN ('Manual balance adjustment','Referral balance grant')
                        AND created_at>=CURDATE()"
                 );
                 $spentQ->execute([(int)$user['id']]);
                 $usedToday = (int)$spentQ->fetchColumn();
+                $pendingQ = $pdo->prepare(
+                    "SELECT COALESCE(SUM(grant_balance),0)
+                     FROM referral_invites
+                     WHERE created_by=? AND status='pending'"
+                );
+                $pendingQ->execute([(int)$user['id']]);
+                $reserved = (int)$pendingQ->fetchColumn();
 
-                if ($limit <= 0 || ($usedToday + $amount) > $limit) {
+                if ($limit <= 0 || ($usedToday + $reserved + $amount) > $limit) {
                     throw new RuntimeException(
                         'Admin daily balance adjustment limit reached.'
                     );

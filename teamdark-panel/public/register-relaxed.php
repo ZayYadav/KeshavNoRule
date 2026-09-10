@@ -115,9 +115,11 @@ try {
             exit;
         }
 
+        $referralGrantPreview = (int)($invite['grant_balance'] ?? 0);
         $body = '<section class="auth"><div class="card"><div class="eyebrow">SECURE REGISTRATION</div><h1>Create account</h1>'
             .$flash
-            .'<p class="muted">Invite verified for a '.View::e((string)$invite['role']).' account.</p>'
+            .'<p class="muted">Invite verified for a '.View::e((string)$invite['role']).' account.'
+            .($referralGrantPreview > 0 ? ' Includes '.number_format($referralGrantPreview).' starting credits.' : '').'</p>'
             .'<form method="post" action="/register" class="stack" data-busy="Creating account…">'.View::csrf()
             .'<input type="hidden" name="referral" value="'.View::e($ref).'">'
             .'<div class="field"><label>Name</label><input name="name" minlength="2" maxlength="80" required autocomplete="name"></div>'
@@ -192,6 +194,7 @@ try {
             $uid,
             (int)$invite['created_by']
         );
+        $referralGrant = ReferralManager::grantInviteBalanceToUser($pdo, $invite, $uid);
         $pdo->prepare("UPDATE referral_invites SET status='used',used_by=?,used_at=NOW() WHERE id=? AND status='pending'")
             ->execute([$uid, $invite['id']]);
 
@@ -213,6 +216,7 @@ try {
             'referred_by'=>(int)$invite['created_by'],
             'invite_id'=>(int)$invite['id'],
             'app_ids'=>$grantedAppIds,
+            'referral_balance'=>$referralGrant,
         ]);
     } catch (Throwable $e) {
         if ($pdo instanceof \PDO && $pdo->inTransaction()) $pdo->rollBack();
@@ -237,6 +241,8 @@ try {
         'role'=>(string)$invite['role'],
         'referral'=>$ref,
         'signup_bonus'=>$signup,
+        'referral_balance'=>$referralGrant,
+        'starting_balance'=>$signup + $referralGrant,
         'created_at'=>date('Y-m-d H:i:s'),
         'created_ts'=>time(),
     ];

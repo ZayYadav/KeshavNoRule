@@ -44,6 +44,11 @@ multiCheck((bool)$user, 'multi-app user fixture created');
 AppRegistry::replaceUserAccess($owner, $userId, [(int)$appA['id'], (int)$appB['id']]);
 $userApps = AppRegistry::userApps($userId);
 multiCheck(count($userApps) === 2, 'owner can allot multiple app APIs to one user');
+$activeUserApps = AppRegistry::activeForUser($user);
+multiCheck(count($activeUserApps) === 2, 'assigned user can list only their active App APIs');
+foreach ($activeUserApps as $assignedApp) {
+    multiCheck(str_contains(AppRegistry::endpointUrl($assignedApp), '/connect/'), 'assigned custom App API exposes its Connect endpoint');
+}
 
 $key = KeyManager::create(
     $user,
@@ -86,7 +91,8 @@ $revoked = LoaderAuthService::authenticate(
 multiCheck(($revoked['status'] ?? true) === false && ($revoked['reason'] ?? '') === 'Application Access Revoked', 'removing user app access suspends that app keys');
 
 AppRegistry::replaceUserAccess($owner, $userId, [(int)$appA['id'], (int)$appB['id']]);
-$invite = ReferralManager::create($owner, 'user', [(int)$appA['id'], (int)$appB['id']]);
+$invite = ReferralManager::create($owner, 'user', [(int)$appA['id'], (int)$appB['id']], 250);
+multiCheck((int)$invite['grant_balance'] === 250, 'referral stores a one-time starting balance grant');
 $countQ = $pdo->prepare('SELECT COUNT(*) FROM referral_app_access WHERE referral_id=?');
 $countQ->execute([(int)$invite['id']]);
 multiCheck((int)$countQ->fetchColumn() === 2, 'one referral can carry multiple app APIs');
@@ -98,6 +104,14 @@ $pdo->prepare(
 $referredId = (int)$pdo->lastInsertId();
 $granted = AppRegistry::grantReferralToUser($pdo, (int)$invite['id'], $referredId, (int)$owner['id']);
 multiCheck(count($granted) === 2, 'referral app APIs automatically attach to registered account');
+$balanceGrant = ReferralManager::grantInviteBalanceToUser($pdo, $invite, $referredId);
+multiCheck($balanceGrant === 250, 'referral starting balance is redeemed exactly once by registration flow');
+$balanceQ = $pdo->prepare('SELECT balance FROM users WHERE id=?');
+$balanceQ->execute([$referredId]);
+multiCheck((int)$balanceQ->fetchColumn() === 250, 'referred account receives its referral balance');
+$ledgerQ = $pdo->prepare("SELECT COUNT(*) FROM balance_ledger WHERE user_id=? AND actor_user_id=? AND amount=250 AND reason='Referral balance grant'");
+$ledgerQ->execute([$referredId, (int)$owner['id']]);
+multiCheck((int)$ledgerQ->fetchColumn() === 1, 'referral balance grant is auditable in the balance ledger');
 
 $grantCountQ = $pdo->prepare('SELECT COUNT(*) FROM user_app_access WHERE user_id=?');
 $grantCountQ->execute([$referredId]);

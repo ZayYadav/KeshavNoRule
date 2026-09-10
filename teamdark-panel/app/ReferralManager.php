@@ -10,6 +10,8 @@ use Throwable;
 
 final class ReferralManager
 {
+    public const MAX_REFERRAL_BALANCE = 1000000000;
+
     public static function allowedRoles(array $actor): array
     {
         if (($actor['role'] ?? '') === 'owner') {
@@ -23,7 +25,7 @@ final class ReferralManager
         return [];
     }
 
-    public static function create(array $actor, string $role, mixed $appIds = []): array
+    public static function create(array $actor, string $role, mixed $appIds = [], mixed $grantBalance = 0): array
     {
         $allowed = self::allowedRoles($actor);
         if (!in_array($role, $allowed, true)) {
@@ -31,16 +33,32 @@ final class ReferralManager
         }
 
         $selectedApps = AppRegistry::validateReferralApps($actor, $appIds);
+        $grantBalance = self::normalizeGrantBalance($grantBalance);
         $pdo = Database::pdo();
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
             $code = 'TD-REF-'.strtoupper(bin2hex(random_bytes(6)));
             $pdo->beginTransaction();
             try {
+                // Serialize referral balance reservations per creator so parallel
+                // requests cannot bypass the Admin balance policy.
+                $actorLock = $pdo->prepare(
+                    'SELECT id,role,status FROM users WHERE id=? LIMIT 1 FOR UPDATE'
+                );
+                $actorLock->execute([(int)$actor['id']]);
+                $freshActor = $actorLock->fetch();
+                if (!$freshActor || $freshActor['status'] !== 'active') {
+                    throw new RuntimeException('Referral creator account is unavailable.');
+                }
+                if (!in_array($role, self::allowedRoles($freshActor), true)) {
+                    throw new RuntimeException('You cannot create a referral for this role.');
+                }
+                self::assertGrantBalanceAllowed($pdo, $freshActor, $grantBalance);
+
                 $pdo->prepare(
-                    "INSERT INTO referral_invites(code,created_by,role,status,expires_at)
-                     VALUES(?,?,?,'pending',DATE_ADD(NOW(),INTERVAL 7 DAY))"
-                )->execute([$code, $actor['id'], $role]);
+                    "INSERT INTO referral_invites(code,created_by,role,grant_balance,status,expires_at)
+                     VALUES(?,?,?,?,'pending',DATE_ADD(NOW(),INTERVAL 7 DAY))"
+                )->execute([$code, $actor['id'], $role, $grantBalance]);
 
                 $id = (int)$pdo->lastInsertId();
                 AppRegistry::attachAppsToReferral($pdo, $actor, $id, $selectedApps);
@@ -51,6 +69,7 @@ final class ReferralManager
                         'invite_id'=>$id,
                         'role'=>$role,
                         'app_ids'=>$selectedApps,
+                        'grant_balance'=>$grantBalance,
                     ]);
                 } catch (Throwable) {
                 }
@@ -60,6 +79,7 @@ final class ReferralManager
                     'code'=>$code,
                     'role'=>$role,
                     'app_ids'=>$selectedApps,
+                    'grant_balance'=>$grantBalance,
                 ];
             } catch (\PDOException $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
@@ -73,9 +93,90 @@ final class ReferralManager
         throw new RuntimeException('Could not generate a unique referral. Try again.');
     }
 
+    private static function normalizeGrantBalance(mixed $raw): int
+    {
+        if ($raw === null || $raw === '') return 0;
+        if (is_int($raw)) {
+            $value = $raw;
+        } elseif (is_string($raw) && preg_match('/^\d{1,10}$/', trim($raw))) {
+            $value = (int)trim($raw);
+        } else {
+            throw new RuntimeException('Referral balance must be a whole number from 0 to 1,000,000,000.');
+        }
+
+        if ($value < 0 || $value > self::MAX_REFERRAL_BALANCE) {
+            throw new RuntimeException('Referral balance must be between 0 and 1,000,000,000 credits.');
+        }
+        return $value;
+    }
+
+    private static function assertGrantBalanceAllowed(\PDO $pdo, array $actor, int $grantBalance): void
+    {
+        if ($grantBalance <= 0 || ($actor['role'] ?? '') === 'owner') return;
+        if (($actor['role'] ?? '') !== 'admin') {
+            throw new RuntimeException('This account cannot attach balance to referrals.');
+        }
+        if (!(bool)Config::get('admin_balance_adjustments_enabled', false)) {
+            throw new RuntimeException('Referral balance grants are disabled for Admin accounts by Owner policy.');
+        }
+
+        $limit = (int)Config::get('admin_balance_daily_limit', 10000);
+        if ($limit <= 0) {
+            throw new RuntimeException('Admin balance grants are currently disabled by Owner policy.');
+        }
+
+        $spentQ = $pdo->prepare(
+            "SELECT COALESCE(SUM(amount),0)
+             FROM balance_ledger
+             WHERE actor_user_id=?
+               AND amount>0
+               AND reason IN ('Manual balance adjustment','Referral balance grant')
+               AND created_at>=CURDATE()"
+        );
+        $spentQ->execute([(int)$actor['id']]);
+        $spentToday = (int)$spentQ->fetchColumn();
+
+        $pendingQ = $pdo->prepare(
+            "SELECT COALESCE(SUM(grant_balance),0)
+             FROM referral_invites
+             WHERE created_by=? AND status='pending'"
+        );
+        $pendingQ->execute([(int)$actor['id']]);
+        $reserved = (int)$pendingQ->fetchColumn();
+
+        if (($spentToday + $reserved + $grantBalance) > $limit) {
+            throw new RuntimeException('Admin referral balance limit reached. Pending referral grants also count toward the limit.');
+        }
+    }
+
     public static function grantInviteAppsToUser(\PDO $pdo, int $inviteId, int $userId, int $grantedBy): array
     {
         return AppRegistry::grantReferralToUser($pdo, $inviteId, $userId, $grantedBy);
+    }
+
+    public static function grantInviteBalanceToUser(\PDO $pdo, array $invite, int $userId): int
+    {
+        $grant = (int)($invite['grant_balance'] ?? 0);
+        if ($grant <= 0) return 0;
+        if ($grant > self::MAX_REFERRAL_BALANCE) {
+            throw new RuntimeException('Referral balance grant is invalid.');
+        }
+
+        $q = $pdo->prepare("UPDATE users SET balance=balance+? WHERE id=? AND role<>'owner'");
+        $q->execute([$grant, $userId]);
+        if ($q->rowCount() !== 1) {
+            throw new RuntimeException('Could not apply referral balance to the new account.');
+        }
+
+        $pdo->prepare(
+            'INSERT INTO balance_ledger(user_id,actor_user_id,amount,reason) VALUES(?,?,?,?)'
+        )->execute([
+            $userId,
+            (int)$invite['created_by'],
+            $grant,
+            'Referral balance grant',
+        ]);
+        return $grant;
     }
 
     public static function validateForRegistration(string $code): array
@@ -249,7 +350,7 @@ final class ReferralManager
             return [];
         }
 
-        $sql = "SELECT i.id,i.code,i.role,i.status,i.created_at,i.used_at,
+        $sql = "SELECT i.id,i.code,i.role,i.grant_balance,i.status,i.created_at,i.used_at,
                        c.username creator_username,
                        u.username used_username,u.name used_name,
                        COALESCE((SELECT GROUP_CONCAT(a.name ORDER BY a.is_official DESC,a.name SEPARATOR ', ')
