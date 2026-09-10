@@ -17,64 +17,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: TeamDarkLoader
-      - name: Apply final QA fixes
-        shell: bash
+      - name: Apply final QA patch
+        run: |
+          python3 -m py_compile scripts/teamdark_final_qa.py
+          python3 scripts/teamdark_final_qa.py
+      - name: Validate final QA
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-
-          # Complete rebranding in shell labels and point maintenance notice at its dedicated page.
-          p = Path('teamdark-panel/app/View.php')
-          s = p.read_text()
-          old = '? \'<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">TEAM DARK / ACCESS</div><h2>Your network.<br>Your control.</h2>'
-          new = '? \'<div class="auth-layout"><aside class="auth-intro"><div class="eyebrow">\'.$app.\' / ACCESS</div><h2>Your network.<br>Your control.</h2>'
-          if old in s:
-              s = s.replace(old, new, 1)
-          s = s.replace('<a href="/owner/settings">Server controls</a>', '<a href="/owner/server">Server controls</a>')
-          p.write_text(s)
-
-          # Mark the server-rendered Extend/Edit link so old cached JS cannot add a duplicate Edit button.
-          p = Path('teamdark-panel/public/index.php')
-          s = p.read_text()
-          old = '.\'<a class="ghost compact" href="/key-edit?id=\'.(int)$row[\'id\'].\'">Extend / Edit</a>\''
-          new = '.\'<a class="ghost compact" data-key-edit-link="1" href="/key-edit?id=\'.(int)$row[\'id\'].\'">Extend / Edit</a>\''
-          if old not in s:
-              raise SystemExit('Extend/Edit link marker not found')
-          p.write_text(s.replace(old, new, 1))
-
-          # Purge both versioned and canonical shell assets from Cloudflare on manual Panel Update purge.
-          p = Path('teamdark-panel/app/OwnerSystem.php')
-          s = p.read_text()
-          marker = """                $base.'/assets/app.css',
-                $base.'/assets/themes.css',
-                $base.'/assets/owner-tools.css',
-                $base.'/assets/system-console.css',
-                $base.'/assets/app.js',
-                $base.'/assets/owner-tools.js',
-"""
-          replacement = marker + """                $base.'/assets/app.css?v=20260910-2',
-                $base.'/assets/themes.css?v=20260910-2',
-                $base.'/assets/owner-tools.css?v=20260910-2',
-                $base.'/assets/system-console.css?v=20260910-1',
-                $base.'/assets/app.js?v=20260910-2',
-                $base.'/assets/owner-tools.js?v=20260910-2',
-"""
-          if marker not in s:
-              raise SystemExit('CDN shell marker not found')
-          p.write_text(s.replace(marker, replacement, 1))
-
-          # Finish the visible File Manager wording while retaining internal vault implementation names.
-          p = Path('teamdark-panel/public/vault.php')
-          s = p.read_text()
-          s = s.replace('Open vault', 'Open File Manager')
-          s = s.replace('Your vault is empty', 'Your File Manager is empty')
-          s = s.replace('Upload to private vault', 'Upload to File Manager')
-          s = s.replace("View::page('File vault unavailable'", "View::page('File Manager unavailable'")
-          s = s.replace('<h1>File vault unavailable</h1>', '<h1>File Manager unavailable</h1>')
-          p.write_text(s)
-          PY
-
           php -l teamdark-panel/app/View.php
           php -l teamdark-panel/app/OwnerSystem.php
           php -l teamdark-panel/public/index.php
@@ -82,8 +31,7 @@ jobs:
           grep -F 'data-key-edit-link="1"' teamdark-panel/public/index.php >/dev/null
           grep -F 'href="/owner/server">Server controls' teamdark-panel/app/View.php >/dev/null
           grep -F 'File Manager unavailable' teamdark-panel/public/vault.php >/dev/null
-
-      - name: Commit final QA fixes
+      - name: Commit final QA
         run: |
           set -euo pipefail
           git config user.name 'TeamDark CI'
