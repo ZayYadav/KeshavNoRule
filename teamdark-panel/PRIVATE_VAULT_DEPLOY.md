@@ -9,7 +9,7 @@ The panel includes an authenticated `/files` vault for `.so` and `.zip` files.
 - Each stored object receives a random 48-hex-character `.blob` name.
 - This prevents collisions when different users upload identical filenames.
 - Direct web access to `storage/` is denied.
-- Downloads go through the authenticated `/files/download?id=...` controller and support HTTP Range/resume.
+- Downloads go through the authenticated `/files/download?id=...` controller.
 - Non-owner accounts may keep at most 2 current files. Replacing or deleting a slot may be done repeatedly.
 - Owner storage is unlimited and Owner can view/manage all user uploads through paginated views.
 
@@ -23,7 +23,7 @@ database/schema.sql
 
 Run the latest `database/schema.sql` once during deployment/upgrade using a database account with schema-change permission.
 
-`UploadManager` also uses `CREATE TABLE IF NOT EXISTS` as a runtime compatibility fallback. Production deployments should still apply `schema.sql` explicitly so the normal web user does not need DDL privileges.
+`UploadManager` first probes the existing table and only attempts `CREATE TABLE IF NOT EXISTS` when the table is actually missing. Production deployments should still apply `schema.sql` explicitly.
 
 ## Filesystem permissions
 
@@ -37,17 +37,42 @@ Recommended ownership is the same user/group used by the PHP-FPM/hosting account
 
 The root panel rules deny direct requests to `storage/`, and `storage/private_uploads/.htaccess` provides an additional deny layer for Apache deployments.
 
-## Large uploads and downloads
+## 50 MB uploads
 
-The application accepts files up to about 2 GiB, but PHP and the web server may enforce smaller upload limits first. Set hosting values appropriate for your intended maximum, for example:
+The application accepts each `.so` or `.zip` file up to exactly 50 MiB (52,428,800 bytes).
+
+The repository includes `.user.ini` in both the panel root and `public/` so common PHP-FPM/CGI shared-hosting layouts receive these values:
 
 ```ini
-upload_max_filesize = 512M
-post_max_size = 520M
-max_execution_time = 300
-max_input_time = 300
+upload_max_filesize = 50M
+post_max_size = 55M
+max_execution_time = 600
+max_input_time = 600
+memory_limit = 256M
 ```
 
-Private downloads are streamed in chunks, support a single HTTP byte range, and release the PHP session lock before streaming so another panel tab is not blocked by a long download.
+`post_max_size` is intentionally larger than 50M so multipart form overhead does not reject an otherwise valid 50M upload.
 
-Use larger upload values only if the hosting plan and available storage support them. Restart/reload PHP if your hosting provider requires it after changing PHP configuration.
+Some hosts enforce a lower web-server/account-level request limit that `.user.ini` cannot override. If a 5 MB or larger upload is still rejected after deployment, verify the active values in cPanel MultiPHP INI Editor / PHP Info and raise the hosting-level limit there.
+
+## Optional Cloudflare purge hook
+
+Binary Vault can purge the exact download URL from Cloudflare after upload, replace/update, or delete. Purge failures are logged but never roll back a successful file operation.
+
+Configure only in the server `.env`:
+
+```env
+CLOUDFLARE_CACHE_ENABLED="false"
+CLOUDFLARE_ZONE_ID=""
+CLOUDFLARE_API_TOKEN=""
+```
+
+Set `CLOUDFLARE_CACHE_ENABLED="true"` to enable the hook. The API token should be restricted to cache-purge access for the intended zone and must never be committed to Git.
+
+The purge target is the canonical authenticated URL:
+
+```text
+APP_URL/files/download?id=<FILE_ID>
+```
+
+Downloads deliberately keep `Cache-Control: private, no-store` because access is session-protected. Do not add a Cloudflare Cache Everything rule that serves `/files/download` without reaching origin authentication; that could expose one user's private file to another user. The purge integration is safe to leave enabled for invalidation/defensive cleanup without changing the private download authorization model.
