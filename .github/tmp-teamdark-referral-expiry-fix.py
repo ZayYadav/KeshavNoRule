@@ -11,15 +11,37 @@ def replace_once(path: str, old: str, new: str, label: str) -> None:
 
 replace_once(
     'teamdark-panel/app/ReferralManager.php',
-    "WHERE created_by=? AND status='pending'\"",
-    "WHERE created_by=? AND status='pending'\n               AND (expires_at IS NULL OR expires_at>NOW())\"",
+    """        $pendingQ = $pdo->prepare(
+            \"SELECT COALESCE(SUM(grant_balance),0)
+             FROM referral_invites
+             WHERE created_by=? AND status='pending'\"
+        );
+""",
+    """        $pendingQ = $pdo->prepare(
+            \"SELECT COALESCE(SUM(grant_balance),0)
+             FROM referral_invites
+             WHERE created_by=? AND status='pending'
+               AND (expires_at IS NULL OR expires_at>NOW())\"
+        );
+""",
     'ReferralManager pending quota expiry filter',
 )
 
 replace_once(
     'teamdark-panel/public/index.php',
-    "WHERE created_by=? AND status='pending'\"",
-    "WHERE created_by=? AND status='pending'\n                       AND (expires_at IS NULL OR expires_at>NOW())\"",
+    """                $pendingQ = $pdo->prepare(
+                    \"SELECT COALESCE(SUM(grant_balance),0)
+                     FROM referral_invites
+                     WHERE created_by=? AND status='pending'\"
+                );
+""",
+    """                $pendingQ = $pdo->prepare(
+                    \"SELECT COALESCE(SUM(grant_balance),0)
+                     FROM referral_invites
+                     WHERE created_by=? AND status='pending'
+                       AND (expires_at IS NULL OR expires_at>NOW())\"
+                );
+""",
     'manual balance pending quota expiry filter',
 )
 
