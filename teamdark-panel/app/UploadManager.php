@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace TeamDark\Panel;
 
 use PDO;
+use PDOException;
 use RuntimeException;
 use Throwable;
 
@@ -15,24 +16,55 @@ final class UploadManager
 
     public static function ensureSchema(): void
     {
-        Database::pdo()->exec(
-            "CREATE TABLE IF NOT EXISTS user_uploads (
-                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                user_id BIGINT UNSIGNED NOT NULL,
-                original_name VARCHAR(255) NOT NULL,
-                storage_name VARCHAR(96) NOT NULL UNIQUE,
-                extension VARCHAR(8) NOT NULL,
-                mime_type VARCHAR(120) NOT NULL DEFAULT 'application/octet-stream',
-                size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
-                sha256 CHAR(64) NOT NULL,
-                version INT UNSIGNED NOT NULL DEFAULT 1,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                CONSTRAINT fk_upload_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                INDEX idx_upload_user(user_id),
-                INDEX idx_upload_updated(updated_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-        );
+        $pdo = Database::pdo();
+
+        // Do not run CREATE TABLE on every /files request. Shared-hosting DB users
+        // often have normal DML access but no CREATE privilege after deployment.
+        try {
+            $pdo->query('SELECT 1 FROM user_uploads LIMIT 1');
+            return;
+        } catch (PDOException $probe) {
+            $message = strtolower($probe->getMessage());
+            $missingTable = $probe->getCode() === '42S02'
+                || str_contains($message, "doesn't exist")
+                || str_contains($message, 'does not exist')
+                || str_contains($message, 'base table or view not found');
+
+            if (!$missingTable) {
+                throw $probe;
+            }
+        }
+
+        try {
+            $pdo->exec(
+                "CREATE TABLE IF NOT EXISTS user_uploads (
+                    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    user_id BIGINT UNSIGNED NOT NULL,
+                    original_name VARCHAR(255) NOT NULL,
+                    storage_name VARCHAR(96) NOT NULL UNIQUE,
+                    extension VARCHAR(8) NOT NULL,
+                    mime_type VARCHAR(120) NOT NULL DEFAULT 'application/octet-stream',
+                    size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+                    sha256 CHAR(64) NOT NULL,
+                    version INT UNSIGNED NOT NULL DEFAULT 1,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_upload_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    INDEX idx_upload_user(user_id),
+                    INDEX idx_upload_updated(updated_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            );
+        } catch (PDOException $e) {
+            error_log(
+                'TeamDark Binary Vault schema initialization failed: SQLSTATE '
+                .$e->getCode()
+            );
+            throw new RuntimeException(
+                'Binary Vault database is not initialized. Import the latest database/schema.sql once or allow CREATE TABLE for the panel database user.',
+                0,
+                $e
+            );
+        }
     }
 
     public static function listOwn(array $actor): array
