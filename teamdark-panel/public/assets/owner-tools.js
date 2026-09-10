@@ -1,10 +1,157 @@
 'use strict';
 (function () {
-  /*
-   * Cinematic splash gate.
-   * This script is loaded before app.js, so it takes ownership of the splash
-   * and prevents the legacy auto-dismiss behaviour from app.js.
-   */
+  var ultraCss = document.createElement('link');
+  ultraCss.rel = 'stylesheet';
+  ultraCss.href = '/assets/cinematic-ultra.css?v=20260910-1';
+  document.head.appendChild(ultraCss);
+
+  function installCinematicUltra(splash) {
+    if (!splash || splash.querySelector('.td-cinema-ultra')) return;
+
+    var ultra = document.createElement('div');
+    ultra.className = 'td-cinema-ultra';
+    ultra.setAttribute('aria-hidden', 'true');
+    ultra.innerHTML =
+      '<canvas class="td-cinema-particles" data-cinema-particles></canvas>' +
+      '<div class="td-cinema-nebula a"></div>' +
+      '<div class="td-cinema-nebula b"></div>' +
+      '<div class="td-cinema-horizon"></div>' +
+      '<div class="td-cinema-ringfield"><i></i><i></i><i></i><i></i></div>' +
+      '<div class="td-cinema-scan"></div>' +
+      '<div class="td-cinema-impact"></div>' +
+      '<div class="td-cinema-corners"></div>' +
+      '<div class="td-cinema-corner-bottom"></div>' +
+      '<div class="td-cinema-sequence"><b>TEAM DARK // DIRECTOR CUT</b><span data-cinema-caption>ORIGIN SIGNAL ACQUIRED</span></div>' +
+      '<div class="td-cinema-timecode"><span>SECURE PREMIERE</span><b data-cinema-timecode>00:00:000</b></div>';
+    splash.insertBefore(ultra, splash.firstChild);
+
+    var caption = ultra.querySelector('[data-cinema-caption]');
+    var timecode = ultra.querySelector('[data-cinema-timecode]');
+    var canvas = ultra.querySelector('[data-cinema-particles]');
+    var ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+    var started = performance.now();
+    var running = true;
+    var particles = [];
+    var lastFrame = 0;
+
+    function setCaption(text) {
+      if (caption) caption.textContent = text;
+    }
+
+    function resizeCanvas() {
+      if (!canvas || !ctx) return;
+      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      var w = Math.max(1, window.innerWidth);
+      var h = Math.max(1, window.innerHeight);
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      var count = Math.max(34, Math.min(82, Math.floor(w / 18)));
+      particles = Array.from({ length: count }, function (_, i) {
+        var warm = i % 9 === 0;
+        return {
+          x: Math.random() * w,
+          y: Math.random() * h,
+          z: .35 + Math.random() * 1.5,
+          r: .35 + Math.random() * 1.3,
+          vx: (Math.random() - .5) * .09,
+          vy: -.03 - Math.random() * .16,
+          a: .12 + Math.random() * .55,
+          warm: warm
+        };
+      });
+    }
+
+    function drawParticles(now) {
+      if (!running || !ctx || !canvas) return;
+      if (now - lastFrame < 25) {
+        requestAnimationFrame(drawParticles);
+        return;
+      }
+      lastFrame = now;
+      var w = window.innerWidth;
+      var h = window.innerHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      particles.forEach(function (p) {
+        p.x += p.vx * p.z;
+        p.y += p.vy * p.z;
+        if (p.y < -8) { p.y = h + 8; p.x = Math.random() * w; }
+        if (p.x < -8) p.x = w + 8;
+        if (p.x > w + 8) p.x = -8;
+
+        var pulse = .72 + Math.sin((now * .0012) + p.x * .01) * .28;
+        var alpha = Math.max(.03, p.a * pulse);
+        ctx.beginPath();
+        ctx.fillStyle = p.warm
+          ? 'rgba(246,213,138,' + alpha.toFixed(3) + ')'
+          : 'rgba(124,231,255,' + alpha.toFixed(3) + ')';
+        ctx.shadowBlur = p.r * 8;
+        ctx.shadowColor = p.warm ? 'rgba(246,213,138,.55)' : 'rgba(124,231,255,.45)';
+        ctx.arc(p.x, p.y, p.r * p.z, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.shadowBlur = 0;
+      requestAnimationFrame(drawParticles);
+    }
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas, { passive: true });
+    if (ctx && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      requestAnimationFrame(drawParticles);
+    }
+
+    var timeTimer = window.setInterval(function () {
+      if (!timecode) return;
+      var elapsed = Math.max(0, performance.now() - started);
+      var sec = Math.floor(elapsed / 1000);
+      var ms = Math.floor(elapsed % 1000);
+      timecode.textContent = '00:' + String(sec).padStart(2, '0') + ':' + String(ms).padStart(3, '0');
+    }, 43);
+
+    splash.addEventListener('mousemove', function (event) {
+      var x = ((event.clientX / Math.max(1, window.innerWidth)) - .5) * 2;
+      var y = ((event.clientY / Math.max(1, window.innerHeight)) - .5) * 2;
+      splash.style.setProperty('--cinema-px', x.toFixed(3));
+      splash.style.setProperty('--cinema-py', y.toFixed(3));
+    }, { passive: true });
+
+    splash.addEventListener('mouseleave', function () {
+      splash.style.setProperty('--cinema-px', '0');
+      splash.style.setProperty('--cinema-py', '0');
+    }, { passive: true });
+
+    window.setTimeout(function () {
+      splash.setAttribute('data-cinema-phase', 'ignition');
+      setCaption('VOLUMETRIC ARRAY ONLINE');
+    }, 420);
+    window.setTimeout(function () {
+      splash.setAttribute('data-cinema-phase', 'reveal');
+      setCaption('IDENTITY REVEAL // TEAM DARK');
+    }, 1350);
+    window.setTimeout(function () {
+      splash.setAttribute('data-cinema-phase', 'impact');
+      setCaption('SECURE CORE SYNCHRONIZED');
+    }, 2680);
+    window.setTimeout(function () {
+      splash.setAttribute('data-cinema-phase', 'lock');
+      setCaption('TLS CHANNEL LOCKED');
+    }, 4100);
+
+    splash.addEventListener('cinematic-ready', function () {
+      splash.setAttribute('data-cinema-phase', 'ready');
+      setCaption('ACCESS GATE READY');
+    });
+
+    splash.addEventListener('cinematic-exit', function () {
+      running = false;
+      window.clearInterval(timeTimer);
+    });
+  }
+
   var splash = document.querySelector('[data-site-splash]');
   if (splash) {
     var splashVersion = splash.getAttribute('data-splash-version') || '1';
@@ -13,12 +160,13 @@
     var gateDuration = 5500;
     var ready = false;
 
-    /* app.js only manages elements that still carry data-site-splash. */
     splash.removeAttribute('data-site-splash');
     splash.setAttribute('data-splash-managed', 'cinematic-gate');
     splash.setAttribute('data-splash-duration', String(gateDuration));
+    splash.setAttribute('data-cinema-phase', 'origin');
     splash.style.setProperty('--splash-duration', gateDuration + 'ms');
     document.body.classList.add('splash-open');
+    installCinematicUltra(splash);
 
     if (enterButton) {
       enterButton.disabled = true;
@@ -33,6 +181,7 @@
     window.setTimeout(function () {
       ready = true;
       splash.classList.add('is-ready');
+      splash.dispatchEvent(new CustomEvent('cinematic-ready'));
 
       if (enterButton) {
         enterButton.disabled = false;
@@ -62,6 +211,7 @@
             + '; Path=/; SameSite=Lax' + secureCookie;
         } catch (e) {}
 
+        splash.dispatchEvent(new CustomEvent('cinematic-exit'));
         splash.classList.add('is-leaving');
         splash.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('splash-open');
@@ -71,10 +221,15 @@
         }, 460);
       });
     }
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' && ready && enterButton) {
+        event.preventDefault();
+        enterButton.click();
+      }
+    });
   }
 
-  // The deep premium visual system in app.css is currently scoped to UI v5.
-  // Keep the rendered markup compatible until those selectors are versionless.
   if (document.body && document.body.getAttribute('data-teamdark-ui') !== '5') {
     document.body.setAttribute('data-teamdark-ui', '5');
   }
