@@ -78,6 +78,83 @@ final class ReferralManager
         return AppRegistry::grantReferralToUser($pdo, $inviteId, $userId, $grantedBy);
     }
 
+    public static function validateForRegistration(string $code): array
+    {
+        $code = trim($code);
+        if ($code === '' || strlen($code) > 80) {
+            throw new RuntimeException('A valid referral code is required.');
+        }
+
+        self::expireDue();
+        $pdo = Database::pdo();
+        $q = $pdo->prepare(
+            "SELECT i.*,u.role AS creator_role,u.status AS creator_status
+             FROM referral_invites i
+             JOIN users u ON u.id=i.created_by
+             WHERE i.code=?
+             LIMIT 1"
+        );
+        $q->execute([$code]);
+        $invite = $q->fetch();
+
+        if (!$invite || ($invite['status'] ?? '') !== 'pending') {
+            throw new RuntimeException('This referral is invalid, used, revoked or expired.');
+        }
+        if (($invite['expires_at'] ?? null) && strtotime((string)$invite['expires_at']) <= time()) {
+            throw new RuntimeException('This referral is invalid, used, revoked or expired.');
+        }
+        if (($invite['creator_status'] ?? '') !== 'active') {
+            throw new RuntimeException('This referral is no longer authorized.');
+        }
+        if (!self::creatorCanIssueRole((string)$invite['creator_role'], (string)$invite['role'])) {
+            throw new RuntimeException('This referral is no longer authorized.');
+        }
+
+        $appQ = $pdo->prepare(
+            "SELECT a.id
+             FROM referral_app_access ra
+             JOIN app_registry a ON a.id=ra.app_id
+             WHERE ra.referral_id=? AND a.status='active'
+             ORDER BY a.is_official DESC,a.id ASC"
+        );
+        $appQ->execute([(int)$invite['id']]);
+        $appIds = array_map('intval', $appQ->fetchAll(\PDO::FETCH_COLUMN) ?: []);
+
+        // Backward compatibility for legacy/directly-created referrals that
+        // predate app scoping: safely bind them to Official if the creator is
+        // still allowed to grant Official. New panel-created referrals always
+        // carry explicit app assignments.
+        if (!$appIds && AppRegistry::userHasApp(
+            (int)$invite['created_by'],
+            (string)$invite['creator_role'],
+            AppRegistry::OFFICIAL_ID
+        )) {
+            $pdo->prepare(
+                'INSERT IGNORE INTO referral_app_access(referral_id,app_id) VALUES(?,?)'
+            )->execute([(int)$invite['id'], AppRegistry::OFFICIAL_ID]);
+            $appIds = [AppRegistry::OFFICIAL_ID];
+        }
+
+        if (!$appIds) {
+            throw new RuntimeException('This referral has no active application API assigned.');
+        }
+
+        if (($invite['creator_role'] ?? '') !== 'owner') {
+            foreach ($appIds as $appId) {
+                if (!AppRegistry::userHasApp(
+                    (int)$invite['created_by'],
+                    (string)$invite['creator_role'],
+                    $appId
+                )) {
+                    throw new RuntimeException('This referral contains application access that is no longer authorized.');
+                }
+            }
+        }
+
+        $invite['app_ids'] = $appIds;
+        return $invite;
+    }
+
     public static function creatorCanIssueRole(string $creatorRole, string $inviteRole): bool
     {
         return in_array(
