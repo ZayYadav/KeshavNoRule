@@ -79,6 +79,11 @@ try {
     $row = KeyEditor::get($user, $keyId);
     $days = max(1, (int)ceil(max(86400, (int)$row['duration_seconds']) / 86400));
     $owner = trim((string)($row['owner_display_name'] ?? '')) ?: (string)$row['owner_name'];
+    $isOwner = (($user['role'] ?? '') === 'owner');
+    $unlimitedControls = $isOwner
+        ? '<label class="checkline"><input type="checkbox" name="unlimited_expiry" value="1" '.((int)$row['unlimited_expiry'] === 1 ? 'checked' : '').'> Unlimited validity</label>'
+            .'<label class="checkline"><input type="checkbox" name="unlimited_devices" value="1" '.((int)$row['unlimited_devices'] === 1 ? 'checked' : '').'> Unlimited devices</label>'
+        : '<p class="hint">Unlimited validity and unlimited devices are Owner-only. Existing Owner-granted unlimited entitlements are read-only here.</p>';
 
     $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-2">'
         .'<section class="hero"><div><span class="eyebrow">LICENSE EDITOR</span><h1>Edit key</h1>'
@@ -94,9 +99,8 @@ try {
         .'<div class="field"><label>Validity in days</label><input type="number" name="duration_days" min="1" max="36500" value="'.$days.'" required></div>'
         .'<div class="field"><label>Maximum devices</label><input type="number" name="max_devices" min="1" max="1000000" value="'.max(1, (int)$row['max_devices']).'" required></div>'
         .'</div>'
-        .'<label class="checkline"><input type="checkbox" name="unlimited_expiry" value="1" '.((int)$row['unlimited_expiry'] === 1 ? 'checked' : '').'> Unlimited validity</label>'
-        .'<label class="checkline"><input type="checkbox" name="unlimited_devices" value="1" '.((int)$row['unlimited_devices'] === 1 ? 'checked' : '').'> Unlimited devices</label>'
-        .'<p class="hint">For non-owner accounts, increasing validity deducts only the extra credit difference. Downgrades do not refund credits. Owner edits cost 0.</p>'
+        .$unlimitedControls
+        .'<p class="hint">For non-owner accounts, increasing finite validity deducts only the extra credit difference. Downgrades do not refund credits. Owner edits cost 0.</p>'
         .'<div class="security-detail"><span>Activated</span><strong>'.View::e((string)($row['activated_at'] ?: 'Not yet')).'</strong></div>'
         .'<div class="security-detail"><span>Current expiry</span><strong>'.View::e((int)$row['unlimited_expiry'] === 1 ? 'Unlimited' : (string)($row['expires_at'] ?: 'Starts on first use')).'</strong></div>'
         .'<button class="primary wide" type="submit">Save all key changes</button>'

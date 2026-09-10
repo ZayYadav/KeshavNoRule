@@ -1424,7 +1424,9 @@ try {
             $deviceOptions .= '<option value="'.$limit.'"'.$selected.'>'
                 .$limit.' devices</option>';
         }
-        $deviceOptions .= '<option value="unlimited">Unlimited devices</option>';
+        if (($user['role'] ?? '') === 'owner') {
+            $deviceOptions .= '<option value="unlimited">Unlimited devices</option>';
+        }
 
         $dayOptions = '';
         foreach ([1,3,7,15,30,60,90,180,365,730,3650] as $day) {
@@ -1434,10 +1436,9 @@ try {
         }
 
         $pricing = ownerUnlimited($user)
-            ? 'Owner generation cost: 0 credits.'
+            ? 'Owner generation cost: 0 credits. Unlimited validity and devices available.'
             : 'Timed cost: '.(int)Config::get('key_cost')
-                .' credit(s) per day. Unlimited validity: '
-                .(int)Config::get('unlimited_key_cost').' credits.';
+                .' credit(s) per day. Unlimited options are Owner-only.';
 
         $create = $filter === 'current'
             ? '<div class="modal-backdrop" id="key-generator" data-modal="key-generator" aria-hidden="true">'
@@ -1455,7 +1456,9 @@ try {
                 .'<div class="field"><label>Validity</label><select name="duration_days">'.$dayOptions.'</select></div>'
                 .'<div class="field"><label>Maximum devices</label><select name="max_devices">'.$deviceOptions.'</select></div>'
                 .'</div>'
-                .'<label class="checkline"><input type="checkbox" name="unlimited_expiry" value="1" data-unlimited-toggle> Unlimited validity</label>'
+                .(($user['role'] ?? '') === 'owner'
+                    ? '<label class="checkline"><input type="checkbox" name="unlimited_expiry" value="1" data-unlimited-toggle> Unlimited validity</label>'
+                    : '')
                 .'<button type="submit" class="primary wide" data-submit-label="Generating…">Generate key</button>'
                 .'</form>'
                 .'<p class="hint">'.$pricing.' Auto format: Team-Dark-XXXXXXXXX.</p>'
@@ -1585,11 +1588,18 @@ try {
                 throw new RuntimeException('Invalid validity selection.');
             }
 
-            $unlimitedExpiry = isset($_POST['unlimited_expiry'])
+            $requestedUnlimitedExpiry = isset($_POST['unlimited_expiry'])
                 && $_POST['unlimited_expiry'] === '1';
 
             $deviceRaw = input('max_devices', '10');
-            $unlimitedDevices = $deviceRaw === 'unlimited';
+            $requestedUnlimitedDevices = $deviceRaw === 'unlimited';
+
+            if (($user['role'] ?? '') !== 'owner' && ($requestedUnlimitedExpiry || $requestedUnlimitedDevices)) {
+                throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');
+            }
+
+            $unlimitedExpiry = (($user['role'] ?? '') === 'owner') && $requestedUnlimitedExpiry;
+            $unlimitedDevices = (($user['role'] ?? '') === 'owner') && $requestedUnlimitedDevices;
             $maxDevices = $unlimitedDevices ? 1 : (int)$deviceRaw;
 
             $created = KeyManager::create(

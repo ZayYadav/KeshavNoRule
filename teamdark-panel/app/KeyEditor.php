@@ -62,6 +62,20 @@ final class KeyEditor
             $row = self::rowForActor($pdo, $actor, $keyId, true);
             if (!$row) throw new RuntimeException('Key not found or not allowed.');
 
+            $isOwner = (($actor['role'] ?? '') === 'owner');
+            if (!$isOwner) {
+                $oldUnlimitedExpiry = (bool)$row['unlimited_expiry'];
+                $oldUnlimitedDevices = (bool)$row['unlimited_devices'];
+
+                if (($unlimitedExpiry && !$oldUnlimitedExpiry) || ($unlimitedDevices && !$oldUnlimitedDevices)) {
+                    throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');
+                }
+
+                // Existing Owner-granted Unlimited entitlements are read-only for non-owner accounts.
+                $unlimitedExpiry = $oldUnlimitedExpiry;
+                $unlimitedDevices = $oldUnlimitedDevices;
+            }
+
             $deviceQ = $pdo->prepare(
                 'SELECT COUNT(*) FROM license_devices WHERE license_key_id=? AND active=1'
             );

@@ -128,6 +128,11 @@ final class KeyManager
         string $customKey = ''
     ): array {
         PanelControl::assertGeneration($actor);
+
+        if (($actor['role'] ?? '') !== 'owner' && ($unlimitedExpiry || $unlimitedDevices)) {
+            throw new RuntimeException('Unlimited validity and unlimited devices are reserved for Owner.');
+        }
+
         if (!$unlimitedExpiry && $durationSeconds < 86400) {
             throw new RuntimeException('Key duration must be at least 1 day.');
         }
