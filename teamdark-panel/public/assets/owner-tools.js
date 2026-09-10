@@ -234,6 +234,14 @@
     document.body.setAttribute('data-teamdark-ui', '5');
   }
 
+  document.querySelectorAll('input[name="custom_key"]').forEach(function (input) {
+    input.minLength = 5;
+    input.maxLength = 80;
+    input.removeAttribute('pattern');
+    input.setAttribute('placeholder', 'Any custom key • 5–80 characters');
+    input.setAttribute('title', 'Any text, spaces or symbols • 5–80 characters');
+  });
+
   function copyText(value) {
     if (!value) return Promise.reject(new Error('Empty value'));
     if (navigator.clipboard && window.isSecureContext) {
