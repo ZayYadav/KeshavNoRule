@@ -65,20 +65,24 @@ try {
     $premiumDashboard = request($ownerClient,'/dashboard');
     check(
         $premiumDashboard['status']===200
-        && str_contains($premiumDashboard['body'],'data-teamdark-ui="5"')
+        && str_contains($premiumDashboard['body'],'data-teamdark-ui="7"')
         && str_contains($premiumDashboard['body'],'class="fx-grid"')
         && str_contains($premiumDashboard['body'],'class="cursor-aura"')
-        && str_contains($premiumDashboard['body'],'/assets/app.css?v=20260909-7')
-        && str_contains($premiumDashboard['body'],'/assets/app.js?v=20260909-7'),
-        'premium UI v5 shell and asset contract render on dashboard'
+        && str_contains($premiumDashboard['body'],'/assets/app.css?')
+        && str_contains($premiumDashboard['body'],'/assets/themes.css?')
+        && str_contains($premiumDashboard['body'],'/assets/owner-tools.js?')
+        && str_contains($premiumDashboard['body'],'/assets/app.js?'),
+        'current premium UI shell and assets render on dashboard'
     );
 
     $premiumLogin = request(client(),'/login');
     check(
         $premiumLogin['status']===200
-        && str_contains($premiumLogin['body'],'data-teamdark-ui="5"')
-        && str_contains($premiumLogin['body'],'auth-layout'),
-        'premium UI v5 guest authentication shell renders'
+        && str_contains($premiumLogin['body'],'data-teamdark-ui="7"')
+        && str_contains($premiumLogin['body'],'auth-layout')
+        && str_contains($premiumLogin['body'],'/assets/themes.js?')
+        && str_contains($premiumLogin['body'],'/assets/owner-tools.js?'),
+        'current premium guest authentication shell renders'
     );
 
     $splashSettings = PanelControl::settings();
