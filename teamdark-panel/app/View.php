@@ -39,9 +39,8 @@ final class View
         string $path
     ): string {
         $hrefPath = (string)(parse_url($href, PHP_URL_PATH) ?: $href);
-        $active = $path === $hrefPath
-            || ($hrefPath === '/keys' && str_starts_with($path, '/keys'))
-            || ($hrefPath === '/users' && str_starts_with($path, '/users'));
+        $qualified = str_contains($href, '?') || str_contains($href, '#');
+        $active = !$qualified && $path === $hrefPath;
 
         return '<a href="'.$href.'"'.($active ? ' class="active" aria-current="page"' : '').'>'
             .self::icon($icon).'<span>'.$label.'</span>'
