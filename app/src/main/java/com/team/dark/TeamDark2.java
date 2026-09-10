@@ -392,7 +392,11 @@ public class TeamDark2 extends AppCompatActivity {
             if (progressBar != null) progressBar.setVisibility(View.GONE);
             if (okButton != null) {
                 okButton.setVisibility(View.VISIBLE);
-                TeamDark7.applyTouchBounce(okButton, () -> dismissLoadingDialog());
+                okButton.setOnTouchListener(null);
+                okButton.setOnClickListener(v -> {
+                    TeamDark7.getInstance().playClick();
+                    dismissLoadingDialog();
+                });
             }
             if (loadingText != null) loadingText.setText("Access Denied: " + message);
         } else {
