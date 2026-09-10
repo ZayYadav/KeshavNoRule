@@ -1,4 +1,4 @@
-name: TeamDark Panel PHP Lint
+name: TeamDark Panel Audit
 
 on:
   pull_request:
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  php-lint:
+  panel-audit:
     runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
@@ -29,21 +29,74 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo_mysql, openssl, json
+          extensions: pdo_mysql, openssl, json, fileinfo
           coverage: none
 
-      - name: Lint all TeamDark panel PHP files
+      - name: Lint every TeamDark PHP file
         shell: bash
         run: |
           set -euo pipefail
-          find teamdark-panel -type f -name '*.php' -print0             | sort -z             | xargs -0 -n1 php -l
+          mapfile -d '' php_files < <(find teamdark-panel -type f -name '*.php' -print0 | sort -z)
+          test "${#php_files[@]}" -gt 0
+          for file in "${php_files[@]}"; do
+            php -l "$file"
+          done
 
-      - name: Validate premium panel JavaScript
+      - name: Syntax-check every TeamDark JavaScript file
         shell: bash
         run: |
           set -euo pipefail
-          node --check teamdark-panel/public/assets/app.js
-          grep -F 'TeamDark Premium UI v5' teamdark-panel/public/assets/app.css >/dev/null
-          grep -F 'data-teamdark-ui="5"' teamdark-panel/app/View.php >/dev/null
-          grep -F '/assets/app.css?v=20260909-7' teamdark-panel/app/View.php >/dev/null
-          grep -F '/assets/app.js?v=20260909-7' teamdark-panel/app/View.php >/dev/null
+          mapfile -d '' js_files < <(find teamdark-panel/public/assets -type f -name '*.js' -print0 | sort -z)
+          test "${#js_files[@]}" -gt 0
+          for file in "${js_files[@]}"; do
+            node --check "$file"
+          done
+
+      - name: Verify private vault route ordering and controllers
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f teamdark-panel/public/vault.php
+          test -f teamdark-panel/public/file-download.php
+          test -f teamdark-panel/app/UploadManager.php
+          test -f teamdark-panel/storage/private_uploads/.htaccess
+
+          grep -F 'files/download/?$ public/file-download.php' teamdark-panel/.htaccess >/dev/null
+          grep -F 'files(?:/.*)?$ public/vault.php' teamdark-panel/.htaccess >/dev/null
+          grep -F 'files/download/?$ file-download.php' teamdark-panel/public/.htaccess >/dev/null
+          grep -F 'files(?:/.*)?$ vault.php' teamdark-panel/public/.htaccess >/dev/null
+
+          root_download=$(grep -n -F 'files/download/?$ public/file-download.php' teamdark-panel/.htaccess | head -1 | cut -d: -f1)
+          root_catchall=$(grep -n -F 'files(?:/.*)?$ public/vault.php' teamdark-panel/.htaccess | head -1 | cut -d: -f1)
+          public_download=$(grep -n -F 'files/download/?$ file-download.php' teamdark-panel/public/.htaccess | head -1 | cut -d: -f1)
+          public_catchall=$(grep -n -F 'files(?:/.*)?$ vault.php' teamdark-panel/public/.htaccess | head -1 | cut -d: -f1)
+          test "$root_download" -lt "$root_catchall"
+          test "$public_download" -lt "$public_catchall"
+
+      - name: Verify relaxed password and key editor wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'RewriteRule ^register/?$ public/register-relaxed.php' teamdark-panel/.htaccess >/dev/null
+          grep -F 'password-actions.php' teamdark-panel/.htaccess >/dev/null
+          grep -F 'RewriteRule ^key-edit/?$ public/key-edit.php' teamdark-panel/.htaccess >/dev/null
+          grep -F "strlen(\$password) >= 1" teamdark-panel/public/password-actions.php >/dev/null
+          grep -F 'KeyManager::price' teamdark-panel/app/KeyEditor.php >/dev/null
+          grep -F "'KeyManager'" teamdark-panel/public/key-edit.php >/dev/null
+
+      - name: Guard the native Connect API contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F "\$game = isset(\$_POST['game'])" teamdark-panel/public/connect.php >/dev/null
+          grep -F "\$userKey = isset(\$_POST['user_key'])" teamdark-panel/public/connect.php >/dev/null
+          grep -F "\$serial = isset(\$_POST['serial'])" teamdark-panel/public/connect.php >/dev/null
+          grep -F 'LoaderAuthService::authenticate' teamdark-panel/public/connect.php >/dev/null
+          grep -F "if (\$method === 'GET' || \$method === 'HEAD')" teamdark-panel/public/connect.php >/dev/null
+
+      - name: Verify private storage is not web-addressable
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'RewriteRule ^(?:app|database|bin|storage|vendor|tests|docs-src)' teamdark-panel/.htaccess >/dev/null
+          grep -E 'Require all denied|Deny from all' teamdark-panel/storage/private_uploads/.htaccess >/dev/null
