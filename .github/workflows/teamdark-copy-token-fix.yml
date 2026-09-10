@@ -1,0 +1,304 @@
+name: TeamDark Copy and Token Fix
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/teamdark-copy-token-fix.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+
+      - name: Patch copy actions and native token compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # ---------- index.php: flash copy payload + generated key/referral copy ----------
+          p = Path('teamdark-panel/public/index.php')
+          text = p.read_text(encoding='utf-8')
+
+          old = """function flash(string $type, string $message): void
+          {
+              $_SESSION['flash'] = [$type, $message];
+          }
+          
+          function takeFlash(): string
+          {
+              $f = $_SESSION['flash'] ?? null;
+              unset($_SESSION['flash']);
+          
+              if (!$f) {
+                  return '';
+              }
+          
+              return '<div data-flash role=\"status\" class=\"alert '.($f[0] === 'ok' ? 'ok' : '').'\">'
+                  .View::e($f[1])
+                  .'</div>';
+          }
+          """
+          new = """function flash(
+              string $type,
+              string $message,
+              ?string $copyValue = null,
+              string $copyLabel = 'Copy'
+          ): void {
+              $_SESSION['flash'] = [$type, $message, $copyValue, $copyLabel];
+          }
+          
+          function takeFlash(): string
+          {
+              $f = $_SESSION['flash'] ?? null;
+              unset($_SESSION['flash']);
+          
+              if (!$f) {
+                  return '';
+              }
+          
+              $copyValue = isset($f[2]) && is_string($f[2]) ? $f[2] : '';
+              $copyLabel = isset($f[3]) && is_string($f[3]) && trim($f[3]) !== ''
+                  ? trim($f[3])
+                  : 'Copy';
+              $copyAttrs = $copyValue !== ''
+                  ? ' data-flash-copy=\"'.View::e($copyValue).'\" data-flash-copy-label=\"'.View::e($copyLabel).'\"'
+                  : '';
+          
+              return '<div data-flash role=\"status\" class=\"alert '.($f[0] === 'ok' ? 'ok' : '').'\"'.$copyAttrs.'>'
+                  .View::e($f[1])
+                  .'</div>';
+          }
+          """
+          if old not in text:
+              raise SystemExit('index.php flash block not found')
+          text = text.replace(old, new, 1)
+
+          old = """            flash(
+                          'ok',
+                          'Generated: '.$created['key'].' • Cost: '.$created['cost'].' credit(s).'
+                      );"""
+          new = """            flash(
+                          'ok',
+                          'Generated: '.$created['key'].' • Cost: '.$created['cost'].' credit(s).',
+                          (string)$created['key'],
+                          'Copy key'
+                      );"""
+          if old not in text:
+              raise SystemExit('generated key flash block not found')
+          text = text.replace(old, new, 1)
+
+          old = """            $invite = ReferralManager::create($user, input('role', 'user'));
+                      flash('ok', 'Referral created: '.$invite['code']);"""
+          new = """            $invite = ReferralManager::create($user, input('role', 'user'));
+                      flash(
+                          'ok',
+                          'Referral created: '.$invite['code'],
+                          (string)$invite['code'],
+                          'Copy referral'
+                      );"""
+          if old not in text:
+              raise SystemExit('referral flash block not found')
+          text = text.replace(old, new, 1)
+          p.write_text(text, encoding='utf-8')
+
+          # ---------- app.js: dedicated Copy button in success dialog ----------
+          p = Path('teamdark-panel/public/assets/app.js')
+          js = p.read_text(encoding='utf-8')
+
+          old = """      '<div class=\"ui-dialog-actions\">' +
+                  '<button type=\"button\" class=\"ghost\" data-dialog-cancel>Cancel</button>' +
+                  '<button type=\"button\" class=\"primary\" data-dialog-ok>Continue</button>' +
+                '</div>' +"""
+          new = """      '<div class=\"ui-dialog-actions\">' +
+                  '<button type=\"button\" class=\"ghost\" data-dialog-copy hidden>Copy</button>' +
+                  '<button type=\"button\" class=\"ghost\" data-dialog-cancel>Cancel</button>' +
+                  '<button type=\"button\" class=\"primary\" data-dialog-ok>Continue</button>' +
+                '</div>' +"""
+          if old not in js:
+              raise SystemExit('app.js dialog actions block not found')
+          js = js.replace(old, new, 1)
+
+          old = """      var cancel = dialog.querySelector('[data-dialog-cancel]');
+                var ok = dialog.querySelector('[data-dialog-ok]');"""
+          new = """      var copy = dialog.querySelector('[data-dialog-copy]');
+                var cancel = dialog.querySelector('[data-dialog-cancel]');
+                var ok = dialog.querySelector('[data-dialog-ok]');"""
+          if old not in js:
+              raise SystemExit('app.js ask buttons block not found')
+          js = js.replace(old, new, 1)
+
+          old = """      ok.textContent = options.okText || 'Continue';
+                cancel.textContent = options.cancelText || 'Cancel';
+                cancel.hidden = options.cancel === false;"""
+          new = """      ok.textContent = options.okText || 'Continue';
+                cancel.textContent = options.cancelText || 'Cancel';
+                cancel.hidden = options.cancel === false;
+                if (copy) {
+                  copy.hidden = !options.copyValue;
+                  copy.textContent = options.copyText || 'Copy';
+                  copy.classList.remove('copied');
+                }"""
+          if old not in js:
+              raise SystemExit('app.js ask labels block not found')
+          js = js.replace(old, new, 1)
+
+          old = """        ok.onclick = null;
+                  cancel.onclick = null;"""
+          new = """        ok.onclick = null;
+                  cancel.onclick = null;
+                  if (copy) copy.onclick = null;"""
+          if old not in js:
+              raise SystemExit('app.js finish cleanup block not found')
+          js = js.replace(old, new, 1)
+
+          old = """      ok.onclick = function () { finish(true); };
+                cancel.onclick = function () { finish(false); };
+                setTimeout(function () { ok.focus(); }, 20);"""
+          new = """      if (copy) {
+                  copy.onclick = function () {
+                    copyText(options.copyValue || '');
+                    copy.textContent = 'Copied ✓';
+                    copy.classList.add('copied');
+                    setTimeout(function () {
+                      if (copy && dialog.classList.contains('show')) {
+                        copy.textContent = options.copyText || 'Copy';
+                        copy.classList.remove('copied');
+                      }
+                    }, 1200);
+                  };
+                }
+                ok.onclick = function () { finish(true); };
+                cancel.onclick = function () { finish(false); };
+                setTimeout(function () { (copy && !copy.hidden ? copy : ok).focus(); }, 20);"""
+          if old not in js:
+              raise SystemExit('app.js ask onclick block not found')
+          js = js.replace(old, new, 1)
+
+          old = """    ask({
+                title: okFlash ? 'Success' : 'Action failed',
+                message: flash.textContent.trim(),
+                icon: okFlash ? '✓' : '!',
+                okText: 'OK',
+                cancel: false
+              });"""
+          new = """    var flashCopy = flash.getAttribute('data-flash-copy') || '';
+              var flashCopyLabel = flash.getAttribute('data-flash-copy-label') || 'Copy';
+              ask({
+                title: okFlash ? 'Success' : 'Action failed',
+                message: flash.textContent.trim(),
+                icon: okFlash ? '✓' : '!',
+                okText: 'OK',
+                cancel: false,
+                copyValue: flashCopy,
+                copyText: flashCopyLabel
+              });"""
+          if old not in js:
+              raise SystemExit('app.js flash dialog block not found')
+          js = js.replace(old, new, 1)
+          p.write_text(js, encoding='utf-8')
+
+          # ---------- LoaderAuthService: pin response token to exact current native contract ----------
+          cpp = Path('app/src/main/jni/main.cpp').read_text(encoding='utf-8')
+          matches = re.findall(r'auth\s*\+=\s*oxorany\(\"([^\"]+)\"\);', cpp)
+          if len(matches) != 1:
+              raise SystemExit(f'Expected exactly one native auth secret, found {len(matches)}')
+          native_secret = matches[0]
+          if len(native_secret) < 24:
+              raise SystemExit('Native auth secret unexpectedly short')
+
+          p = Path('teamdark-panel/app/LoaderAuthService.php')
+          php = p.read_text(encoding='utf-8')
+
+          marker = """final class LoaderAuthService
+          {
+          """
+          escaped = native_secret.replace('\\', '\\\\').replace("'", "\\'")
+          replacement = """final class LoaderAuthService
+          {
+              // Compatibility secret pinned to the current TeamDarkLoader native verifier.
+              // It is never returned by HTML or API responses.
+              private const NATIVE_CONTRACT_SECRET = '""" + escaped + """';
+          
+          """
+          if marker not in php:
+              raise SystemExit('LoaderAuthService class marker not found')
+          php = php.replace(marker, replacement, 1)
+
+          old = """        $secret = (string)Config::get('teamdark_auth_secret', '');
+          
+                  if ($secret === '') {
+                      throw new RuntimeException(
+                          'TeamDark loader auth secret is not configured.'
+                      );
+                  }
+          
+                  // Exact TeamDarkLoader native contract:"""
+          new = """        $configured = (string)Config::get('teamdark_auth_secret', '');
+                  $secret = self::NATIVE_CONTRACT_SECRET;
+          
+                  // A stale/placeholder server .env must not produce a valid-key token mismatch.
+                  // Keep logging the configuration problem so the Owner can repair .env later.
+                  if ($configured === '' || !hash_equals(
+                      hash('sha256', $secret),
+                      hash('sha256', $configured)
+                  )) {
+                      error_log('TeamDark /connect native token secret differs from server .env; using pinned native compatibility contract.');
+                  }
+          
+                  // Exact TeamDarkLoader native contract:"""
+          if old not in php:
+              raise SystemExit('LoaderAuthService makeToken secret block not found')
+          php = php.replace(old, new, 1)
+
+          old = """        if ((string)Config::get('teamdark_auth_secret', '') === '') {
+                      throw new RuntimeException(
+                          'TeamDark loader auth secret is not configured.'
+                      );
+                  }
+          
+                  $pdo = Database::pdo();"""
+          new = """        // Token generation is pinned to the current native contract in makeToken().
+                  // TEAMDARK_AUTH_SECRET remains a configuration health signal only.
+                  $pdo = Database::pdo();"""
+          if old not in php:
+              raise SystemExit('LoaderAuthService pre-auth secret block not found')
+          php = php.replace(old, new, 1)
+          p.write_text(php, encoding='utf-8')
+          PY
+
+      - name: Validate patched files
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l teamdark-panel/public/index.php
+          php -l teamdark-panel/app/LoaderAuthService.php
+          node --check teamdark-panel/public/assets/app.js
+          grep -F 'data-flash-copy' teamdark-panel/public/index.php >/dev/null
+          grep -F 'data-dialog-copy' teamdark-panel/public/assets/app.js >/dev/null
+          grep -F 'NATIVE_CONTRACT_SECRET' teamdark-panel/app/LoaderAuthService.php >/dev/null
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TeamDark CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add teamdark-panel/public/index.php \
+                  teamdark-panel/public/assets/app.js \
+                  teamdark-panel/app/LoaderAuthService.php
+          git diff --cached --check
+          git commit -m 'Add copy actions and fix native token verification'
+          git push origin HEAD:TeamDarkLoader
