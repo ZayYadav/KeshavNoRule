@@ -118,6 +118,23 @@ CALL td_add_index(
   'ALTER TABLE users ADD UNIQUE INDEX uq_users_telegram_chat(telegram_chat_id)'
 );
 
+CREATE TABLE IF NOT EXISTS user_uploads (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id BIGINT UNSIGNED NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  storage_name VARCHAR(96) NOT NULL UNIQUE,
+  extension VARCHAR(8) NOT NULL,
+  mime_type VARCHAR(120) NOT NULL DEFAULT 'application/octet-stream',
+  size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  sha256 CHAR(64) NOT NULL,
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_upload_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_upload_user(user_id),
+  INDEX idx_upload_updated(updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS referral_invites (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(40) NOT NULL UNIQUE,
