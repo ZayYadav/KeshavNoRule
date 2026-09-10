@@ -118,7 +118,11 @@ $pdo->prepare(
 )->execute([$password, (int)$owner['id'], (int)$owner['id']]);
 $referredId = (int)$pdo->lastInsertId();
 $granted = AppRegistry::grantReferralToUser($pdo, (int)$invite['id'], $referredId, (int)$owner['id']);
-multiCheck(count($granted) === 2, 'referral app APIs automatically attach to registered account');
+$expectedGranted = array_map('intval', $validatedInvite['app_ids']);
+$actualGranted = array_map('intval', $granted);
+sort($expectedGranted, SORT_NUMERIC);
+sort($actualGranted, SORT_NUMERIC);
+multiCheck($actualGranted === $expectedGranted, 'registration grants exactly the App APIs selected on the referral');
 $balanceGrant = ReferralManager::grantInviteBalanceToUser($pdo, $invite, $referredId);
 multiCheck($balanceGrant === 250, 'referral starting balance is redeemed exactly once by registration flow');
 $balanceQ = $pdo->prepare('SELECT balance FROM users WHERE id=?');
@@ -131,6 +135,16 @@ multiCheck((int)$ledgerQ->fetchColumn() === 1, 'referral balance grant is audita
 $grantCountQ = $pdo->prepare('SELECT COUNT(*) FROM user_app_access WHERE user_id=?');
 $grantCountQ->execute([$referredId]);
 multiCheck((int)$grantCountQ->fetchColumn() === 2, 'registered account has both allotted app APIs');
+$referredQ = $pdo->prepare('SELECT * FROM users WHERE id=? LIMIT 1');
+$referredQ->execute([$referredId]);
+$referredUser = $referredQ->fetch();
+$visibleToReferredUser = AppRegistry::activeForUser($referredUser ?: []);
+$visibleIds = array_map(static fn(array $app): int => (int)$app['id'], $visibleToReferredUser);
+sort($visibleIds, SORT_NUMERIC);
+multiCheck($visibleIds === $expectedGranted, 'My App APIs exposes only the referral-allotted App APIs to the registered user');
+foreach ($visibleToReferredUser as $visibleApp) {
+    multiCheck(str_contains(AppRegistry::endpointUrl($visibleApp), '/connect/'), 'registered user can see each allotted Connect endpoint');
+}
 
 $oldToken = (string)$appB['endpoint_token'];
 $rotated = AppRegistry::rotateEndpoint($owner, (int)$appB['id'], 'rotated');
