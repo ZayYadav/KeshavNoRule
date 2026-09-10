@@ -1,0 +1,44 @@
+name: Fix Vault Require Once
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/fix-vault-require-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+      - name: Make vault bootstraps idempotent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          paths = [
+              Path('teamdark-panel/public/vault.php'),
+              Path('teamdark-panel/public/file-download.php'),
+          ]
+          old = "    require $root.'/app/'.$file.'.php';"
+          new = "    require_once $root.'/app/'.$file.'.php';"
+          for p in paths:
+              s = p.read_text()
+              if old not in s:
+                  raise SystemExit(f'expected bootstrap require not found in {p}')
+              p.write_text(s.replace(old, new, 1))
+          PY
+          php -l teamdark-panel/public/vault.php
+          php -l teamdark-panel/public/file-download.php
+          git config user.name 'TeamDark CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add teamdark-panel/public/vault.php teamdark-panel/public/file-download.php
+          git commit -m 'Fix duplicate class loading in Binary Vault'
+          git push origin HEAD:TeamDarkLoader
