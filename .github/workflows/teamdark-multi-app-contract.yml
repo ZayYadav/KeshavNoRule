@@ -119,6 +119,16 @@ jobs:
         shell: bash
         run: php teamdark-panel/tests/multi_app_contract.php
 
+      - name: Verify schema rerun preserves scoped access
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(mysql -N -h127.0.0.1 -uroot -proot teamdark_multi_test -e "SELECT COUNT(*) FROM user_app_access WHERE app_id=1")" -eq 0
+          test "$(mysql -N -h127.0.0.1 -uroot -proot teamdark_multi_test -e "SELECT COUNT(*) FROM referral_app_access WHERE app_id=1")" -eq 0
+          mysql -h127.0.0.1 -uroot -proot teamdark_multi_test < teamdark-panel/database/schema.sql
+          test "$(mysql -N -h127.0.0.1 -uroot -proot teamdark_multi_test -e "SELECT COUNT(*) FROM user_app_access WHERE app_id=1")" -eq 0
+          test "$(mysql -N -h127.0.0.1 -uroot -proot teamdark_multi_test -e "SELECT COUNT(*) FROM referral_app_access WHERE app_id=1")" -eq 0
+
       - name: Start HTTP contract server
         shell: bash
         run: |
@@ -178,6 +188,9 @@ jobs:
           grep -F "'/owner/apps', 'App APIs'" teamdark-panel/app/View.php >/dev/null
           grep -F 'name="app_ids[]"' teamdark-panel/public/index.php >/dev/null
           grep -F 'name="app_id"' teamdark-panel/public/index.php >/dev/null
+          grep -F 'public static function lockForRegistration' teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F '@td_user_app_access_existed' teamdark-panel/database/schema.sql >/dev/null
+          grep -F '@td_referral_app_access_existed' teamdark-panel/database/schema.sql >/dev/null
 
       - name: Show HTTP log on failure
         if: failure()
