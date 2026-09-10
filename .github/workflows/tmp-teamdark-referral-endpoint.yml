@@ -21,7 +21,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply production patch
-        run: python3 .github/tmp-teamdark-referral-endpoint-patch.py
+        run: |
+          python3 .github/tmp-teamdark-referral-endpoint-patch.py
+          python3 .github/tmp-teamdark-referral-endpoint-fix.py
 
       - name: PHP lint
         shell: bash
