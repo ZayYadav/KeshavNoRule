@@ -1,0 +1,45 @@
+name: Fix Vault Sidebar
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/fix-vault-sidebar.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+
+      - name: Add permanent Binary Vault nav item
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('teamdark-panel/app/View.php')
+          s = p.read_text()
+          old = """        $nav = '<div class=\"nav-group\"><span class=\"nav-label\">Workspace</span>'\n            .self::navLink('/dashboard', 'Overview', 'dashboard', $path)\n            .self::navLink('/keys', 'License keys', 'keys', $path)\n            .'</div>';"""
+          new = """        $nav = '<div class=\"nav-group\"><span class=\"nav-label\">Workspace</span>'\n            .self::navLink('/dashboard', 'Overview', 'dashboard', $path)\n            .self::navLink('/keys', 'License keys', 'keys', $path)\n            .self::navLink('/files', 'Binary Vault', 'spark', $path)\n            .'</div>';"""
+          if old not in s:
+              raise SystemExit('Expected navigation block not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          php -l teamdark-panel/app/View.php
+          grep -F "self::navLink('/files', 'Binary Vault'" teamdark-panel/app/View.php
+
+      - name: Commit permanent vault nav
+        shell: bash
+        run: |
+          git config user.name 'TeamDark CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add teamdark-panel/app/View.php
+          git diff --cached --quiet && exit 0
+          git commit -m 'Add permanent Binary Vault sidebar link'
+          git push origin HEAD:TeamDarkLoader
