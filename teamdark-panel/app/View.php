@@ -64,11 +64,13 @@ final class View
             $duration = 2400;
         }
 
+        $brandName = self::e(trim((string)($settings['brand_name'] ?? '')) ?: (string)Config::get('app_name'));
+        $brandMark = self::e(strtoupper(trim((string)($settings['brand_mark'] ?? 'TD'))) ?: 'TD');
         $title = self::e((string)($settings['splash_title'] ?? 'TEAM DARK'));
         $subtitle = self::e((string)($settings['splash_subtitle'] ?? 'Secure control plane'));
         $stars = str_repeat('<i></i>', 18);
 
-        return '<div class="td-splash" data-site-splash data-splash-version="'.self::e($version).'" data-splash-duration="'.$duration.'" role="dialog" aria-modal="true" aria-label="Team Dark cinematic opening">'
+        return '<div class="td-splash" data-site-splash data-splash-version="'.self::e($version).'" data-splash-duration="'.$duration.'" role="dialog" aria-modal="true" aria-label="'.$brandName.' cinematic opening">'
             .'<div class="td-cinema-letterbox top" aria-hidden="true"></div>'
             .'<div class="td-cinema-letterbox bottom" aria-hidden="true"></div>'
             .'<div class="td-cinema-stars" aria-hidden="true">'.$stars.'</div>'
@@ -81,8 +83,8 @@ final class View
             .'<div class="td-cinema-vignette" aria-hidden="true"></div>'
             .'<div class="td-cinema-grain" aria-hidden="true"></div>'
             .'<div class="td-splash-stage">'
-            .'<div class="td-cinema-overline"><span>TEAM DARK</span><i></i><span>SECURE PREMIERE</span></div>'
-            .'<div class="td-splash-logo"><span>TD</span><i></i></div>'
+            .'<div class="td-cinema-overline"><span>'.$brandName.'</span><i></i><span>SECURE PREMIERE</span></div>'
+            .'<div class="td-splash-logo"><span>'.$brandMark.'</span><i></i></div>'
             .'<div class="td-splash-kicker"><i></i> ACCESS SEQUENCE INITIALIZING <i></i></div>'
             .'<h1>'.$title.'</h1>'
             .'<p>'.$subtitle.'</p>'
@@ -362,6 +364,7 @@ KOTLIN);
 
         if (in_array($user['role'], ['owner','admin'], true)) {
             $nav .= '<div class="nav-group"><span class="nav-label">Management</span>'
+                .self::navLink('/keys/extend', 'Extend Duration', 'keys', $path)
                 .self::navLink('/users', 'Manage Users', 'users', $path)
                 .self::navLink('/users#referral-center', 'Referral Codes', 'users', $path)
                 .self::navLink('/users#balance-center', 'Balance', 'spark', $path);
@@ -396,10 +399,10 @@ KOTLIN);
 
         if (($settings['announcement'] ?? '') !== '') {
             $notice .= '<section class="announcement premium-announcement" role="status">'
-                .'<div class="announcement-mark">TD</div>'
+                .'<div class="announcement-mark">'.$brandMark.'</div>'
                 .'<div class="announcement-copy"><span class="eyebrow">OFFICIAL ANNOUNCEMENT</span>'
                 .'<strong>'.self::e((string)$settings['announcement']).'</strong>'
-                .'<small>Team Dark • '.self::e((string)($settings['announcement_published_at'] ?: 'Official update')).'</small></div>'
+                .'<small>'.$app.' • '.self::e((string)($settings['announcement_published_at'] ?: 'Official update')).'</small></div>'
                 .'<span class="announcement-live"><i></i> LIVE</span></section>';
         }
 
@@ -416,7 +419,7 @@ KOTLIN);
             .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
             .'<div class="cursor-aura" aria-hidden="true"></div>'
             .'<div class="app-layout"><aside class="sidebar" id="app-sidebar" aria-label="Primary navigation">'
-            .'<a class="sidebar-brand" href="/dashboard"><span class="brand-mark"><b>TD</b><i></i></span>'
+            .'<a class="sidebar-brand" href="/dashboard"><span class="brand-mark"><b>'.$brandMark.'</b><i></i></span>'
             .'<span><strong>'.$app.'</strong><small>'.$brandSubtitle.'</small></span></a>'
             .'<nav>'.$nav.'</nav>'
             .'<div class="sidebar-foot"><div class="system-state"><span></span><div><strong>Panel '.($settings['panel_online'] ? 'online' : 'offline').'</strong><small>Signed in as '.self::e($user['role']).'</small></div></div>'
@@ -426,7 +429,7 @@ KOTLIN);
             .'<button class="sidebar-scrim" type="button" data-sidebar-close aria-label="Close navigation"></button>'
             .'<div class="workspace"><header class="topbar"><div class="topbar-left">'
             .'<button class="mobile-menu" type="button" data-sidebar-toggle aria-controls="app-sidebar" aria-expanded="false">'
-            .self::icon('menu').'<span>Menu</span></button><div class="breadcrumb"><span>TeamDark</span>'
+            .self::icon('menu').'<span>Menu</span></button><div class="breadcrumb"><span>'.$app.'</span>'
             .self::icon('chevron').'<strong>'.$safeTitle.'</strong></div></div>'
             .'<div class="topbar-right">'.self::themePicker().'<div class="secure-pill"><span></span><b>Protected</b><i>Live security</i></div>'
             .'<div class="profile-chip"><span class="avatar">'.self::e($initial).'</span><div><strong>'.self::e($displayName).'</strong><small>'.$role.'</small></div></div></div></header>'

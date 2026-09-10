@@ -310,6 +310,7 @@ final class OwnerSystem
         $blocked = is_array($s['blocked_ip_rules'] ?? null) ? count($s['blocked_ip_rules']) : 0;
         $cards = [
             ['/owner/server','Server & Maintenance',($s['panel_online'] ? 'Online' : 'Offline').' • registrations '.($s['registration_open'] ? 'on' : 'off')],
+            ['/keys/extend','Extend Duration','Edit key validity through the existing entitlement-aware Key Editor'],
             ['/owner/device-policy','One Device / Device Policy',($s['force_one_device_new_keys'] ? 'One-device force ON' : 'Default '.(int)$s['default_max_devices'].' devices')],
             ['/owner/key-format','Key Format',(string)$s['generated_key_prefix'].' + '.(int)$s['generated_key_length'].' chars'],
             ['/owner/pricing','Pricing',self::effectiveDailyPrice($s).' credit(s) / day'],

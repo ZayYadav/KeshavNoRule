@@ -1044,7 +1044,7 @@ try {
             ]);
         }
     }
-    if ($method === 'GET' && (in_array($path, ['/dashboard','/keys','/keys/expired','/keys/devices','/users','/telegram-users','/activity','/owner/users'], true) || str_starts_with($path, '/owner/'))) {
+    if ($method === 'GET' && (in_array($path, ['/dashboard','/keys','/keys/expired','/keys/extend','/keys/devices','/users','/telegram-users','/activity','/owner/users'], true) || str_starts_with($path, '/owner/'))) {
         Security::audit((int)$user['id'], 'page_viewed', ['path'=>$path]);
     }
     if ($path === '/owner/system/save' && $method === 'POST') {
@@ -1467,7 +1467,8 @@ try {
         redirectTo('/dashboard');
     }
 
-    if (($path === '/keys' || $path === '/keys/expired') && $method === 'GET') {
+    if (in_array($path, ['/keys','/keys/expired','/keys/extend'], true) && $method === 'GET') {
+        $extendMode = $path === '/keys/extend';
         $filter = $path === '/keys/expired' ? 'expired' : 'current';
         $rows = KeyManager::visibleKeys($user, $filter);
 
@@ -1501,7 +1502,7 @@ try {
         $autoLength = max(8, min(32, (int)($keyPolicy['generated_key_length'] ?? 16)));
         $autoPreview = $autoPrefix.str_repeat('X', min($autoLength, 20)).($autoLength > 20 ? '…' : '');
 
-        $create = $filter === 'current'
+        $create = ($filter === 'current' && !$extendMode)
             ? '<div class="modal-backdrop" id="key-generator" data-modal="key-generator" aria-hidden="true">'
                 .'<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="key-generator-title">'
                 .'<div class="toolbar"><div><div class="eyebrow">TEAM DARK</div><h3 id="key-generator-title">Generate Key</h3></div>'
@@ -1560,6 +1561,7 @@ try {
 
             $actions = $canRevealSecret
                 ? '<button type="button" class="ghost compact" data-copy="'.View::e($plain).'">Copy</button>'
+                    .'<a class="ghost compact" href="/key-edit?id='.(int)$row['id'].'">Extend / Edit</a>'
                 : '<span class="tag">SECRET PROTECTED</span>';
 
             if ($row['status'] === 'disabled') {
@@ -1615,22 +1617,23 @@ try {
 
         $body = '<section class="hero keys-hero"><div>'
             .'<div class="eyebrow">LICENSE VAULT</div>'
-            .'<h1>'.($filter === 'expired' ? 'Expired Keys' : 'Keys').'</h1>'
-            .'<p class="muted">Self-owned keys with one-tap block, reset and delete controls.</p></div>'
-            .($filter === 'current'
+            .'<h1>'.($extendMode ? 'Extend Duration' : ($filter === 'expired' ? 'Expired Keys' : 'Keys')).'</h1>'
+            .'<p class="muted">'.($extendMode ? 'Select a key and open Extend / Edit to change its finite validity with the existing permission and credit rules.' : 'Self-owned keys with one-tap block, reset and delete controls.').'</p></div>'
+            .($filter === 'current' && !$extendMode
                 ? '<a class="primary generate-btn" href="#key-generator" data-open-modal="key-generator" role="button">+ Generate Key</a>'
                 : '')
             .'</section>'
             .takeFlash()
             .'<div class="tabs key-tabs">'
-            .'<a '.($filter === 'current' ? 'class="active"' : '').' href="/keys">Current</a>'
+            .'<a '.(!$extendMode && $filter === 'current' ? 'class="active"' : '').' href="/keys">Current</a>'
+            .'<a '.($extendMode ? 'class="active"' : '').' href="/keys/extend">Extend Duration</a>'
             .'<a '.($filter === 'expired' ? 'class="active"' : '').' href="/keys/expired">Expired</a>'
             .'</div>'
             .'<section class="key-grid">'.$cards.'</section>'
             .$create;
 
         View::page(
-            $filter === 'expired' ? 'Expired Keys' : 'Keys',
+            $extendMode ? 'Extend Duration' : ($filter === 'expired' ? 'Expired Keys' : 'Keys'),
             $body,
             $user
         );
