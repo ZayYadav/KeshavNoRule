@@ -75,6 +75,9 @@ final class Config
             'broadcast_retention_days' => max(7, min(3650, (int)$get('BROADCAST_RETENTION_DAYS', '30'))),
             'trusted_proxy_cidrs' => trim($get('TRUSTED_PROXY_CIDRS', '')),
             'token_ttl' => max(300, min(604800, (int)$get('API_TOKEN_TTL', '86400'))),
+            'cloudflare_cache_enabled' => strtolower($get('CLOUDFLARE_CACHE_ENABLED', 'false')) === 'true',
+            'cloudflare_zone_id' => trim($get('CLOUDFLARE_ZONE_ID', '')),
+            'cloudflare_api_token' => trim($get('CLOUDFLARE_API_TOKEN', '')),
         ];
 
         if (self::$data['app_key'] === '') {
