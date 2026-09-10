@@ -184,10 +184,10 @@ try {
         'panel audience receives live announcement banner'
     );
 
-    $settingsPage = request($ownerClient,'/owner/settings#announcements');
+    $settingsPage = request($ownerClient,'/owner/alerts');
     check(
         $settingsPage['status']===200
-        && str_contains($settingsPage['body'],'BROADCAST CENTER')
+        && str_contains($settingsPage['body'],'DELIVERY ENGINE')
         && str_contains($settingsPage['body'],'Contract broadcast announcement'),
         'premium broadcast center renders live announcement and history'
     );
