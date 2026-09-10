@@ -210,25 +210,57 @@ final class AppRegistry
         if ($appId <= 0 || $appId === self::OFFICIAL_ID) {
             throw new RuntimeException('Official API cannot be disabled.');
         }
-        $pdo = Database::pdo();
-        $q = $pdo->prepare("UPDATE app_registry SET status=? WHERE id=? AND is_official=0");
-        $q->execute([$enabled ? 'active' : 'disabled', $appId]);
-        if ($q->rowCount() < 1) throw new RuntimeException('Application API not found or already in that state.');
 
-        if (!$enabled) {
-            $pdo->prepare(
-                "DELETE ra FROM referral_app_access ra
-                 JOIN referral_invites ri ON ri.id=ra.referral_id
-                 WHERE ra.app_id=? AND ri.status='pending'"
-            )->execute([$appId]);
-            $pdo->exec(
-                "UPDATE referral_invites ri
-                 SET ri.status='revoked'
-                 WHERE ri.status='pending'
-                   AND NOT EXISTS (SELECT 1 FROM referral_app_access ra WHERE ra.referral_id=ri.id)"
+        $pdo = Database::pdo();
+        $pdo->beginTransaction();
+        try {
+            $q = $pdo->prepare(
+                'SELECT id,status,is_official FROM app_registry WHERE id=? LIMIT 1 FOR UPDATE'
             );
+            $q->execute([$appId]);
+            $app = $q->fetch();
+            if (!$app || (int)$app['is_official'] === 1) {
+                throw new RuntimeException('Application API not found.');
+            }
+
+            $next = $enabled ? 'active' : 'disabled';
+            if ((string)$app['status'] === $next) {
+                throw new RuntimeException('Application API is already in that state.');
+            }
+
+            $pdo->prepare('UPDATE app_registry SET status=? WHERE id=?')
+                ->execute([$next, $appId]);
+
+            if (!$enabled) {
+                $pdo->prepare(
+                    "DELETE ra FROM referral_app_access ra
+                     JOIN referral_invites ri ON ri.id=ra.referral_id
+                     WHERE ra.app_id=? AND ri.status='pending'"
+                )->execute([$appId]);
+                $pdo->exec(
+                    "UPDATE referral_invites ri
+                     SET ri.status='revoked'
+                     WHERE ri.status='pending'
+                       AND NOT EXISTS (
+                           SELECT 1 FROM referral_app_access ra
+                           WHERE ra.referral_id=ri.id
+                       )"
+                );
+            }
+
+            $pdo->commit();
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
         }
-        Security::audit((int)$actor['id'], 'app_api_status_changed', ['app_id'=>$appId,'enabled'=>$enabled]);
+
+        try {
+            Security::audit((int)$actor['id'], 'app_api_status_changed', [
+                'app_id'=>$appId,
+                'enabled'=>$enabled,
+            ]);
+        } catch (Throwable) {
+        }
     }
 
     public static function rotateEndpoint(array $actor, int $appId): array

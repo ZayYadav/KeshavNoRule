@@ -32,6 +32,19 @@ function regTakeFlash(): string
     return '<div data-flash role="status" class="alert '.(($f[0] ?? '') === 'ok' ? 'ok' : '').'">'.View::e((string)($f[1] ?? '')).'</div>';
 }
 
+function regSafeMessage(Throwable $e, string $fallback = 'Registration unavailable.'): string
+{
+    if ($e instanceof PDOException) {
+        error_log('TeamDark registration database failure at '.basename($e->getFile()).':'.$e->getLine());
+        return $fallback;
+    }
+    if ($e instanceof RuntimeException) {
+        $message = trim($e->getMessage());
+        return $message === '' ? $fallback : substr($message, 0, 300);
+    }
+    return $fallback;
+}
+
 function regValidName(string $name): bool
 {
     $name = trim($name);
@@ -72,6 +85,13 @@ try {
         exit;
     }
 
+    if (PanelControl::blocked(null)) {
+        http_response_code(503);
+        header('Retry-After: 300');
+        View::page('Maintenance', '<section class="auth"><div class="card"><div class="eyebrow">PANEL OFFLINE</div><h1>We will be back.</h1><p class="muted">'.View::e((string)PanelControl::settings()['message']).'</p></div></section>');
+        exit;
+    }
+
     if ($method === 'GET') {
         $ref = trim((string)($_GET['ref'] ?? ''));
         $flash = regTakeFlash();
@@ -81,7 +101,7 @@ try {
             try {
                 $invite = ReferralManager::validateForRegistration($ref);
             } catch (Throwable $e) {
-                $flash .= '<div class="alert">'.View::e($e->getMessage()).'</div>';
+                $flash .= '<div class="alert">'.View::e(regSafeMessage($e, 'Referral validation is temporarily unavailable.')).'</div>';
             }
         }
 
@@ -115,12 +135,22 @@ try {
     }
 
     Security::verifyCsrf($_POST['csrf'] ?? null);
+    if (!(bool)(PanelControl::settings()['registration_open'] ?? true)) {
+        regFlash('err', 'New registrations are paused by the owner.');
+        regRedirect('/register');
+    }
+    if (Security::ownerIpPolicyBlocked(null)) {
+        http_response_code(403);
+        regFlash('err', 'Registration is not available from this network.');
+        regRedirect('/register');
+    }
     Security::rateLimit('register-ip', 15, 3600);
 
     $ref = trim((string)($_POST['referral'] ?? ''));
     $name = trim((string)($_POST['name'] ?? ''));
     $username = strtolower(trim((string)($_POST['username'] ?? '')));
     $password = (string)($_POST['password'] ?? '');
+    $pdo = null;
 
     try {
         if (!regValidName($name)) {
@@ -133,25 +163,9 @@ try {
             throw new RuntimeException('Password must be between 1 and 200 characters.');
         }
 
-        $invite = ReferralManager::validateForRegistration($ref);
         $pdo = Database::pdo();
         $pdo->beginTransaction();
-
-        $lock = $pdo->prepare(
-            "SELECT i.*,u.role creator_role
-             FROM referral_invites i
-             JOIN users u ON u.id=i.created_by
-             WHERE i.id=? FOR UPDATE"
-        );
-        $lock->execute([(int)$invite['id']]);
-        $invite = $lock->fetch();
-
-        if (!$invite || $invite['status'] !== 'pending' || ($invite['expires_at'] && strtotime((string)$invite['expires_at']) <= time())) {
-            throw new RuntimeException('This referral is invalid, used, revoked or expired.');
-        }
-        if (!ReferralManager::creatorCanIssueRole((string)$invite['creator_role'], (string)$invite['role'])) {
-            throw new RuntimeException('This referral is no longer authorized.');
-        }
+        $invite = ReferralManager::lockForRegistration($pdo, $ref);
 
         $bonusesEnabled = (bool)Config::get('registration_bonuses_enabled', false);
         $signup = $bonusesEnabled ? (int)Config::get('signup_bonus') : 0;
@@ -201,7 +215,7 @@ try {
             'app_ids'=>$grantedAppIds,
         ]);
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
+        if ($pdo instanceof \PDO && $pdo->inTransaction()) $pdo->rollBack();
 
         if ($e instanceof PDOException) {
             error_log('TeamDark registration database failure at '.basename($e->getFile()).':'.$e->getLine());
@@ -222,11 +236,13 @@ try {
         'username'=>$username,
         'role'=>(string)$invite['role'],
         'referral'=>$ref,
-        'created_at'=>time(),
+        'signup_bonus'=>$signup,
+        'created_at'=>date('Y-m-d H:i:s'),
+        'created_ts'=>time(),
     ];
     regRedirect('/register/success');
 } catch (Throwable $e) {
     error_log('TeamDark registration controller error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
     http_response_code(400);
-    View::page('Registration unavailable', '<section class="auth"><div class="card"><h1>Registration unavailable</h1><div class="alert">'.View::e($e->getMessage()).'</div><a class="btn" href="/login">Go back</a></div></section>');
+    View::page('Registration unavailable', '<section class="auth"><div class="card"><h1>Registration unavailable</h1><div class="alert">'.View::e(regSafeMessage($e)).'</div><a class="btn" href="/login">Go back</a></div></section>');
 }

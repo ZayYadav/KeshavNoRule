@@ -95,8 +95,30 @@ final class ReferralManager
              LIMIT 1"
         );
         $q->execute([$code]);
-        $invite = $q->fetch();
+        return self::validateLoadedInvite($pdo, $q->fetch());
+    }
 
+    public static function lockForRegistration(\PDO $pdo, string $code): array
+    {
+        $code = trim($code);
+        if ($code === '' || strlen($code) > 80) {
+            throw new RuntimeException('A valid referral code is required.');
+        }
+
+        $q = $pdo->prepare(
+            "SELECT i.*,u.role AS creator_role,u.status AS creator_status
+             FROM referral_invites i
+             JOIN users u ON u.id=i.created_by
+             WHERE i.code=?
+             LIMIT 1
+             FOR UPDATE"
+        );
+        $q->execute([$code]);
+        return self::validateLoadedInvite($pdo, $q->fetch());
+    }
+
+    private static function validateLoadedInvite(\PDO $pdo, array|false $invite): array
+    {
         if (!$invite || ($invite['status'] ?? '') !== 'pending') {
             throw new RuntimeException('This referral is invalid, used, revoked or expired.');
         }
@@ -120,34 +142,26 @@ final class ReferralManager
         $appQ->execute([(int)$invite['id']]);
         $appIds = array_map('intval', $appQ->fetchAll(\PDO::FETCH_COLUMN) ?: []);
 
-        // Backward compatibility for legacy/directly-created referrals that
-        // predate app scoping: safely bind them to Official if the creator is
-        // still allowed to grant Official. New panel-created referrals always
-        // carry explicit app assignments.
-        if (!$appIds && AppRegistry::userHasApp(
-            (int)$invite['created_by'],
-            (string)$invite['creator_role'],
-            AppRegistry::OFFICIAL_ID
-        )) {
-            $pdo->prepare(
-                'INSERT IGNORE INTO referral_app_access(referral_id,app_id) VALUES(?,?)'
-            )->execute([(int)$invite['id'], AppRegistry::OFFICIAL_ID]);
-            $appIds = [AppRegistry::OFFICIAL_ID];
-        }
-
+        // Fail closed. Legacy referrals are backfilled exactly once by schema.sql.
+        // An invite that loses all active app mappings must never silently become Official.
         if (!$appIds) {
             throw new RuntimeException('This referral has no active application API assigned.');
         }
 
         if (($invite['creator_role'] ?? '') !== 'owner') {
-            foreach ($appIds as $appId) {
-                if (!AppRegistry::userHasApp(
-                    (int)$invite['created_by'],
-                    (string)$invite['creator_role'],
-                    $appId
-                )) {
-                    throw new RuntimeException('This referral contains application access that is no longer authorized.');
-                }
+            $placeholders = implode(',', array_fill(0, count($appIds), '?'));
+            $params = array_merge([(int)$invite['created_by']], $appIds);
+            $accessQ = $pdo->prepare(
+                "SELECT COUNT(DISTINCT ua.app_id)
+                 FROM user_app_access ua
+                 JOIN app_registry a ON a.id=ua.app_id
+                 WHERE ua.user_id=?
+                   AND a.status='active'
+                   AND ua.app_id IN (".$placeholders.")"
+            );
+            $accessQ->execute($params);
+            if ((int)$accessQ->fetchColumn() !== count($appIds)) {
+                throw new RuntimeException('This referral contains application access that is no longer authorized.');
             }
         }
 

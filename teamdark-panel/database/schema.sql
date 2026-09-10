@@ -141,6 +141,11 @@ ON DUPLICATE KEY UPDATE
   status=IF(is_official=1,'active',status),
   is_official=IF(id=1,1,is_official);
 
+SET @td_user_app_access_existed := (
+  SELECT COUNT(*) FROM information_schema.TABLES
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_app_access'
+);
+
 CREATE TABLE IF NOT EXISTS user_app_access (
   user_id BIGINT UNSIGNED NOT NULL,
   app_id BIGINT UNSIGNED NOT NULL,
@@ -157,7 +162,8 @@ CREATE TABLE IF NOT EXISTS user_app_access (
 
 -- Existing accounts keep the historical Official application automatically.
 INSERT IGNORE INTO user_app_access(user_id,app_id,granted_by,source)
-SELECT id,1,NULL,'migration' FROM users;
+SELECT id,1,NULL,'migration' FROM users
+WHERE @td_user_app_access_existed = 0;
 
 CREATE TABLE IF NOT EXISTS user_uploads (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -202,6 +208,11 @@ UPDATE referral_invites
 SET expires_at=DATE_ADD(created_at,INTERVAL 7 DAY)
 WHERE expires_at IS NULL AND status='pending';
 
+SET @td_referral_app_access_existed := (
+  SELECT COUNT(*) FROM information_schema.TABLES
+  WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='referral_app_access'
+);
+
 CREATE TABLE IF NOT EXISTS referral_app_access (
   referral_id BIGINT UNSIGNED NOT NULL,
   app_id BIGINT UNSIGNED NOT NULL,
@@ -214,7 +225,8 @@ CREATE TABLE IF NOT EXISTS referral_app_access (
 
 -- Existing pending/used referrals preserve old behavior by granting Official.
 INSERT IGNORE INTO referral_app_access(referral_id,app_id)
-SELECT id,1 FROM referral_invites;
+SELECT id,1 FROM referral_invites
+WHERE @td_referral_app_access_existed = 0;
 
 CREATE TABLE IF NOT EXISTS telegram_users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

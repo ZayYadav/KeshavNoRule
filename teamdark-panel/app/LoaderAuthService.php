@@ -88,6 +88,7 @@ final class LoaderAuthService
                 "SELECT k.*, u.status AS account_status,u.role AS account_role
                  FROM license_keys k
                  JOIN users u ON u.id=k.owner_user_id
+                 JOIN app_registry a ON a.id=k.app_id AND a.status='active'
                  WHERE k.key_hash IN (?,?) AND k.app_id=?
                  ORDER BY CASE WHEN k.key_hash=? THEN 0 ELSE 1 END
                  LIMIT 1

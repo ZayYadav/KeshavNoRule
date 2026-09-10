@@ -109,4 +109,51 @@ multiCheck((string)$rotated['endpoint_token'] !== $oldToken, 'owner can rotate c
 multiCheck(AppRegistry::resolveEndpoint($oldToken) === null, 'rotated old Connect URL stops resolving');
 multiCheck((int)(AppRegistry::resolveEndpoint((string)$rotated['endpoint_token'])['id'] ?? 0) === (int)$appB['id'], 'rotated new Connect URL resolves correctly');
 
+$ownerBetaKey = KeyManager::create(
+    $owner,
+    'Owner App Beta disable test',
+    86400,
+    false,
+    1,
+    false,
+    'TD-MULTI-APP-BETA-OWNER-KEY',
+    (int)$appB['id']
+);
+$isolationInvite = ReferralManager::create($owner, 'user', [(int)$appB['id']]);
+AppRegistry::setEnabled($owner, (int)$appB['id'], false);
+
+$disabledDirect = LoaderAuthService::authenticate(
+    'PUBG',
+    $ownerBetaKey['key'],
+    'MULTI-APP-DISABLED-BETA',
+    '127.0.0.1',
+    (int)$appB['id']
+);
+multiCheck(
+    ($disabledDirect['status'] ?? true) === false
+    && ($disabledDirect['reason'] ?? '') === 'Invalid Key',
+    'disabled app is rejected even through direct auth service calls'
+);
+
+$statusQ = $pdo->prepare('SELECT status FROM referral_invites WHERE id=?');
+$statusQ->execute([(int)$isolationInvite['id']]);
+multiCheck($statusQ->fetchColumn() === 'revoked', 'disabling the only app atomically revokes its pending referral');
+
+$failClosed = false;
+try {
+    ReferralManager::validateForRegistration((string)$isolationInvite['code']);
+} catch (RuntimeException $e) {
+    $failClosed = str_contains($e->getMessage(), 'invalid')
+        || str_contains($e->getMessage(), 'no active application API');
+}
+multiCheck($failClosed, 'referral without active app never falls back to Official');
+
+AppRegistry::setEnabled($owner, (int)$appB['id'], true);
+multiCheck(
+    (int)(AppRegistry::resolveEndpoint((string)$rotated['endpoint_token'])['id'] ?? 0) === (int)$appB['id'],
+    're-enabled app restores its existing custom Connect endpoint'
+);
+$statusQ->execute([(int)$isolationInvite['id']]);
+multiCheck($statusQ->fetchColumn() === 'revoked', 're-enabling app does not resurrect revoked referrals');
+
 echo "Multi-app API contract OK\n";

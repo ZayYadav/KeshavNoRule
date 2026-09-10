@@ -205,6 +205,9 @@ try {
         "INSERT INTO referral_invites(code,created_by,role,status)
          VALUES(?,?,'user','pending')"
     )->execute([$registrationRef, $owner['id']]);
+    $registrationInviteId = (int)$pdo->lastInsertId();
+    $pdo->prepare('INSERT INTO referral_app_access(referral_id,app_id) VALUES(?,1)')
+        ->execute([$registrationInviteId]);
 
     $registrationPage = request($registerClient,'/register?ref='.$registrationRef);
     $registrationPost = request($registerClient,'/register',[

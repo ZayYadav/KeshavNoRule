@@ -515,6 +515,8 @@ try {
                 'key'=>$allowPlaintextKeys ? $plainKey : $maskedKey,
                 'key_revealed'=>$allowPlaintextKeys,
                 'game'=>$row['game'],
+                'app_id'=>(int)($row['app_id_resolved'] ?? $row['app_id'] ?? AppRegistry::OFFICIAL_ID),
+                'app_name'=>(string)($row['app_name'] ?? 'Official'),
                 'owner'=>$row['owner_name'],
                 'label'=>$row['label'],
                 'status'=>$row['status'],
@@ -855,30 +857,7 @@ try {
         $pdo->beginTransaction();
 
         try {
-            $q = $pdo->prepare(
-                "SELECT i.id,i.role,i.created_by,i.expires_at,
-                        u.role creator_role,u.status creator_status
-                 FROM referral_invites i
-                 JOIN users u ON u.id=i.created_by
-                 WHERE i.code=?
-                   AND i.status='pending'
-                   AND (i.expires_at IS NULL OR i.expires_at>NOW())
-                 LIMIT 1
-                 FOR UPDATE"
-            );
-            $q->execute([$ref]);
-            $invite = $q->fetch();
-
-            if (
-                !$invite
-                || $invite['creator_status'] !== 'active'
-                || !ReferralManager::creatorCanIssueRole(
-                    (string)$invite['creator_role'],
-                    (string)$invite['role']
-                )
-            ) {
-                throw new RuntimeException('Invalid or already used referral code.');
-            }
+            $invite = ReferralManager::lockForRegistration($pdo, $ref);
 
             if (!in_array($invite['role'], ['admin','reseller','user'], true)) {
                 throw new RuntimeException('Invalid referral role.');
