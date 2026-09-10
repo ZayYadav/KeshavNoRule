@@ -67,7 +67,8 @@ try {
                 $app = AppRegistry::createApp(
                     $user,
                     trim((string)($_POST['name'] ?? '')),
-                    trim((string)($_POST['notes'] ?? ''))
+                    trim((string)($_POST['notes'] ?? '')),
+                    trim((string)($_POST['endpoint_prefix'] ?? ''))
                 );
                 $url = AppRegistry::endpointUrl($app);
                 appApiFlash('ok', 'Application API created: '.$app['name'], $url);
@@ -85,7 +86,11 @@ try {
             }
 
             if ($path === '/owner/apps/rotate') {
-                $app = AppRegistry::rotateEndpoint($user, (int)($_POST['app_id'] ?? 0));
+                $app = AppRegistry::rotateEndpoint(
+                    $user,
+                    (int)($_POST['app_id'] ?? 0),
+                    trim((string)($_POST['endpoint_prefix'] ?? ''))
+                );
                 appApiFlash('ok', 'Connect URL rotated. Old custom URL stops resolving immediately.', AppRegistry::endpointUrl($app));
                 appApiRedirect('/owner/apps');
             }
@@ -156,8 +161,10 @@ try {
             : '<form method="post" action="/owner/apps/toggle" class="inline" data-confirm="'.($isActive ? 'Disable this App API? Its endpoint will stop accepting keys.' : 'Enable this App API?').'">'
                 .View::csrf().'<input type="hidden" name="app_id" value="'.(int)$app['id'].'"><input type="hidden" name="enabled" value="'.($isActive ? '0' : '1').'">'
                 .'<button class="ghost compact '.($isActive ? 'warning' : '').'">'.($isActive ? 'Disable' : 'Enable').'</button></form>'
-                .'<form method="post" action="/owner/apps/rotate" class="inline" data-confirm="Rotate this Connect URL? The old URL will stop working immediately.">'
-                .View::csrf().'<input type="hidden" name="app_id" value="'.(int)$app['id'].'"><button class="ghost compact danger">Rotate URL</button></form>';
+                .'<form method="post" action="/owner/apps/rotate" class="inline endpoint-rotate-form" data-confirm="Rotate this Connect URL? The old URL will stop working immediately.">'
+                .View::csrf().'<input type="hidden" name="app_id" value="'.(int)$app['id'].'">'
+                .'<input class="control-input" name="endpoint_prefix" maxlength="24" pattern="[A-Za-z0-9](?:[A-Za-z0-9_-]{0,22}[A-Za-z0-9])?" placeholder="Prefix (optional)" title="1-24 letters, numbers, dash or underscore">'
+                .'<button class="ghost compact danger">Rotate URL</button></form>';
 
         $appCards .= '<article class="card system-module-card">'
             .'<div class="toolbar"><div><span class="eyebrow">'.($isOfficial ? 'OFFICIAL APP API' : 'REGISTERED APP API').'</span><h3>'.View::e((string)$app['name']).'</h3></div>'
@@ -195,9 +202,10 @@ try {
         .appApiTakeFlash()
         .'<div class="system-stats"><div><span>TOTAL APIs</span><b>'.count($apps).'</b></div><div><span>ACTIVE</span><b>'.$activeCount.'</b></div><div><span>CUSTOM</span><b>'.$customCount.'</b></div><div><span>ASSIGNMENTS</span><b>'.$totalAssigned.'</b></div></div>'
         .'<section class="card system-form"><span class="eyebrow">REGISTER NEW APP</span><h3>Create another Connect namespace</h3>'
-        .'<p class="muted">The Official app always keeps /connect. Every new app receives a random stable /connect/&lt;channel&gt; URL.</p>'
+        .'<p class="muted">The Official app always keeps /connect. For a custom App API you may choose the beginning of its channel; a secure random suffix is always appended.</p>'
         .'<form method="post" action="/owner/apps/create" class="stack">'.View::csrf()
         .'<div class="form-row"><div class="field"><label>App / API name</label><input name="name" maxlength="80" required placeholder="Example: TeamDark Lite"></div><div class="field"><label>Notes</label><input name="notes" maxlength="240" placeholder="Optional client/package note"></div></div>'
+        .'<div class="field"><label>Endpoint prefix <span class="optional">optional</span></label><input name="endpoint_prefix" maxlength="24" pattern="[A-Za-z0-9](?:[A-Za-z0-9_-]{0,22}[A-Za-z0-9])?" placeholder="Example: teamdark" title="1-24 letters, numbers, dash or underscore"><p class="hint">Example: teamdark → /connect/teamdark-&lt;secure-random&gt;. Leave blank to keep a fully random channel.</p></div>'
         .'<button class="primary">Create App API</button></form></section>'
         .'<section class="system-module-grid">'.$appCards.'</section>'
         .$userAccess

@@ -757,6 +757,18 @@ try {
 
         unset($_SESSION['registration_success']);
 
+        $registeredApiHtml = '';
+        foreach (($state['app_apis'] ?? []) as $appApi) {
+            if (!is_array($appApi)) continue;
+            $apiName = trim((string)($appApi['name'] ?? ''));
+            $apiEndpoint = trim((string)($appApi['endpoint'] ?? ''));
+            if ($apiName === '' || $apiEndpoint === '') continue;
+            $registeredApiHtml .= '<div class="system-preview"><span>'.View::e($apiName).'</span><code>'.View::e($apiEndpoint).'</code><button type="button" class="ghost compact" data-copy="'.View::e($apiEndpoint).'">Copy endpoint</button></div>';
+        }
+        if ($registeredApiHtml === '') {
+            $registeredApiHtml = '<div class="alert">Assigned App API details are available after login from My App APIs.</div>';
+        }
+
         $body = '<section class="auth registration-success"><div class="card">'
             .'<div class="success-mark">✓</div>'
             .'<div class="eyebrow">ACCOUNT CREATED</div>'
@@ -774,6 +786,7 @@ try {
             .'<div><span>Created</span><strong>'.View::e((string)$state['created_at']).'</strong></div>'
             .'<div><span>Password</span><strong>Saved securely • not displayed</strong></div>'
             .'</div>'
+            .'<div class="registration-api-access"><div class="eyebrow">ASSIGNED APP API ACCESS</div><h3>Your referral endpoints</h3><p class="muted">These are exactly the App APIs allotted to the referral used for this account.</p>'.$registeredApiHtml.'</div>'
             .'<div class="countdown-panel"><span class="security-orb">15</span>'
             .'<div><strong>Security review</strong><small>Continue unlocks after the countdown.</small></div></div>'
             .'<a class="primary wide countdown-action is-disabled" href="/login" aria-disabled="true" tabindex="-1" data-registration-countdown="15">OK • 15s</a>'
@@ -899,6 +912,14 @@ try {
                 $uid,
                 (int)$invite['created_by']
             );
+            $grantedAppMap = array_fill_keys($grantedAppIds, true);
+            $registrationApps = array_values(array_filter(
+                $invite['app_apis'] ?? [],
+                static fn(array $app): bool => isset($grantedAppMap[(int)($app['id'] ?? 0)])
+            ));
+            if (count($registrationApps) !== count($grantedAppIds)) {
+                throw new RuntimeException('Could not resolve the allotted App API details.');
+            }
             $referralGrant = ReferralManager::grantInviteBalanceToUser($pdo, $invite, $uid);
 
             $pdo->prepare(
@@ -977,6 +998,7 @@ try {
             'signup_bonus'=>$signup,
             'referral_balance'=>$referralGrant,
             'starting_balance'=>$signup + $referralGrant,
+            'app_apis'=>$registrationApps,
             'created_at'=>date('Y-m-d H:i:s'),
             'created_ts'=>time(),
         ];

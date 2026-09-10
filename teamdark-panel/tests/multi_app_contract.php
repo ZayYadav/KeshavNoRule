@@ -24,9 +24,11 @@ $official = AppRegistry::official();
 multiCheck((int)$official['id'] === AppRegistry::OFFICIAL_ID, 'official app API exists');
 multiCheck(str_ends_with(AppRegistry::endpointUrl($official), '/connect'), 'official endpoint remains /connect');
 
-$appA = AppRegistry::createApp($owner, 'Contract App Alpha', 'Multi-app contract A');
-$appB = AppRegistry::createApp($owner, 'Contract App Beta', 'Multi-app contract B');
+$appA = AppRegistry::createApp($owner, 'Contract App Alpha', 'Multi-app contract A', 'alpha');
+$appB = AppRegistry::createApp($owner, 'Contract App Beta', 'Multi-app contract B', 'beta');
 multiCheck((int)$appA['id'] !== (int)$appB['id'], 'custom app APIs are isolated records');
+multiCheck(str_starts_with((string)$appA['endpoint_token'], 'alpha-'), 'owner-selected endpoint prefix is preserved with random suffix');
+multiCheck(str_starts_with((string)$appB['endpoint_token'], 'beta-'), 'second owner-selected endpoint prefix is preserved with random suffix');
 multiCheck(AppRegistry::resolveEndpoint((string)$appA['endpoint_token'])['id'] === $appA['id'], 'custom endpoint resolves app A');
 multiCheck(AppRegistry::resolveEndpoint((string)$appB['endpoint_token'])['id'] === $appB['id'], 'custom endpoint resolves app B');
 
@@ -91,11 +93,24 @@ $revoked = LoaderAuthService::authenticate(
 multiCheck(($revoked['status'] ?? true) === false && ($revoked['reason'] ?? '') === 'Application Access Revoked', 'removing user app access suspends that app keys');
 
 AppRegistry::replaceUserAccess($owner, $userId, [(int)$appA['id'], (int)$appB['id']]);
+$missingSelectionRejected = false;
+try {
+    ReferralManager::create($owner, 'user', []);
+} catch (RuntimeException $e) {
+    $missingSelectionRejected = str_contains($e->getMessage(), 'Select at least one application API');
+}
+multiCheck($missingSelectionRejected, 'referral API selection is explicit and never silently falls back to Official');
+
 $invite = ReferralManager::create($owner, 'user', [(int)$appA['id'], (int)$appB['id']], 250);
 multiCheck((int)$invite['grant_balance'] === 250, 'referral stores a one-time starting balance grant');
 $countQ = $pdo->prepare('SELECT COUNT(*) FROM referral_app_access WHERE referral_id=?');
 $countQ->execute([(int)$invite['id']]);
 multiCheck((int)$countQ->fetchColumn() === 2, 'one referral can carry multiple app APIs');
+$validatedInvite = ReferralManager::validateForRegistration((string)$invite['code']);
+multiCheck(count($validatedInvite['app_apis'] ?? []) === 2, 'validated referral exposes exactly its allotted App API details');
+foreach ($validatedInvite['app_apis'] as $referralApp) {
+    multiCheck(str_contains((string)$referralApp['endpoint'], '/connect/'), 'validated referral exposes the allotted Connect endpoint');
+}
 
 $pdo->prepare(
     "INSERT INTO users(name,username,password_hash,role,balance,referral_code,referred_by,created_by,status)
@@ -118,8 +133,9 @@ $grantCountQ->execute([$referredId]);
 multiCheck((int)$grantCountQ->fetchColumn() === 2, 'registered account has both allotted app APIs');
 
 $oldToken = (string)$appB['endpoint_token'];
-$rotated = AppRegistry::rotateEndpoint($owner, (int)$appB['id']);
+$rotated = AppRegistry::rotateEndpoint($owner, (int)$appB['id'], 'rotated');
 multiCheck((string)$rotated['endpoint_token'] !== $oldToken, 'owner can rotate custom Connect URL');
+multiCheck(str_starts_with((string)$rotated['endpoint_token'], 'rotated-'), 'owner can choose the prefix when rotating a Connect URL');
 multiCheck(AppRegistry::resolveEndpoint($oldToken) === null, 'rotated old Connect URL stops resolving');
 multiCheck((int)(AppRegistry::resolveEndpoint((string)$rotated['endpoint_token'])['id'] ?? 0) === (int)$appB['id'], 'rotated new Connect URL resolves correctly');
 

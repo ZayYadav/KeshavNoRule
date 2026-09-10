@@ -255,14 +255,15 @@ final class ReferralManager
         }
 
         $appQ = $pdo->prepare(
-            "SELECT a.id
+            "SELECT a.id,a.name,a.endpoint_token,a.is_official,a.status
              FROM referral_app_access ra
              JOIN app_registry a ON a.id=ra.app_id
              WHERE ra.referral_id=? AND a.status='active'
              ORDER BY a.is_official DESC,a.id ASC"
         );
         $appQ->execute([(int)$invite['id']]);
-        $appIds = array_map('intval', $appQ->fetchAll(\PDO::FETCH_COLUMN) ?: []);
+        $appRows = $appQ->fetchAll() ?: [];
+        $appIds = array_map(static fn(array $app): int => (int)$app['id'], $appRows);
 
         // Fail closed. Legacy referrals are backfilled exactly once by schema.sql.
         // An invite that loses all active app mappings must never silently become Official.
@@ -288,6 +289,15 @@ final class ReferralManager
         }
 
         $invite['app_ids'] = $appIds;
+        $invite['app_apis'] = array_map(
+            static fn(array $app): array => [
+                'id'=>(int)$app['id'],
+                'name'=>(string)$app['name'],
+                'endpoint'=>AppRegistry::endpointUrl($app),
+                'is_official'=>(int)$app['is_official'] === 1,
+            ],
+            $appRows
+        );
         return $invite;
     }
 

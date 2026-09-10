@@ -116,10 +116,19 @@ try {
         }
 
         $referralGrantPreview = (int)($invite['grant_balance'] ?? 0);
+        $inviteApiPreview = '';
+        foreach (($invite['app_apis'] ?? []) as $appApi) {
+            if (!is_array($appApi)) continue;
+            $apiName = trim((string)($appApi['name'] ?? ''));
+            $apiEndpoint = trim((string)($appApi['endpoint'] ?? ''));
+            if ($apiName === '' || $apiEndpoint === '') continue;
+            $inviteApiPreview .= '<div class="system-preview"><span>'.View::e($apiName).'</span><code>'.View::e($apiEndpoint).'</code><button type="button" class="ghost compact" data-copy="'.View::e($apiEndpoint).'">Copy endpoint</button></div>';
+        }
         $body = '<section class="auth"><div class="card"><div class="eyebrow">SECURE REGISTRATION</div><h1>Create account</h1>'
             .$flash
             .'<p class="muted">Invite verified for a '.View::e((string)$invite['role']).' account.'
             .($referralGrantPreview > 0 ? ' Includes '.number_format($referralGrantPreview).' starting credits.' : '').'</p>'
+            .'<div class="registration-api-access"><div class="eyebrow">REFERRAL APP API</div><p class="muted">Registration will grant exactly the App API access selected by the referral creator.</p>'.$inviteApiPreview.'</div>'
             .'<form method="post" action="/register" class="stack" data-busy="Creating account…">'.View::csrf()
             .'<input type="hidden" name="referral" value="'.View::e($ref).'">'
             .'<div class="field"><label>Name</label><input name="name" minlength="2" maxlength="80" required autocomplete="name"></div>'
@@ -194,6 +203,14 @@ try {
             $uid,
             (int)$invite['created_by']
         );
+        $grantedAppMap = array_fill_keys($grantedAppIds, true);
+        $registrationApps = array_values(array_filter(
+            $invite['app_apis'] ?? [],
+            static fn(array $app): bool => isset($grantedAppMap[(int)($app['id'] ?? 0)])
+        ));
+        if (count($registrationApps) !== count($grantedAppIds)) {
+            throw new RuntimeException('Could not resolve the allotted App API details.');
+        }
         $referralGrant = ReferralManager::grantInviteBalanceToUser($pdo, $invite, $uid);
         $pdo->prepare("UPDATE referral_invites SET status='used',used_by=?,used_at=NOW() WHERE id=? AND status='pending'")
             ->execute([$uid, $invite['id']]);
@@ -243,6 +260,7 @@ try {
         'signup_bonus'=>$signup,
         'referral_balance'=>$referralGrant,
         'starting_balance'=>$signup + $referralGrant,
+        'app_apis'=>$registrationApps,
         'created_at'=>date('Y-m-d H:i:s'),
         'created_ts'=>time(),
     ];

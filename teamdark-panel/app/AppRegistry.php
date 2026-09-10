@@ -12,6 +12,7 @@ final class AppRegistry
 {
     public const OFFICIAL_ID = 1;
     public const MAX_REFERRAL_APPS = 25;
+    public const MAX_ENDPOINT_PREFIX = 24;
 
     public static function normalizeIds(mixed $raw): array
     {
@@ -92,7 +93,6 @@ final class AppRegistry
     public static function validateReferralApps(array $actor, mixed $raw): array
     {
         $ids = self::normalizeIds($raw);
-        if (!$ids) $ids = self::defaultReferralAppIds($actor);
         if (!$ids) throw new RuntimeException('Select at least one application API for this referral.');
 
         $allowed = [];
@@ -173,7 +173,27 @@ final class AppRegistry
         return $base !== '' ? $base.$path : $path;
     }
 
-    public static function createApp(array $actor, string $name, string $notes = ''): array
+    private static function normalizeEndpointPrefix(mixed $raw): string
+    {
+        $prefix = trim((string)$raw);
+        if ($prefix === '') return '';
+        if (
+            strlen($prefix) > self::MAX_ENDPOINT_PREFIX
+            || !preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9_-]{0,22}[A-Za-z0-9])?$/', $prefix)
+        ) {
+            throw new RuntimeException('Endpoint prefix must be 1-24 letters, numbers, dash or underscore, and start/end with a letter or number.');
+        }
+        return $prefix;
+    }
+
+    private static function newEndpointToken(mixed $rawPrefix = ''): string
+    {
+        $prefix = self::normalizeEndpointPrefix($rawPrefix);
+        $random = bin2hex(random_bytes($prefix === '' ? 16 : 12));
+        return $prefix === '' ? $random : $prefix.'-'.$random;
+    }
+
+    public static function createApp(array $actor, string $name, string $notes = '', string $endpointPrefix = ''): array
     {
         Auth::requireRole($actor, 'owner');
         $name = trim($name);
@@ -185,7 +205,7 @@ final class AppRegistry
 
         $pdo = Database::pdo();
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            $token = bin2hex(random_bytes(16));
+            $token = self::newEndpointToken($endpointPrefix);
             try {
                 $pdo->prepare(
                     "INSERT INTO app_registry(name,endpoint_token,notes,status,is_official,created_by)
@@ -263,7 +283,7 @@ final class AppRegistry
         }
     }
 
-    public static function rotateEndpoint(array $actor, int $appId): array
+    public static function rotateEndpoint(array $actor, int $appId, string $endpointPrefix = ''): array
     {
         Auth::requireRole($actor, 'owner');
         if ($appId <= 0 || $appId === self::OFFICIAL_ID) {
@@ -271,7 +291,7 @@ final class AppRegistry
         }
         $pdo = Database::pdo();
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            $token = bin2hex(random_bytes(16));
+            $token = self::newEndpointToken($endpointPrefix);
             try {
                 $q = $pdo->prepare(
                     "UPDATE app_registry SET endpoint_token=? WHERE id=? AND is_official=0"
