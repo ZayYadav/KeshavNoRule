@@ -1,0 +1,52 @@
+name: Apply TeamDark Multi App API
+
+on:
+  push:
+    branches:
+      - TeamDarkLoader
+    paths:
+      - '.github/workflows/apply-teamdark-multi-app-api.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: TeamDarkLoader
+
+      - name: Apply multi-app API patch
+        run: python3 scripts/apply_teamdark_multi_app_api.py
+
+      - name: Validate PHP JavaScript and wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -l teamdark-panel/app/AppRegistry.php
+          php -l teamdark-panel/app/ReferralManager.php
+          php -l teamdark-panel/app/KeyManager.php
+          php -l teamdark-panel/app/LoaderAuthService.php
+          php -l teamdark-panel/public/connect.php
+          php -l teamdark-panel/public/index.php
+          php -l teamdark-panel/public/register-relaxed.php
+          php -l teamdark-panel/public/app-api-manager.php
+          php -l teamdark-panel/app/View.php
+          php -l teamdark-panel/tests/multi_app_contract.php
+          grep -F 'CREATE TABLE IF NOT EXISTS app_registry' teamdark-panel/database/schema.sql >/dev/null
+          grep -F "AppRegistry::generationApp" teamdark-panel/app/KeyManager.php >/dev/null
+          grep -F 'AND k.app_id=?' teamdark-panel/app/LoaderAuthService.php >/dev/null
+          grep -F 'name="app_ids[]"' teamdark-panel/public/index.php >/dev/null
+          grep -F "'/owner/apps', 'App APIs'" teamdark-panel/app/View.php >/dev/null
+
+      - name: Commit application changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'TeamDark CI'
+          git config user.email 'actions@users.noreply.github.com'
+          git add teamdark-panel .github/workflows/teamdark-panel-php-lint.yml .github/workflows/teamdark-native-auth-contract.yml
+          git commit -m 'Add referral-scoped multi-app API isolation'
+          git push origin HEAD:TeamDarkLoader
