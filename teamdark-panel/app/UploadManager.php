@@ -377,7 +377,14 @@ final class UploadManager
     private static function purgeCdn(int $fileId): void
     {
         try {
-            if (class_exists(CdnCache::class)) {
+            if (!class_exists(CdnCache::class, false)) {
+                $helper = __DIR__.DIRECTORY_SEPARATOR.'CdnCache.php';
+                if (is_file($helper)) {
+                    require_once $helper;
+                }
+            }
+
+            if (class_exists(CdnCache::class, false)) {
                 CdnCache::purgeVaultFile($fileId);
             }
         } catch (Throwable $e) {
