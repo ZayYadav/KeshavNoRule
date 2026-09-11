@@ -1,7 +1,9 @@
 package com.team.dark;
 
+import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
+import android.os.Bundle;
 import android.util.Log;
 
 import com.team.dark.utils.TeamDark5;
@@ -36,6 +38,7 @@ public class TeamDark1 extends Application {
     private static final AtomicBoolean CALLBACK_REGISTERED = new AtomicBoolean(false);
     private static final AtomicBoolean SERVER_LOADER_LOADING = new AtomicBoolean(false);
     private static final AtomicBoolean SERVER_LOADER_LOADED = new AtomicBoolean(false);
+    private static final AtomicBoolean TAMPER_CALLBACK_REGISTERED = new AtomicBoolean(false);
     private static volatile boolean HOST_SIGNATURE_CHECKED = false;
     private static volatile boolean HOST_SIGNATURE_VALID = false;
 
@@ -68,6 +71,8 @@ public class TeamDark1 extends Application {
         HOST_SIGNATURE_CHECKED = true;
         if (!signatureValid) {
             Log.e(TAG, "Host APK package/signature verification failed before Elite attach");
+            // Do not terminate here. The launcher Activity must be allowed to reach a
+            // real window so TeamDark9 can present the tamper dialog first.
             return;
         }
 
@@ -186,11 +191,45 @@ public class TeamDark1 extends Application {
         }
     }
 
+    private void registerTamperDialogLifecycle() {
+        if (!TAMPER_CALLBACK_REGISTERED.compareAndSet(false, true)) return;
+
+        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
+            @Override
+            public void onActivityCreated(Activity activity, Bundle savedInstanceState) {}
+
+            @Override
+            public void onActivityStarted(Activity activity) {}
+
+            @Override
+            public void onActivityResumed(Activity activity) {
+                if (!isHostSignatureVerified()) {
+                    TeamDark9.showIntegrityFailure(
+                            activity,
+                            "MY SON GO AND DRINK SOME MILK FROM YOUR MOM BOOBS BECAUSE YOUR FATHER IS PARALLAX MY SON.");
+                }
+            }
+
+            @Override
+            public void onActivityPaused(Activity activity) {}
+
+            @Override
+            public void onActivityStopped(Activity activity) {}
+
+            @Override
+            public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
+
+            @Override
+            public void onActivityDestroyed(Activity activity) {}
+        });
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
         if (!isHostSignatureVerified()) {
             Log.e(TAG, "Skipping Elite initialization because host signature is invalid");
+            registerTamperDialogLifecycle();
             return;
         }
         ParallaxELiteInstaller.get().doCreate();
