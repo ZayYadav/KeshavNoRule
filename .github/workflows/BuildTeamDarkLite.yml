@@ -122,21 +122,43 @@ jobs:
             exit 1
           fi
 
-          # Signature must be checked once before Elite installs PackageManager hooks.
-          grep -F 'signatureValid = TeamDark2.nativeVerifySignature(base);' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          # Signer check must be Java-only before Elite/native startup so re-signed APKs
+          # can always reach the framework tamper dialog instead of crashing first.
+          grep -F 'signatureValid = TeamDarkSigner.verify(base);' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
+          grep -F 'return TeamDark1.isHostSignatureVerified() && TeamDarkSigner.verify(this);' app/src/main/java/com/team/dark/TeamDarkGateActivity.java >/dev/null
+          grep -F '95d42274430c198e20056da00e5e4dcafd5935d93d2e4380e2788b1b7ff8a32f' app/src/main/java/com/team/dark/TeamDarkSigner.java >/dev/null
+          grep -F 'android:name=".TeamDarkGateActivity"' app/src/main/AndroidManifest.xml >/dev/null
+          grep -F 'android:theme="@style/TamperGateTheme"' app/src/main/AndroidManifest.xml >/dev/null
+          grep -F 'android:name=".TeamDark2"' app/src/main/AndroidManifest.xml >/dev/null
           grep -F 'TeamDark1.isHostSignatureVerified() && nativeCustomIntegrity(this)' app/src/main/java/com/team/dark/TeamDark2.java >/dev/null
           grep -F 'nativeIntegrityOk = TeamDark1.isHostSignatureVerified()' app/src/main/java/com/team/dark/TeamDark3.java >/dev/null
           grep -F '&& TeamDark1.isHostSignatureVerified()' app/src/main/java/com/team/dark/TeamDark9.java >/dev/null
-          if grep -n -E 'nativeVerifySignature\((this|activity)\)'               app/src/main/java/com/team/dark/TeamDark3.java               app/src/main/java/com/team/dark/TeamDark9.java; then
+
+          if grep -F 'SECURITY CHECK' app/src/main/java/com/team/dark/TeamDarkGateActivity.java; then
+            echo "Visible security splash text still exists in launcher gate." >&2
+            exit 1
+          fi
+          if grep -n -E 'nativeVerifySignature\((base|this|activity)\)' \
+              app/src/main/java/com/team/dark/TeamDark1.java \
+              app/src/main/java/com/team/dark/TeamDarkGateActivity.java; then
+            echo "Native signature lookup still runs before the tamper dialog gate." >&2
+            exit 1
+          fi
+          if grep -n -E 'nativeVerifySignature\((this|activity)\)' \
+              app/src/main/java/com/team/dark/TeamDark3.java \
+              app/src/main/java/com/team/dark/TeamDark9.java; then
             echo "Post-hook TeamDark signature lookups still remain." >&2
             exit 1
           fi
 
           # Fresh Elite source must snapshot the real host signer before PM hooks
           # and use that snapshot for secure panel identity binding.
-          grep -F 'sHostSigningSha256 = captureHostSigningSha256(context);'             "${ELITE_DIR}/src/main/java/com/parallaxelite/ParallaxELiteInstaller.java" >/dev/null
-          grep -F 'ParallaxELiteInstaller.getHostSigningSha256()'             "${ELITE_DIR}/src/main/java/android/MetaCore/SecureSdkApiClient.kt" >/dev/null
-          grep -F 'signingInfo.apkContentsSigners?.firstOrNull()'             "${ELITE_DIR}/src/main/java/android/MetaCore/SecureSdkApiClient.kt" >/dev/null
+          grep -F 'sHostSigningSha256 = captureHostSigningSha256(context);' \
+            "${ELITE_DIR}/src/main/java/com/parallaxelite/ParallaxELiteInstaller.java" >/dev/null
+          grep -F 'ParallaxELiteInstaller.getHostSigningSha256()' \
+            "${ELITE_DIR}/src/main/java/android/MetaCore/SecureSdkApiClient.kt" >/dev/null
+          grep -F 'signingInfo.apkContentsSigners?.firstOrNull()' \
+            "${ELITE_DIR}/src/main/java/android/MetaCore/SecureSdkApiClient.kt" >/dev/null
 
       - name: Run ParallaxElite activation/auth regression tests
         working-directory: ${{ env.ELITE_DIR }}
@@ -197,7 +219,13 @@ jobs:
           "${AAPT}" dump badging "${APK}" | grep -q "package: name='com.team.dark.elite'"
 
           # Verify the release keystore itself carries the same certificate as the APK.
-          KEYSTORE_CERT="$(keytool -list -v             -keystore app/TeamDarkParallax.jks             -storepass 'TeamDarkParallax@2026#Release'             -alias TeamDarkParallax             | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p'             | tr -d ':[:space:]'             | tr '[:lower:]' '[:upper:]')"
+          KEYSTORE_CERT="$(keytool -list -v \
+            -keystore app/TeamDarkParallax.jks \
+            -storepass 'TeamDarkParallax@2026#Release' \
+            -alias TeamDarkParallax \
+            | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p' \
+            | tr -d ':[:space:]' \
+            | tr '[:lower:]' '[:upper:]')"
           test "${KEYSTORE_CERT}" = "${TEAM_DARK_EXPECTED_CERT_SHA256}" || {
             echo "Release keystore certificate mismatch: ${KEYSTORE_CERT}" >&2
             exit 1
