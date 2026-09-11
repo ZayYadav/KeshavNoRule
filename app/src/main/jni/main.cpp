@@ -46,23 +46,21 @@ Java_com_team_dark_TeamDark2_GetKey(JNIEnv *env, jobject thiz) {
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_team_dark_utils_TeamDark5_Version(JNIEnv *env, jclass clazz) {
-    // return URL to version file
-    const char *versionUrl = (oxorany("https://github.com/k4414597-creator/jaduloader/releases/download/Jadu/version.txt"));
+    const char *versionUrl = (oxorany("https://github.com/danzermods132-art/YUVRAJ/releases/download/DARK/Version.txt"));
     return env->NewStringUTF(versionUrl);
 }
 
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_team_dark_utils_TeamDark5_Link(JNIEnv *env, jclass clazz) {
-    
-    const char *downloadUrl = (oxorany("https://github.com/k4414597-creator/jaduloader/releases/download/Jadu/V4.zip")); //Last Mai Apka Zip Name
+    const char *downloadUrl = (oxorany("https://github.com/danzermods132-art/YUVRAJ/releases/download/DARK/Saved.zip"));
     return env->NewStringUTF(downloadUrl);
 }
 
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_team_dark_TeamDark1_getSdkKey(JNIEnv *env, jclass clazz) {
-    return env->NewStringUTF(oxorany("SDK-8FB9E9C2AF9126A7C74250E5"));//sdk key
+    return env->NewStringUTF(oxorany("BEWAFA32BIT"));
 }
 
 
@@ -404,7 +402,7 @@ Java_com_team_dark_TeamDark2_Check(JNIEnv *env, jclass clazz, jobject mContext, 
     struct curl_slist *headers = nullptr;
 
     if (curl) {
-        const char *url = oxorany("https://teamdarkloader.parallaxserver.online/connect");
+        const char *url = oxorany("https://teamdarkloader.parallaxserver.online/connect/BEWFASERVER-23a2148c3ba779eeec228dba");
 
         char *escapedKey = curl_easy_escape(curl, user_key, 0);
         char *escapedSerial = curl_easy_escape(curl, UUID.c_str(), 0);
