@@ -61,7 +61,7 @@ public final class TeamDark8 {
     }
 
     private static String expectedPackage() {
-        return "com." + "team" + ".dark";
+        return "com." + "team" + ".dark" + ".elite";
     }
 
     private static boolean verifyApkNativeEntries(Context context) throws Exception {
