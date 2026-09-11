@@ -4,9 +4,9 @@
         <shape android:shape="rectangle">
             <gradient
                 android:angle="270"
-                android:startColor="#0B1020"
-                android:centerColor="#080B12"
-                android:endColor="#05070B"
+                android:startColor="#0B0F1F"
+                android:centerColor="#070A13"
+                android:endColor="#03050A"
                 android:type="linear" />
         </shape>
     </item>
@@ -14,22 +14,33 @@
         <shape android:shape="rectangle">
             <gradient
                 android:type="radial"
-                android:gradientRadius="440dp"
-                android:centerX="92%"
-                android:centerY="6%"
-                android:startColor="#248B5CF6"
-                android:endColor="#008B5CF6" />
+                android:gradientRadius="520dp"
+                android:centerX="88%"
+                android:centerY="4%"
+                android:startColor="#3D7C5CFF"
+                android:endColor="#007C5CFF" />
         </shape>
     </item>
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:type="radial"
-                android:gradientRadius="420dp"
-                android:centerX="5%"
-                android:centerY="92%"
-                android:startColor="#1F22D3EE"
-                android:endColor="#0022D3EE" />
+                android:gradientRadius="500dp"
+                android:centerX="0%"
+                android:centerY="95%"
+                android:startColor="#284FE6FF"
+                android:endColor="#004FE6FF" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="240dp"
+                android:centerX="52%"
+                android:centerY="48%"
+                android:startColor="#12FF7CCB"
+                android:endColor="#00FF7CCB" />
         </shape>
     </item>
 </layer-list>
