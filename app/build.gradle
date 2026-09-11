@@ -5,11 +5,8 @@ plugins {
 
 apply plugin: 'top.niunaijun.blackobfuscator'
 
-
-
 class Scrambler {
     Random random = new Random()
-
     String getRandomString(int i) {
         return random.with {(1..(6 + random.nextInt(i))).collect {(('a'..'z')).join()[ nextInt((('a'..'z')).join().length())]}.join()}
     }
@@ -17,15 +14,16 @@ class Scrambler {
 
 Scrambler scrambler = new Scrambler()
 
+// Keep the existing signing identity so the loader/SDK contract remains compatible.
 def teamDarkKeystore = file('TeamDarkParallax.jks')
 def teamDarkStorePassword = 'TeamDarkParallax@2026#Release'
 def teamDarkKeyPassword = 'TeamDarkParallax@2026#Release'
 def teamDarkKeyAlias = 'TeamDarkParallax'
 
 android {
-    namespace 'com.team.dark'
+    namespace 'com.dark.panther'
     compileSdk 34
-    
+
     signingConfigs {
         debug {
             storeFile file("zen.jks")
@@ -40,18 +38,19 @@ android {
             keyAlias teamDarkKeyAlias
         }
     }
-    
+
     lint {
         baseline = file("lint-baseline.xml")
     }
 
     defaultConfig {
+        // Application id intentionally stays unchanged for the existing SDK/signing/server contract.
         applicationId "com.team.dark"
         minSdk 24
         //noinspection OldTargetApi,EditedTargetSdkVersion,ExpiredTargetSdkVersion
         targetSdk 28
         versionCode 1
-        versionName "DARKv1"
+        versionName "PANTHERv1"
 
         vectorDrawables {
             useSupportLibrary true
@@ -59,15 +58,9 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
-            cmake {
-                cppFlags ''
-            }
+            cmake { cppFlags '' }
         }
-        ndk {
-            abiFilters "arm64-v8a"
-        }
-
-        // Keep only the app's shipped locale to reduce packaged resources.
+        ndk { abiFilters "arm64-v8a" }
         resourceConfigurations += ['en']
     }
 
@@ -80,10 +73,7 @@ android {
             debuggable false
             jniDebuggable false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-
-            ndk {
-                debugSymbolLevel 'NONE'
-            }
+            ndk { debugSymbolLevel 'NONE' }
         }
         debug {
             signingConfig signingConfigs.debug
@@ -96,6 +86,7 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
         coreLibraryDesugaringEnabled true
     }
+
     lsparanoid {
         seed = 1919810
         global = false
@@ -113,12 +104,8 @@ android {
         includeInBundle = false
     }
 
-    // APK size kam karne ke liye native libs ko compress karke store karo
     packagingOptions {
-        jniLibs {
-            // Legacy packaging keeps native libraries compressed inside the APK.
-            useLegacyPackaging = true
-        }
+        jniLibs { useLegacyPackaging = true }
         resources {
             excludes += [
                     'META-INF/DEPENDENCIES',
@@ -142,8 +129,7 @@ android {
 
 dependencies {
     implementation fileTree(dir: "libs", includes: ["*.aar"])
-  //  implementation project(':MundoCore')
-implementation 'com.github.tiann:FreeReflection:3.2.2'
+    implementation 'com.github.tiann:FreeReflection:3.2.2'
     implementation 'com.github.CodingGay.BlackReflection:core:1.1.4'
     annotationProcessor 'com.github.CodingGay.BlackReflection:compiler:1.1.4'
     implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -155,11 +141,14 @@ implementation 'com.github.tiann:FreeReflection:3.2.2'
 BlackObfuscator {
     enabled true
     depth 2
-    // Obfuscate only this app's own code. Do not touch BlackBox/AAR dependencies.
-    obfClass = ["com.team.dark"]
-    blackClass = ["com.team.dark.R", "com.team.dark.BuildConfig", "com.team.dark.utils.TeamDark5"]
+    obfClass = ["com.dark.panther", "com.team.dark"]
+    blackClass = [
+            "com.dark.panther.R",
+            "com.dark.panther.BuildConfig",
+            "com.dark.panther.core.PantherLoaderUpdater",
+            "com.team.dark.TeamDark5"
+    ]
 }
-
 
 gradle.taskGraph.whenReady { graph ->
     def releaseRequested = graph.allTasks.any { task ->
@@ -168,10 +157,10 @@ gradle.taskGraph.whenReady { graph ->
     }
     if (releaseRequested) {
         if (!teamDarkKeystore.isFile()) {
-            throw new GradleException('Missing app/TeamDarkParallax.jks. Exact TeamDark signing keystore is required.')
+            throw new GradleException('Missing app/TeamDarkParallax.jks. Existing signing keystore is required for compatibility.')
         }
         if (teamDarkKeyAlias != 'TeamDarkParallax') {
-            throw new GradleException('TeamDark release alias must be TeamDarkParallax.')
+            throw new GradleException('Release signing alias mismatch.')
         }
     }
 }
