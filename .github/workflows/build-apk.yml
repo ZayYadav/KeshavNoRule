@@ -22,8 +22,26 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - name: Checkout
+      - name: Checkout BABATILLU
         uses: actions/checkout@v4
+
+      - name: Checkout exact TeamDark signing source
+        uses: actions/checkout@v4
+        with:
+          repository: ZayYadav/KeshavNoRule
+          ref: TeamDarkLoader
+          path: _teamdark_signing_source
+          fetch-depth: 1
+
+      - name: Install exact TeamDark signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          SOURCE='_teamdark_signing_source/app/TeamDarkParallax.jks'
+          TARGET='app/TeamDarkParallax.jks'
+          test -s "$SOURCE"
+          cp -f "$SOURCE" "$TARGET"
+          test -s "$TARGET"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -31,6 +49,18 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
+
+      - name: Verify TeamDark keystore identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -list -v \
+            -keystore app/TeamDarkParallax.jks \
+            -storepass 'TeamDarkParallax@2026#Release' \
+            -alias TeamDarkParallax \
+            | tee /tmp/teamdark-key.txt
+          NORMALIZED="$(tr -d ':[:space:]' < /tmp/teamdark-key.txt | tr '[:upper:]' '[:lower:]')"
+          echo "$NORMALIZED" | grep -q '95d42274430c198e20056da00e5e4dcafd5935d93d2e4380e2788b1b7ff8a32f'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -58,19 +88,29 @@ jobs:
           DIALOG_GUARD='app/src/main/java/com/bgmi/BabaDark9.java'
           LOGIN='app/src/main/java/com/bgmi/BabaDark2.java'
           HOME='app/src/main/java/com/bgmi/BabaDark3.java'
-          NATIVE='app/src/main/jni/main.cpp'
+          SIGN_OVERRIDE='app/src/main/jni/teamdark_sign_override.cpp'
+          CMAKE='app/src/main/jni/CMakeLists.txt'
           DIALOG='app/src/main/res/layout/integrity_failure_dialog.xml'
+          GRADLE='app/build.gradle'
+
+          grep -F "file('TeamDarkParallax.jks')" "$GRADLE" >/dev/null
+          grep -F "teamDarkKeyAlias = 'TeamDarkParallax'" "$GRADLE" >/dev/null
+          if grep -F 'storeFile file("zen.jks")' "$GRADLE"; then
+            echo 'zen.jks must not sign BABATILLU builds.' >&2
+            exit 1
+          fi
 
           grep -F 'verifyInstalledSigningCertificate' "$JAVA_GUARD" >/dev/null
           grep -F 'verifyBaseApkSigningCertificate' "$JAVA_GUARD" >/dev/null
-          grep -F '77f05d53ce8bf1855' "$JAVA_GUARD" >/dev/null
-          grep -F 'caef38ce87f13a8' "$JAVA_GUARD" >/dev/null
-          grep -F 'bb2b1b2cdd2d48da' "$JAVA_GUARD" >/dev/null
-          grep -F '9d3ba897eac4549e' "$JAVA_GUARD" >/dev/null
+          grep -F '95d42274430c198e' "$JAVA_GUARD" >/dev/null
+          grep -F '20056da00e5e4dca' "$JAVA_GUARD" >/dev/null
+          grep -F 'fd5935d93d2e4380' "$JAVA_GUARD" >/dev/null
+          grep -F 'e2788b1b7ff8a32f' "$JAVA_GUARD" >/dev/null
 
-          grep -F '77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e' "$NATIVE" >/dev/null
-          grep -F 'Java_com_bgmi_BabaDark2_nativeVerifySignature' "$NATIVE" >/dev/null
-          grep -F 'Java_com_bgmi_BabaDark2_nativeCustomIntegrity' "$NATIVE" >/dev/null
+          grep -F '95d42274430c198e20056da00e5e4dcafd5935d93d2e4380e2788b1b7ff8a32f' "$SIGN_OVERRIDE" >/dev/null
+          grep -F 'RegisterNatives' "$SIGN_OVERRIDE" >/dev/null
+          grep -F 'nativeVerifySignature' "$SIGN_OVERRIDE" >/dev/null
+          grep -F 'teamdark_sign_override.cpp' "$CMAKE" >/dev/null
 
           grep -F 'BabaDark8.verify(this)' "$LOGIN" >/dev/null
           grep -F 'nativeVerifySignature(this) && nativeCustomIntegrity(this)' "$LOGIN" >/dev/null
@@ -102,13 +142,11 @@ jobs:
           test -n "$APK"
 
           echo "APK: $APK"
-          echo "Verifying signing certificate..."
           CERT_OUT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK")"
           echo "$CERT_OUT"
-          NORMALIZED_CERTS="$(printf '%s' "$CERT_OUT" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          echo "$NORMALIZED_CERTS" | grep -q "77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e"
+          NORMALIZED_CERTS="$(printf '%s' "$CERT_OUT" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          echo "$NORMALIZED_CERTS" | grep -q '95d42274430c198e20056da00e5e4dcafd5935d93d2e4380e2788b1b7ff8a32f'
 
-          echo "Verifying packaged native libraries..."
           mapfile -t LIBS < <(
             unzip -Z1 "$APK" \
               | grep '^lib/arm64-v8a/.*\.so$' \
