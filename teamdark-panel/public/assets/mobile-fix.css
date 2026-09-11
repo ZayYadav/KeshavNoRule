@@ -66,8 +66,26 @@ body[data-teamdark-ui="5"] .section-heading>*{min-width:0}
   body[data-teamdark-ui="5"] .topbar-left{flex:1 1 auto;overflow:hidden}
   body[data-teamdark-ui="5"] .breadcrumb{flex:1 1 auto;overflow:hidden;min-width:0}
   body[data-teamdark-ui="5"] .breadcrumb strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  body[data-teamdark-ui="5"] .sidebar{max-width:calc(100vw - 36px)!important;overflow:hidden}
-  body[data-teamdark-ui="5"] .sidebar nav{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  body[data-teamdark-ui="5"] .sidebar{
+    max-width:calc(100vw - 36px)!important;
+    height:100dvh!important;
+    max-height:100dvh!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:contain;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-y;
+  }
+  body[data-teamdark-ui="5"] .sidebar nav{
+    overflow:visible!important;
+    flex:0 0 auto!important;
+    min-height:auto!important;
+    overscroll-behavior:auto;
+    -webkit-overflow-scrolling:auto;
+  }
+  body[data-teamdark-ui="5"] .sidebar-brand,
+  body[data-teamdark-ui="5"] .sidebar-foot{flex:0 0 auto}
+  body[data-teamdark-ui="5"] .sidebar-foot{margin-top:18px!important;padding-bottom:max(8px,env(safe-area-inset-bottom))}
   body[data-teamdark-ui="5"] .sidebar nav a span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 
