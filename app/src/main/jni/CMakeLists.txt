@@ -29,6 +29,7 @@ set_target_properties(libcrypto PROPERTIES IMPORTED_LOCATION
 
 add_library(DarkPantherLoader SHARED
     main.cpp
+    panther_bridge.cpp
     oxorany.cpp
     custom_integrity.cpp
 )
