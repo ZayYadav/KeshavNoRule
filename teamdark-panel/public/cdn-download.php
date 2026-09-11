@@ -14,8 +14,31 @@ function cdnFail(int $status, string $message): never
     http_response_code($status);
     header('Content-Type: text/plain; charset=utf-8');
     header('Cache-Control: private, no-store, max-age=0');
+    header('CDN-Cache-Control: no-store');
+    header('Cloudflare-CDN-Cache-Control: no-store');
     header('X-Content-Type-Options: nosniff');
     echo $message;
+    exit;
+}
+
+function cdnRedirectCurrent(array $row): never
+{
+    $location = CdnCache::versionedVaultUrl($row);
+    if ($location === '') cdnFail(503, 'Download is temporarily unavailable.');
+
+    // Permanent slot links are resolvers, not payload cache keys. Keeping this
+    // response uncacheable guarantees the same shared link checks the DB for the
+    // current version every time, while the redirected version URL is cacheable.
+    http_response_code(302);
+    header('Location: '.$location);
+    header('Cache-Control: private, no-store, no-cache, max-age=0, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    header('CDN-Cache-Control: no-store');
+    header('Cloudflare-CDN-Cache-Control: no-store');
+    header('X-TeamDark-CDN: stable-resolver-v3');
+    header('X-TeamDark-File-Version: '.(int)$row['version']);
+    header('Content-Length: 0');
     exit;
 }
 
@@ -31,12 +54,17 @@ try {
     $signature = '';
     $stableRoute = false;
 
-    // v2 permanent URL: /cdn-files/{file_id}/{stable_signature}/asset.zip
-    if (preg_match('#/cdn-files/(\d+)/([a-f0-9]{64})/asset\.zip/?$#i', $path, $m)) {
+    // v3 permanent resolver: /cdn-files/{file_id}/{stable_signature}/latest/asset.zip
+    if (preg_match('#/cdn-files/(\d+)/([a-f0-9]{64})/latest/asset\.zip/?$#i', $path, $m)) {
         $fileId = (int)$m[1];
         $signature = strtolower($m[2]);
         $stableRoute = true;
-    // v1 compatibility URL retained for links shared before stable URLs shipped.
+    // v2 permanent path kept for compatibility with already shared links.
+    } elseif (preg_match('#/cdn-files/(\d+)/([a-f0-9]{64})/asset\.zip/?$#i', $path, $m)) {
+        $fileId = (int)$m[1];
+        $signature = strtolower($m[2]);
+        $stableRoute = true;
+    // v1 version/hash-bound payload URL.
     } elseif (preg_match('#/cdn-files/(\d+)/(\d+)/([a-f0-9]{64})/asset\.zip/?$#i', $path, $m)) {
         $fileId = (int)$m[1];
         $legacyVersion = (int)$m[2];
@@ -57,15 +85,23 @@ try {
         if (!CdnCache::verifyStableVaultSignature($row, $signature)) {
             cdnFail(404, 'File not found.');
         }
-    } else {
-        $currentVersion = (int)$row['version'];
-        $validCurrentLegacy = $currentVersion === $legacyVersion
-            && CdnCache::verifyVaultSignature($row, $signature);
-        $validRememberedLegacy = !$validCurrentLegacy
-            && CdnCache::legacyAliasMatches($fileId, $legacyVersion, $signature);
-        if (!$validCurrentLegacy && !$validRememberedLegacy) {
-            cdnFail(404, 'File not found.');
-        }
+        cdnRedirectCurrent($row);
+    }
+
+    $currentVersion = (int)$row['version'];
+    $validCurrentLegacy = $currentVersion === $legacyVersion
+        && CdnCache::verifyVaultSignature($row, $signature);
+    $validRememberedLegacy = !$validCurrentLegacy
+        && CdnCache::legacyAliasMatches($fileId, $legacyVersion, $signature);
+
+    if (!$validCurrentLegacy && !$validRememberedLegacy) {
+        cdnFail(404, 'File not found.');
+    }
+
+    // An old versioned link is now treated as an alias to the permanent slot.
+    // Do not stream current bytes under an old cache key.
+    if ($validRememberedLegacy) {
+        cdnRedirectCurrent($row);
     }
 
     $storageName = (string)$row['storage_name'];
@@ -133,12 +169,12 @@ try {
     header('ETag: '.$etag);
     header('Last-Modified: '.gmdate('D, d M Y H:i:s', $mtime).' GMT');
 
-    // The URL is permanent while its bytes may change. Browsers therefore
-    // revalidate, while Cloudflare can retain the current object for the full TTL.
-    header('Cache-Control: public, max-age=0, s-maxage='.$ttl.', must-revalidate');
-    header('CDN-Cache-Control: public, max-age='.$ttl);
-    header('Cloudflare-CDN-Cache-Control: public, max-age='.$ttl);
-    header('X-TeamDark-CDN: stable-signed-v2');
+    // This URL is version/hash-bound. It may be cached safely because replacing
+    // the slot creates a different payload URL and the permanent resolver points there.
+    header('Cache-Control: public, max-age=31536000, immutable');
+    header('CDN-Cache-Control: public, max-age='.$ttl.', immutable');
+    header('Cloudflare-CDN-Cache-Control: public, max-age='.$ttl.', immutable');
+    header('X-TeamDark-CDN: immutable-payload-v3');
     header('X-TeamDark-File-Version: '.$version);
     header('Content-Disposition: attachment; filename="'.addcslashes($fallback, "\\\"").'"; filename*=UTF-8\'\''.rawurlencode($name));
 
