@@ -18,7 +18,7 @@
         <ImageView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:contentDescription="Integrity alert"
+            android:contentDescription="BEWAFA SERVER integrity alert"
             android:src="@drawable/ic_shield_check"
             app:tint="@color/error" />
     </FrameLayout>
@@ -29,7 +29,7 @@
         android:layout_marginTop="18dp"
         android:fontFamily="sans-serif-black"
         android:letterSpacing="0.05"
-        android:text="FUCK YOUR MY SON"
+        android:text="INTEGRITY CHECK FAILED"
         android:textColor="@color/white"
         android:textSize="19sp"
         android:textStyle="bold" />
@@ -39,7 +39,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="5dp"
         android:letterSpacing="0.12"
-        android:text="TeamDark Loader"
+        android:text="BEWAFA SERVER • 32 BIT"
         android:textColor="@color/error"
         android:textSize="10sp"
         android:textStyle="bold" />
@@ -51,7 +51,7 @@
         android:layout_marginTop="16dp"
         android:gravity="center"
         android:lineSpacingExtra="3dp"
-        android:text="Go my son and drink some milk from your mom boobs."
+        android:text="BEWAFA SERVER blocked an unsafe or modified runtime."
         android:textColor="@color/text_muted"
         android:textSize="12sp" />
 
@@ -74,7 +74,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="SESSION TERMINATED SAFELY"
+            android:text="BEWAFA SERVER SESSION STOPPED"
             android:textColor="@color/error"
             android:textSize="9sp"
             android:textStyle="bold" />
@@ -87,7 +87,7 @@
         android:layout_marginTop="18dp"
         android:background="@drawable/cyber_btn_primary"
         android:letterSpacing="0.08"
-        android:text="CLOSE LOADER"
+        android:text="CLOSE BEWAFA SERVER"
         android:textColor="@color/text_dark"
         android:textSize="13sp"
         android:textStyle="bold" />
