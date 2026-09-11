@@ -11,7 +11,6 @@ import android.animation.PropertyValuesHolder;
 import android.app.Dialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
@@ -37,9 +36,9 @@ import android.widget.Toast;
 import com.dark.panther.core.PantherEffects;
 import com.dark.panther.core.PantherIntegrity;
 import com.dark.panther.core.PantherLoaderUpdater;
+import com.dark.panther.core.PantherNative;
 import com.dark.panther.core.PantherPrefs;
 import com.dark.panther.core.PantherSecurity;
-import com.team.dark.TeamDark2;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -91,7 +90,7 @@ public class DarkPantherLoginActivity extends AppCompatActivity {
 
         boolean integrityOk;
         try {
-            integrityOk = TeamDark2.nativeVerifySignature(this) && TeamDark2.nativeCustomIntegrity(this);
+            integrityOk = PantherNative.verifySignature(this) && PantherNative.customIntegrity(this);
         } catch (Throwable ignored) {
             integrityOk = false;
         }
@@ -126,7 +125,7 @@ public class DarkPantherLoginActivity extends AppCompatActivity {
         if (getKey != null) {
             PantherEffects.applyTouchBounce(getKey, () -> {
                 try {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(TeamDark2.GetKey()));
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(PantherNative.getKeyLink()));
                     startActivity(intent);
                 } catch (Exception e) {
                     Toast.makeText(this, "Unable to open official link", Toast.LENGTH_SHORT).show();
@@ -266,7 +265,7 @@ public class DarkPantherLoginActivity extends AppCompatActivity {
         });
 
         new Thread(() -> {
-            String result = TeamDark2.Check(DarkPantherLoginActivity.this, userKey);
+            String result = PantherNative.check(DarkPantherLoginActivity.this, userKey);
             if ("OK".equals(result)) loginHandler.sendEmptyMessage(0);
             else {
                 Message msg = Message.obtain();
