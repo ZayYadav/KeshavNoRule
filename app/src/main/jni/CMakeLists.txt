@@ -36,6 +36,7 @@ add_library(TeamDarkLoader SHARED
     main.cpp
     oxorany.cpp
     custom_integrity.cpp
+    armv7_sync_compat.S
 )
 
 target_link_libraries(TeamDarkLoader
