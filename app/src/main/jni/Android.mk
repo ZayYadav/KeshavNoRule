@@ -2,7 +2,7 @@ LOCAL_PATH:= $(call my-dir)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := TeamDarkLoader
+LOCAL_MODULE := DarkPantherLoader
 
 LOCAL_CFLAGS := -Wno-error=format-security -fvisibility=hidden -ffunction-sections -fdata-sections -w -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fno-ident
 LOCAL_CFLAGS += -fno-rtti -fno-exceptions -fpermissive
@@ -15,14 +15,12 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/includes
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/includes/curl/curl-android-$(TARGET_ARCH_ABI)/include
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/includes/curl/openssl-android-$(TARGET_ARCH_ABI)/include
-	
-CLIENT_SRC_FILES := $(wildcard $(LOCAL_PATH)/*.cpp)
 
+CLIENT_SRC_FILES := $(wildcard $(LOCAL_PATH)/*.cpp)
 LOCAL_SRC_FILES := $(CLIENT_SRC_FILES:$(LOCAL_PATH)/%=%)
 
 LOCAL_CPP_FEATURES := exceptions
-LOCAL_LDLIBS    := -llog -landroid -lz
-
+LOCAL_LDLIBS := -llog -landroid -lz
 LOCAL_STATIC_LIBRARIES := libcurl libssl libcrypto
 
 include $(BUILD_SHARED_LIBRARY)
