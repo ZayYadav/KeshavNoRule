@@ -1,5 +1,5 @@
 
-rootProject.name = "TeamDarkLoader"
+rootProject.name = "BewafaServer32bit"
 include ':app'
 //include ':MundoCore'
 
