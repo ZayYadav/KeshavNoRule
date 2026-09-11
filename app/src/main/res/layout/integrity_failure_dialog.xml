@@ -1,103 +1,94 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="318dp"
+    android:layout_width="310dp"
     android:layout_height="wrap_content"
-    app:cardBackgroundColor="#F20B1020"
-    app:cardCornerRadius="28dp"
-    app:cardElevation="18dp"
-    app:strokeColor="#55FF5D7A"
-    app:strokeWidth="1dp">
+    android:background="@drawable/cyber_dialog_bg"
+    android:elevation="18dp"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <FrameLayout
+        android:layout_width="78dp"
+        android:layout_height="78dp"
+        android:background="@drawable/cyber_card_glass"
+        android:padding="14dp">
+
+        <ImageView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="Integrity alert"
+            android:src="@drawable/ic_shield_check"
+            app:tint="@color/error" />
+    </FrameLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:fontFamily="sans-serif-black"
+        android:letterSpacing="0.05"
+        android:text="FUCK YOUR MY SON"
+        android:textColor="@color/white"
+        android:textSize="19sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:letterSpacing="0.12"
+        android:text="TeamDark Loader"
+        android:textColor="@color/error"
+        android:textSize="10sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/integrityDetail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:lineSpacingExtra="3dp"
+        android:text="Go my son and drink some milk from your mom boobs."
+        android:textColor="@color/text_muted"
+        android:textSize="12sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:layout_marginTop="18dp"
+        android:background="@drawable/cyber_badge_pink"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:padding="10dp">
 
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="76dp"
-            android:layout_height="76dp"
-            app:cardBackgroundColor="#1FFF5D7A"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="0dp"
-            app:strokeColor="#66FF5D7A"
-            app:strokeWidth="1dp">
-
-            <ImageView
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_gravity="center"
-                android:contentDescription="Security alert"
-                android:src="@drawable/ic_shield_check"
-                app:tint="@color/error" />
-        </com.google.android.material.card.MaterialCardView>
+        <View
+            android:layout_width="7dp"
+            android:layout_height="7dp"
+            android:layout_marginEnd="7dp"
+            android:background="@drawable/circle_bg"
+            android:backgroundTint="@color/error" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="17dp"
-            android:fontFamily="sans-serif-black"
-            android:letterSpacing="0.03"
-            android:text="SECURITY CHECK FAILED"
-            android:textColor="@color/white"
-            android:textSize="19sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:letterSpacing="0.13"
-            android:text="TEAM DARK ELITE"
+            android:text="SESSION TERMINATED SAFELY"
             android:textColor="@color/error"
             android:textSize="9sp"
             android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/integrityDetail"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:gravity="center"
-            android:lineSpacingExtra="3dp"
-            android:text="The secure session could not be verified."
-            android:textColor="@color/text_muted"
-            android:textSize="12sp" />
-
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginTop="18dp"
-            app:cardBackgroundColor="#16FF5D7A"
-            app:cardCornerRadius="14dp"
-            app:cardElevation="0dp"
-            app:strokeColor="#44FF5D7A"
-            app:strokeWidth="1dp">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:letterSpacing="0.08"
-                android:text="SESSION STOPPED SAFELY"
-                android:textColor="@color/error"
-                android:textSize="9sp"
-                android:textStyle="bold" />
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/integrityClose"
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="18dp"
-            android:letterSpacing="0.08"
-            android:text="CLOSE LOADER"
-            android:textColor="@color/white"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            app:backgroundTint="@color/error"
-            app:cornerRadius="17dp" />
     </LinearLayout>
-</com.google.android.material.card.MaterialCardView>
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/integrityClose"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="18dp"
+        android:background="@drawable/cyber_btn_primary"
+        android:letterSpacing="0.08"
+        android:text="CLOSE LOADER"
+        android:textColor="@color/text_dark"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+</LinearLayout>
