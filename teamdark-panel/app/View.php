@@ -331,6 +331,7 @@ KOTLIN);
             .'<link rel="stylesheet" href="/assets/owner-tools.css?v=20260910-2">'
             .'<link rel="stylesheet" href="/assets/cinematic.css?v=20260910-2">'
             .'<link rel="stylesheet" href="/assets/system-console.css?v=20260911-1">'
+            .'<link rel="stylesheet" href="/assets/mobile-fix.css?v=20260911-1">'
             .'<meta name="theme-color" content="#020305">'
             .'<meta name="color-scheme" content="dark light"></head>';
 
