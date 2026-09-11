@@ -67,7 +67,7 @@ try {
     $premiumDashboard = request($ownerClient,'/dashboard');
     check(
         $premiumDashboard['status']===200
-        && str_contains($premiumDashboard['body'],'data-teamdark-ui="7"')
+        && str_contains($premiumDashboard['body'],'data-teamdark-ui="5"')
         && str_contains($premiumDashboard['body'],'class="fx-grid"')
         && str_contains($premiumDashboard['body'],'class="cursor-aura"')
         && str_contains($premiumDashboard['body'],'/assets/app.css?')
@@ -80,7 +80,7 @@ try {
     $premiumLogin = request(client(),'/login');
     check(
         $premiumLogin['status']===200
-        && str_contains($premiumLogin['body'],'data-teamdark-ui="7"')
+        && str_contains($premiumLogin['body'],'data-teamdark-ui="5"')
         && str_contains($premiumLogin['body'],'auth-layout')
         && str_contains($premiumLogin['body'],'/assets/themes.js?')
         && str_contains($premiumLogin['body'],'/assets/owner-tools.js?'),
