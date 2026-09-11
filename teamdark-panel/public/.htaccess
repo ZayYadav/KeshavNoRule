@@ -23,6 +23,8 @@ RewriteRule ^referrals/create/?$ referrals-create.php [L,QSA]
 RewriteRule ^users/?$ users-enhanced.php [L,QSA]
 RewriteRule ^(?:security/password|users/password)/?$ password-actions.php [L,QSA]
 RewriteRule ^key-edit/?$ key-edit.php [L,QSA]
+# v2 permanent file URL; v1 versioned route remains for old shared links.
+RewriteRule ^cdn-files/[0-9]+/[a-f0-9]{64}/asset\.zip/?$ cdn-download.php [L,QSA,NC]
 RewriteRule ^cdn-files/[0-9]+/[0-9]+/[a-f0-9]{64}/asset\.zip/?$ cdn-download.php [L,QSA,NC]
 RewriteRule ^files/download/?$ file-download.php [L,QSA]
 RewriteRule ^files(?:/.*)?$ vault-entry.php [L,QSA]
