@@ -98,6 +98,33 @@ jobs:
           grep -F 'stable-resolver-v3' teamdark-panel/public/cdn-download.php >/dev/null
           grep -F 'latest/asset\.zip' teamdark-panel/.htaccess >/dev/null
           grep -F 'latest/asset\.zip' teamdark-panel/public/.htaccess >/dev/null
+          grep -F "TeamDarkPanel-CDN-Warm/3.1" teamdark-panel/app/CdnCache.php >/dev/null
+          grep -F 'Explicitly evict the outgoing immutable object' teamdark-panel/app/CdnCache.php >/dev/null
+          if grep -F "'Cache-Control: no-cache'" teamdark-panel/app/CdnCache.php >/dev/null; then
+            echo 'CDN warmer must use a normal cacheable GET.' >&2
+            exit 1
+          fi
+
+      - name: Verify phone responsive contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f teamdark-panel/public/assets/mobile-fix.css
+          grep -F 'data-teamdark-ui="5"' teamdark-panel/app/View.php >/dev/null
+          if grep -F 'data-teamdark-ui="7"' teamdark-panel/app/View.php >/dev/null; then
+            echo 'View UI marker no longer matches responsive CSS.' >&2
+            exit 1
+          fi
+          grep -F 'mobile-fix.css?v=20260911-1' teamdark-panel/app/View.php >/dev/null
+          grep -F 'body[data-teamdark-ui="5"] .app-layout' teamdark-panel/public/assets/system-console.css >/dev/null
+          grep -F '@media(max-width:860px)' teamdark-panel/public/assets/mobile-fix.css >/dev/null
+          grep -F '@media(max-width:720px)' teamdark-panel/public/assets/mobile-fix.css >/dev/null
+          grep -F '@media(max-width:520px)' teamdark-panel/public/assets/mobile-fix.css >/dev/null
+          grep -F '@media(max-width:360px)' teamdark-panel/public/assets/mobile-fix.css >/dev/null
+          grep -F 'input[type="file"]' teamdark-panel/public/assets/mobile-fix.css >/dev/null
+          grep -F 'font-size:16px!important' teamdark-panel/public/assets/mobile-fix.css >/dev/null
+          grep -F 'overflow-x:auto' teamdark-panel/public/assets/mobile-fix.css >/dev/null
+          grep -F 'safe-area-inset-left' teamdark-panel/public/assets/mobile-fix.css >/dev/null
 
       - name: Verify modular Owner System and screenshot-inspired navigation
         shell: bash
