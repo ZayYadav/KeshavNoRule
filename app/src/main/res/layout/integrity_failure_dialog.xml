@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="312dp"
+    android:layout_width="324dp"
     android:layout_height="wrap_content"
     android:background="@drawable/nrx_danger_panel"
-    android:elevation="18dp"
+    android:elevation="20dp"
     android:orientation="vertical"
     android:padding="22dp">
 
@@ -25,32 +25,32 @@
                 android:layout_gravity="center"
                 android:contentDescription="Integrity"
                 android:src="@drawable/ic_shield_check"
-                app:tint="@color/error"/>
+                app:tint="@color/error" />
         </FrameLayout>
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="13dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Access blocked"
-                android:textColor="@color/nrx_ink"
+                android:text="Security lock"
+                android:textColor="@color/white"
                 android:textSize="18sp"
-                android:textStyle="bold"/>
+                android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="NORULE X SECURITY"
+                android:layout_marginTop="3dp"
+                android:text="NORULE X INTEGRITY"
                 android:textColor="@color/error"
                 android:textSize="9sp"
-                android:textStyle="bold"/>
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
@@ -62,22 +62,22 @@
         android:lineSpacingExtra="3dp"
         android:text="Unauthorized modification or runtime injection was detected."
         android:textColor="@color/nrx_ink_soft"
-        android:textSize="12sp"/>
+        android:textSize="12sp" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="18dp"
-        android:background="#FFD0CC"/>
+        android:background="#46303A" />
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/integrityClose"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
+        android:layout_height="54dp"
         android:layout_marginTop="16dp"
-        android:background="@drawable/nrx_primary"
+        android:background="@drawable/nrx_secondary"
         android:text="CLOSE APP"
-        android:textColor="@color/nrx_ink"
+        android:textColor="@color/error"
         android:textSize="13sp"
-        android:textStyle="bold"/>
+        android:textStyle="bold" />
 </LinearLayout>
