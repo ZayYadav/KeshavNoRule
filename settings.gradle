@@ -1,5 +1,3 @@
-
-rootProject.name = "TeamDarkLoader"
+rootProject.name = "DarkPantherLoader"
 include ':app'
 //include ':MundoCore'
-
