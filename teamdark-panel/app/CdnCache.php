@@ -20,24 +20,29 @@ final class CdnCache
     }
 
     /**
-     * Permanent bearer URL for one file slot.
+     * v3 permanent bearer URL for one file slot.
      *
-     * The signature intentionally excludes version/hash so replacing the bytes in
-     * the same user_uploads row never changes the shared download URL.
+     * This URL never changes when a file is replaced. The resolver response is
+     * deliberately not cacheable; it redirects to a version/hash-bound payload
+     * URL which Cloudflare may cache aggressively without ever serving stale
+     * bytes for the permanent link.
      */
     public static function vaultUrl(array $row): string
     {
         if (!self::enabled()) return '';
+        $base = self::canonicalBase();
+        return $base === '' ? '' : self::stableVaultUrlForBase($row, $base);
+    }
 
-        $base = rtrim((string)Config::get('app_url', ''), '/');
-        $id = (int)($row['id'] ?? 0);
-        $userId = (int)($row['user_id'] ?? 0);
-        if ($base === '' || $id <= 0 || $userId <= 0) return '';
-
-        $signature = self::stableVaultSignature($id, $userId);
-        if ($signature === '') return '';
-
-        return $base.'/cdn-files/'.$id.'/'.$signature.'/asset.zip';
+    /**
+     * Immutable payload URL for the current row version. It changes whenever
+     * version/hash changes, so caching it cannot make the permanent resolver stale.
+     */
+    public static function versionedVaultUrl(array $row): string
+    {
+        if (!self::enabled()) return '';
+        $base = self::canonicalBase();
+        return $base === '' ? '' : self::versionedVaultUrlForBase($row, $base);
     }
 
     public static function verifyStableVaultSignature(array $row, string $signature): bool
@@ -54,7 +59,7 @@ final class CdnCache
     }
 
     /**
-     * Legacy v1 verifier kept so already-shared versioned links continue to work.
+     * v1 version/hash-bound verifier retained for immutable payload URLs and old links.
      */
     public static function verifyVaultSignature(array $row, string $signature): bool
     {
@@ -90,21 +95,8 @@ final class CdnCache
     public static function purgeVaultFile(int $fileId): bool
     {
         if (!self::enabled() || $fileId <= 0) return true;
-        $base = rtrim((string)Config::get('app_url', ''), '/');
-        if ($base === '') {
-            error_log('TeamDark CDN purge skipped: APP_URL is empty.');
-            return false;
-        }
-
-        $urls = [$base.'/files/download?id='.$fileId];
         $row = self::currentVaultRow($fileId);
-        if ($row !== null) {
-            $stable = self::vaultUrl($row);
-            if ($stable !== '') $urls[] = $stable;
-            $legacy = self::legacyVaultUrl($row);
-            if ($legacy !== '') $urls[] = $legacy;
-        }
-
+        $urls = self::purgeUrlsForRow($row, $fileId);
         $purged = self::purgeUrls($urls);
         $warmed = $row === null ? true : self::warmVaultRow($row);
         return $purged && $warmed;
@@ -114,36 +106,23 @@ final class CdnCache
     {
         if (!self::enabled()) return true;
         $id = (int)($row['id'] ?? 0);
-        $base = rtrim((string)Config::get('app_url', ''), '/');
-        if ($id <= 0 || $base === '') return false;
+        if ($id <= 0) return false;
 
-        // Preserve the old v1 signed URL as an alias before its version/hash is
-        // superseded. It will resolve to the latest bytes in this same file slot.
         self::rememberLegacyAlias($row);
+        $purged = self::purgeUrls(self::purgeUrlsForRow($row, $id));
 
-        $urls = [$base.'/files/download?id='.$id];
-        $stable = self::vaultUrl($row);
-        if ($stable !== '') $urls[] = $stable;
-        $legacy = self::legacyVaultUrl($row);
-        if ($legacy !== '') $urls[] = $legacy;
-
-        $purged = self::purgeUrls($urls);
-
-        // UploadManager calls this after the replacement transaction commits.
-        // Re-read the slot and warm exactly the same stable URL with fresh bytes.
+        // UploadManager/ChunkUploadManager calls this after replacement commits.
+        // Warm the new immutable payload URL, never the permanent resolver URL.
         $current = self::currentVaultRow($id);
         $warmed = $current === null ? true : self::warmVaultRow($current);
         return $purged && $warmed;
     }
 
-    /**
-     * Prime Cloudflare after upload/replace. Failure never invalidates the upload;
-     * the first real download can still populate cache normally.
-     */
+    /** Prime the current immutable payload at Cloudflare after upload/replace. */
     public static function warmVaultRow(array $row): bool
     {
         if (!self::enabled()) return true;
-        $url = self::vaultUrl($row);
+        $url = self::versionedVaultUrl($row);
         if ($url === '') return false;
         if (!function_exists('curl_init')) {
             error_log('TeamDark CDN warm skipped: PHP cURL extension is unavailable.');
@@ -158,7 +137,7 @@ final class CdnCache
             CURLOPT_TIMEOUT => 60,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Warm/2.0',
+            CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Warm/3.0',
             CURLOPT_HTTPHEADER => [
                 'Cache-Control: no-cache',
                 'Pragma: no-cache',
@@ -211,37 +190,94 @@ final class CdnCache
             return false;
         }
 
-        $ch = curl_init('https://api.cloudflare.com/client/v4/zones/'.rawurlencode($zoneId).'/purge_cache');
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => $payload,
-            CURLOPT_HTTPHEADER => [
-                'Authorization: Bearer '.$apiToken,
-                'Content-Type: application/json',
-                'Accept: application/json',
-            ],
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TIMEOUT => 12,
-            CURLOPT_SSL_VERIFYPEER => true,
-            CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Purge/2.0',
-        ]);
+        $lastStatus = 0;
+        $lastMessage = '';
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $ch = curl_init('https://api.cloudflare.com/client/v4/zones/'.rawurlencode($zoneId).'/purge_cache');
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => $payload,
+                CURLOPT_HTTPHEADER => [
+                    'Authorization: Bearer '.$apiToken,
+                    'Content-Type: application/json',
+                    'Accept: application/json',
+                ],
+                CURLOPT_CONNECTTIMEOUT => 5,
+                CURLOPT_TIMEOUT => 15,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Purge/3.0',
+            ]);
 
-        $response = curl_exec($ch);
-        $curlError = curl_error($ch);
-        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        curl_close($ch);
+            $response = curl_exec($ch);
+            $curlError = curl_error($ch);
+            $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            curl_close($ch);
+            $lastStatus = $status;
 
-        if (!is_string($response)) {
-            error_log('TeamDark CDN purge failed: cURL request error'.($curlError !== '' ? ' (network)' : '').'.');
-            return false;
+            if (is_string($response)) {
+                $decoded = json_decode($response, true);
+                if ($status >= 200 && $status < 300 && is_array($decoded) && ($decoded['success'] ?? false) === true) {
+                    return true;
+                }
+                if (is_array($decoded) && isset($decoded['errors'][0]['message'])) {
+                    $lastMessage = substr((string)$decoded['errors'][0]['message'], 0, 180);
+                }
+            } else {
+                $lastMessage = $curlError !== '' ? 'network error' : 'empty response';
+            }
+
+            $retryable = $status === 0 || $status === 429 || $status >= 500;
+            if (!$retryable) break;
+            usleep(200000 * $attempt);
         }
 
-        $decoded = json_decode($response, true);
-        $success = $status >= 200 && $status < 300 && is_array($decoded) && ($decoded['success'] ?? false) === true;
-        if (!$success) error_log('TeamDark CDN purge failed: Cloudflare HTTP '.$status.'.');
-        return $success;
+        error_log('TeamDark CDN purge failed: Cloudflare HTTP '.$lastStatus.($lastMessage !== '' ? ' - '.$lastMessage : '').'.');
+        return false;
+    }
+
+    private static function purgeUrlsForRow(?array $row, int $fileId): array
+    {
+        $urls = [];
+        foreach (self::purgeBases() as $base) {
+            $urls[] = $base.'/files/download?id='.$fileId;
+            if ($row === null) continue;
+
+            $v3 = self::stableVaultUrlForBase($row, $base);
+            if ($v3 !== '') $urls[] = $v3;
+            $v2 = self::legacyStableVaultUrlForBase($row, $base);
+            if ($v2 !== '') $urls[] = $v2;
+            $versioned = self::versionedVaultUrlForBase($row, $base);
+            if ($versioned !== '') $urls[] = $versioned;
+        }
+        return array_values(array_unique($urls));
+    }
+
+    private static function purgeBases(): array
+    {
+        $bases = [];
+        $canonical = self::canonicalBase();
+        if ($canonical !== '') $bases[$canonical] = $canonical;
+        $request = self::requestBase();
+        if ($request !== '') $bases[$request] = $request;
+        return array_values($bases);
+    }
+
+    private static function canonicalBase(): string
+    {
+        $base = rtrim((string)Config::get('app_url', ''), '/');
+        return $base !== '' ? $base : self::requestBase();
+    }
+
+    private static function requestBase(): string
+    {
+        $host = preg_replace('/[^A-Za-z0-9.\-:\[\]]/', '', (string)($_SERVER['HTTP_HOST'] ?? '')) ?: '';
+        if ($host === '') return '';
+        $https = strtolower((string)($_SERVER['HTTPS'] ?? ''));
+        $forwarded = strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0] ?? ''));
+        $scheme = ($https !== '' && $https !== 'off') || $forwarded === 'https' ? 'https' : 'http';
+        return $scheme.'://'.$host;
     }
 
     private static function currentVaultRow(int $fileId): ?array
@@ -256,9 +292,27 @@ final class CdnCache
         }
     }
 
-    private static function legacyVaultUrl(array $row): string
+    private static function stableVaultUrlForBase(array $row, string $base): string
     {
-        $base = rtrim((string)Config::get('app_url', ''), '/');
+        $id = (int)($row['id'] ?? 0);
+        $userId = (int)($row['user_id'] ?? 0);
+        if ($base === '' || $id <= 0 || $userId <= 0) return '';
+        $signature = self::stableVaultSignature($id, $userId);
+        return $signature === '' ? '' : rtrim($base, '/').'/cdn-files/'.$id.'/'.$signature.'/latest/asset.zip';
+    }
+
+    /** v2 permanent path kept only so old shared links can still resolve. */
+    private static function legacyStableVaultUrlForBase(array $row, string $base): string
+    {
+        $id = (int)($row['id'] ?? 0);
+        $userId = (int)($row['user_id'] ?? 0);
+        if ($base === '' || $id <= 0 || $userId <= 0) return '';
+        $signature = self::stableVaultSignature($id, $userId);
+        return $signature === '' ? '' : rtrim($base, '/').'/cdn-files/'.$id.'/'.$signature.'/asset.zip';
+    }
+
+    private static function versionedVaultUrlForBase(array $row, string $base): string
+    {
         $id = (int)($row['id'] ?? 0);
         $version = (int)($row['version'] ?? 0);
         $userId = (int)($row['user_id'] ?? 0);
@@ -267,7 +321,7 @@ final class CdnCache
             return '';
         }
         $signature = self::legacyVaultSignature($id, $version, $userId, $sha);
-        return $signature === '' ? '' : $base.'/cdn-files/'.$id.'/'.$version.'/'.$signature.'/asset.zip';
+        return $signature === '' ? '' : rtrim($base, '/').'/cdn-files/'.$id.'/'.$version.'/'.$signature.'/asset.zip';
     }
 
     private static function rememberLegacyAlias(array $row): void
@@ -286,7 +340,7 @@ final class CdnCache
             Database::pdo()->prepare(
                 'INSERT IGNORE INTO cdn_file_legacy_aliases(file_id,legacy_version,legacy_signature) VALUES(?,?,?)'
             )->execute([$id, $version, $signature]);
-        } catch (Throwable $e) {
+        } catch (Throwable) {
             error_log('TeamDark legacy CDN alias could not be stored for file #'.$id.'.');
         }
     }
@@ -307,9 +361,7 @@ final class CdnCache
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
             );
             self::$legacyAliasSchemaReady = true;
-        } catch (Throwable $e) {
-            // Stable v2 links do not depend on this compatibility table. On hosts
-            // without CREATE privilege only pre-v2 links lose alias continuity.
+        } catch (Throwable) {
             error_log('TeamDark CDN legacy alias table is unavailable.');
         }
     }
