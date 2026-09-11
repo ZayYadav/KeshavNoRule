@@ -25,7 +25,10 @@ RewriteRule ^telegram/webhook/?$ public/telegram-webhook.php [L,QSA]
 
 # Dedicated panel feature controllers.
 RewriteRule ^owner/apps(?:/.*)?$ public/app-api-manager.php [L,QSA]
+RewriteRule ^owner/referral-limits/?$ public/referral-limits.php [L,QSA]
 RewriteRule ^register/?$ public/register-relaxed.php [L,QSA]
+RewriteRule ^referrals/create/?$ public/referrals-create.php [L,QSA]
+RewriteRule ^users/?$ public/users-enhanced.php [L,QSA]
 RewriteRule ^(?:security/password|users/password)/?$ public/password-actions.php [L,QSA]
 RewriteRule ^key-edit/?$ public/key-edit.php [L,QSA]
 # v2 permanent file URL; v1 versioned route remains for old shared links.
