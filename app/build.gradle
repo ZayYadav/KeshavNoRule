@@ -132,15 +132,12 @@ dependencies {
 BlackObfuscator {
     enabled true
     depth 2
-    obfClass = ["com.dark.panther", "com.team.dark"]
+    obfClass = ["com.dark.panther"]
     blackClass = [
             "com.dark.panther.R",
             "com.dark.panther.BuildConfig",
             "com.dark.panther.core.PantherLoaderUpdater",
-            "com.team.dark.TeamDark1",
-            "com.team.dark.TeamDark2",
-            "com.team.dark.TeamDark3",
-            "com.team.dark.utils.TeamDark5"
+            "com.dark.panther.core.PantherNative"
     ]
 }
 
