@@ -38,7 +38,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:letterSpacing="0.08"
-                        android:text="TEAM DARK"
+                        android:text="BEWAFA SERVER • 32 BIT"
                         android:textColor="@color/cyber_cyan"
                         android:textSize="10sp"
                         android:textStyle="bold" />
@@ -49,7 +49,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="3dp"
                         android:fontFamily="sans-serif-black"
-                        android:text="Secure Dashboard"
+                        android:text="BEWAFA SERVER Dashboard"
                         android:textColor="@color/white"
                         android:textSize="27sp"
                         android:textStyle="bold" />
@@ -58,7 +58,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Your verified session is ready."
+                        android:text="Your verified 32-bit session is ready."
                         android:textColor="@color/text_muted"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -124,7 +124,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="License status"
+                                android:text="BEWAFA SERVER license"
                                 android:textColor="@color/white"
                                 android:textSize="16sp"
                                 android:textStyle="bold" />
@@ -259,7 +259,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="BGMI session"
+                                android:text="BGMI 32-bit session"
                                 android:textColor="@color/white"
                                 android:textSize="17sp"
                                 android:textStyle="bold" />
@@ -268,7 +268,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="3dp"
-                                android:text="Environment ready • ARM64"
+                                android:text="Environment ready • ARMV7 • 32 BIT ONLY"
                                 android:textColor="@color/text_muted"
                                 android:textSize="11sp" />
                         </LinearLayout>
@@ -299,7 +299,7 @@
                             android:layout_height="match_parent"
                             android:background="@drawable/cyber_btn_primary"
                             android:letterSpacing="0.05"
-                            android:text="LAUNCH SESSION"
+                            android:text="LAUNCH 32-BIT SESSION"
                             android:textColor="@color/text_dark"
                             android:textSize="14sp"
                             android:textStyle="bold" />
@@ -341,7 +341,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Security core active"
+                            android:text="BEWAFA SERVER security active"
                             android:textColor="@color/white"
                             android:textSize="13sp"
                             android:textStyle="bold" />
@@ -351,7 +351,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
                             android:lineSpacingExtra="2dp"
-                            android:text="Signed release • native integrity • protected session"
+                            android:text="Signed release • native integrity • ARMv7-only package"
                             android:textColor="@color/text_muted"
                             android:textSize="11sp" />
                     </LinearLayout>
