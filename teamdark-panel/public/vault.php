@@ -1,10 +1,10 @@
 <?php
 declare(strict_types=1);
 
-use TeamDark\Panel\{Auth,CdnCache,Config,Database,PanelControl,Security,UploadManager,View};
+use TeamDark\Panel\{Auth,CdnCache,ChunkUploadManager,Config,Database,PanelControl,Security,UploadManager,View};
 
 $root = dirname(__DIR__);
-foreach (['Config','Database','Security','PanelControl','Auth','View','CdnCache','UploadManager'] as $file) {
+foreach (['Config','Database','Security','PanelControl','Auth','View','CdnCache','UploadManager','ChunkUploadManager'] as $file) {
     require_once $root.'/app/'.$file.'.php';
 }
 
@@ -22,6 +22,15 @@ function vaultRedirect(string $path): never
 function vaultFlash(string $type, string $message): void
 {
     $_SESSION['flash'] = [$type, $message];
+}
+
+function vaultJson(array $payload, int $status = 200): never
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, private, max-age=0');
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 function vaultTakeFlash(): string
@@ -130,8 +139,8 @@ function vaultFileCard(array $row, bool $ownerView = false): string
     $downloadPath = $cdnUrl !== '' ? $cdnUrl : $privatePath;
     $base = vaultBaseUrl();
     $downloadUrl = $cdnUrl !== '' ? $cdnUrl : ($base !== '' ? $base.$privatePath : $privatePath);
-    $downloadLabel = $cdnUrl !== '' ? 'CDN Download' : 'Download';
-    $copyLabel = $cdnUrl !== '' ? 'Copy CDN link' : 'Copy link';
+    $downloadLabel = $cdnUrl !== '' ? 'Stable CDN Download' : 'Download';
+    $copyLabel = $cdnUrl !== '' ? 'Copy permanent link' : 'Copy link';
     $ownerLine = $ownerView
         ? '<div class="vault-owner"><span class="mini-avatar">'.View::e(strtoupper(substr($owner, 0, 1))).'</span><span><strong>'.View::e($owner).'</strong><small>@'.View::e((string)$row['username']).' • User #'.(int)$row['user_id'].'</small></span></div>'
         : '';
@@ -146,7 +155,7 @@ function vaultFileCard(array $row, bool $ownerView = false): string
         .'<a class="primary compact" href="'.View::e($downloadPath).'">'.View::e($downloadLabel).'</a>'
         .'<button type="button" class="ghost compact" data-copy="'.View::e($downloadUrl).'">'.View::e($copyLabel).'</button>'
         .'</div>'
-        .'<form method="post" action="/files/replace" enctype="multipart/form-data" class="vault-replace stack" data-busy="Replacing private file…">'
+        .'<form method="post" action="/files/replace" enctype="multipart/form-data" class="vault-replace stack" data-vault-chunk="replace" data-busy="Replacing private file…">'
         .View::csrf()
         .'<input type="hidden" name="file_id" value="'.$id.'">'
         .'<div class="field"><label>Replace this slot</label><input type="file" name="file" accept=".so,.zip" required></div>'
@@ -171,6 +180,27 @@ try {
 
     if ($method === 'POST') {
         Security::verifyCsrf($_POST['csrf'] ?? null);
+
+        if ($path === '/files/chunk') {
+            $result = ChunkUploadManager::receive(
+                $user,
+                is_array($_FILES['chunk'] ?? null) ? $_FILES['chunk'] : [],
+                $_POST
+            );
+            vaultJson($result);
+        }
+
+        if ($path === '/files/chunk/finish') {
+            $result = ChunkUploadManager::finish($user, $_POST);
+            $message = (($result['version'] ?? 1) > 1)
+                ? 'File replaced. Permanent download link now serves the new version.'
+                : 'Private file uploaded.';
+            if (CdnCache::enabled() && !($result['cdn_synced'] ?? false)) {
+                $message .= ' Cloudflare refresh could not be confirmed, but the permanent v3 link bypasses stale stable-link caching.';
+            }
+            vaultFlash('ok', $message);
+            vaultJson($result);
+        }
 
         if ($path === '/files/upload') {
             UploadManager::upload($user, is_array($_FILES['file'] ?? null) ? $_FILES['file'] : []);
@@ -219,11 +249,11 @@ try {
     }
 
     $uploadForm = $canAdd
-        ? '<form method="post" action="/files/upload" enctype="multipart/form-data" class="vault-upload-panel stack" data-busy="Uploading private file…">'
+        ? '<form method="post" action="/files/upload" enctype="multipart/form-data" class="vault-upload-panel stack" data-vault-chunk="upload" data-busy="Uploading private file…">'
             .View::csrf()
             .'<div class="field"><label>Select .so or .zip</label><input type="file" name="file" accept=".so,.zip" required></div>'
             .'<button class="primary wide" type="submit">Upload to File Manager</button>'
-            .'<p class="hint">The original filename is display-only. Disk storage uses a random private ID, so matching filenames across users never overwrite each other.</p>'
+            .'<p class="hint">Uploads are automatically split into 256 KB chunks, so the 50 MB vault limit still works on hosts with small PHP per-request upload limits.</p>'
             .'</form>'
         : '<div class="vault-limit-note"><strong>2-file limit reached.</strong><span>Replace either slot as many times as you want, or delete one to upload a different file.</span></div>';
 
@@ -247,10 +277,11 @@ try {
             .'</section>';
     }
 
-    $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260910-3">'
-        .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE FILE MANAGER</span><h1>File Manager</h1><p class="muted">Private .so / .zip storage with isolated slots. When CDN is enabled, the first signed download fills Cloudflare cache and replacements purge the previous version globally.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
+    $body = '<link rel="stylesheet" href="/assets/vault.css?v=20260911-4">'
+        .'<script defer src="/assets/vault-upload.js?v=20260911-1"></script>'
+        .'<section class="hero vault-hero"><div><span class="eyebrow">PRIVATE FILE MANAGER</span><h1>File Manager</h1><p class="muted">Private .so / .zip storage with isolated slots. Permanent CDN links always resolve the current slot version, while the versioned payload can still be cached at Cloudflare.</p></div><span class="vault-quota">'.View::e($limitText).'</span></section>'
         .vaultTakeFlash()
-        .'<section class="premium-section" id="my-files"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacements and deletes do not consume extra slots. CDN links are signed bearer links: keep them private; replacing or deleting the file invalidates the current version and purges its cached URL.</p></div></div>'
+        .'<section class="premium-section" id="my-files"><div class="section-heading"><div><span class="eyebrow">YOUR STORAGE</span><h2>My files</h2><p>Non-owner accounts can keep 2 files at a time. Replacing a slot keeps its permanent link unchanged. The link resolves the newest version instead of letting a browser or edge reuse an old stable-link body.</p></div></div>'
         .$uploadForm
         .$minePager
         .'<div class="vault-grid">'.$cards.'</div>'
@@ -263,6 +294,10 @@ try {
 } catch (Throwable $e) {
     error_log('TeamDark vault error: '.get_class($e).' at '.basename($e->getFile()).':'.$e->getLine());
     $message = vaultSafeMessage($e);
+
+    if (isset($path) && in_array($path, ['/files/chunk','/files/chunk/finish'], true)) {
+        vaultJson(['ok'=>false, 'error'=>$message], 400);
+    }
 
     if (isset($method) && $method === 'POST') {
         Security::startSession();
