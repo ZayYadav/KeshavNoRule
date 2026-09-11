@@ -20,12 +20,11 @@ final class CdnCache
     }
 
     /**
-     * v3 permanent bearer URL for one file slot.
+     * Permanent bearer URL for one file slot.
      *
-     * This URL never changes when a file is replaced. The resolver response is
-     * deliberately not cacheable; it redirects to a version/hash-bound payload
-     * URL which Cloudflare may cache aggressively without ever serving stale
-     * bytes for the permanent link.
+     * It never changes when the slot is replaced. The response itself is a
+     * no-store resolver which always reads the current DB row and redirects to
+     * the current immutable version/hash payload URL.
      */
     public static function vaultUrl(array $row): string
     {
@@ -34,10 +33,7 @@ final class CdnCache
         return $base === '' ? '' : self::stableVaultUrlForBase($row, $base);
     }
 
-    /**
-     * Immutable payload URL for the current row version. It changes whenever
-     * version/hash changes, so caching it cannot make the permanent resolver stale.
-     */
+    /** Immutable payload URL for the current version. */
     public static function versionedVaultUrl(array $row): string
     {
         if (!self::enabled()) return '';
@@ -58,9 +54,7 @@ final class CdnCache
         return $expected !== '' && hash_equals($expected, $signature);
     }
 
-    /**
-     * v1 version/hash-bound verifier retained for immutable payload URLs and old links.
-     */
+    /** v1 version/hash-bound verifier retained for old shared payload links. */
     public static function verifyVaultSignature(array $row, string $signature): bool
     {
         $id = (int)($row['id'] ?? 0);
@@ -92,16 +86,20 @@ final class CdnCache
         }
     }
 
+    /** New upload: purge every possible slot URL first, then warm its payload. */
     public static function purgeVaultFile(int $fileId): bool
     {
         if (!self::enabled() || $fileId <= 0) return true;
         $row = self::currentVaultRow($fileId);
-        $urls = self::purgeUrlsForRow($row, $fileId);
-        $purged = self::purgeUrls($urls);
+        $purged = self::purgeUrls(self::purgeUrlsForRow($row, $fileId));
         $warmed = $row === null ? true : self::warmVaultRow($row);
         return $purged && $warmed;
     }
 
+    /**
+     * Replacement: remember the outgoing legacy URL, purge old cache keys, then
+     * re-read the committed row and prime the newly uploaded immutable payload.
+     */
     public static function purgeVaultRow(array $row): bool
     {
         if (!self::enabled()) return true;
@@ -111,14 +109,16 @@ final class CdnCache
         self::rememberLegacyAlias($row);
         $purged = self::purgeUrls(self::purgeUrlsForRow($row, $id));
 
-        // UploadManager/ChunkUploadManager calls this after replacement commits.
-        // Warm the new immutable payload URL, never the permanent resolver URL.
         $current = self::currentVaultRow($id);
         $warmed = $current === null ? true : self::warmVaultRow($current);
         return $purged && $warmed;
     }
 
-    /** Prime the current immutable payload at Cloudflare after upload/replace. */
+    /**
+     * Prime Cloudflare using a normal cacheable GET to the brand-new immutable
+     * version URL. Do not send no-cache request headers here: this request is
+     * intentionally the one that should populate the edge cache.
+     */
     public static function warmVaultRow(array $row): bool
     {
         if (!self::enabled()) return true;
@@ -137,10 +137,8 @@ final class CdnCache
             CURLOPT_TIMEOUT => 60,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
-            CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Warm/3.0',
+            CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Warm/3.1',
             CURLOPT_HTTPHEADER => [
-                'Cache-Control: no-cache',
-                'Pragma: no-cache',
                 'Accept: application/octet-stream,*/*;q=0.8',
             ],
             CURLOPT_WRITEFUNCTION => static function ($handle, string $data): int {
@@ -207,7 +205,7 @@ final class CdnCache
                 CURLOPT_TIMEOUT => 15,
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_SSL_VERIFYHOST => 2,
-                CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Purge/3.0',
+                CURLOPT_USERAGENT => 'TeamDarkPanel-CDN-Purge/3.1',
             ]);
 
             $response = curl_exec($ch);
@@ -244,10 +242,13 @@ final class CdnCache
             $urls[] = $base.'/files/download?id='.$fileId;
             if ($row === null) continue;
 
+            // The permanent v3/v2 aliases must never retain an old redirect/body.
             $v3 = self::stableVaultUrlForBase($row, $base);
             if ($v3 !== '') $urls[] = $v3;
             $v2 = self::legacyStableVaultUrlForBase($row, $base);
             if ($v2 !== '') $urls[] = $v2;
+
+            // Explicitly evict the outgoing immutable object as requested.
             $versioned = self::versionedVaultUrlForBase($row, $base);
             if ($versioned !== '') $urls[] = $versioned;
         }
@@ -301,7 +302,7 @@ final class CdnCache
         return $signature === '' ? '' : rtrim($base, '/').'/cdn-files/'.$id.'/'.$signature.'/latest/asset.zip';
     }
 
-    /** v2 permanent path kept only so old shared links can still resolve. */
+    /** v2 permanent path kept so already-shared links continue to resolve latest. */
     private static function legacyStableVaultUrlForBase(array $row, string $base): string
     {
         $id = (int)($row['id'] ?? 0);
