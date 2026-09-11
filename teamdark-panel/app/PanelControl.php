@@ -35,6 +35,26 @@ final class PanelControl
         'panel_release_label'=>'',
     ];
 
+    /**
+     * Cinematic splash is decorative and must never become an access gate.
+     * Mobile browsers/WebViews are more likely to suspend or delay the animation
+     * / deferred JS while the full-screen layer is active, so phones and tablets
+     * fail open directly to the real panel UI. Desktop keeps the owner's splash
+     * preference unchanged.
+     */
+    private static function mobileClient(): bool
+    {
+        $ua = strtolower(trim((string)($_SERVER['HTTP_USER_AGENT'] ?? '')));
+        if ($ua === '') {
+            return false;
+        }
+
+        return (bool)preg_match(
+            '/android|iphone|ipad|ipod|mobile|tablet|webview|; wv\)|windows phone|opera mini|opera mobi|silk\//i',
+            $ua
+        );
+    }
+
     public static function settings(): array
     {
         try {
@@ -42,11 +62,23 @@ final class PanelControl
         } catch (\PDOException $e) {
             // Existing installations stay operational until the single SQL upgrade is imported.
             if (($e->errorInfo[1] ?? 0) !== 1146) throw $e;
-            return self::DEFAULTS + ['revision'=>0, 'installed'=>false];
+            $settings = self::DEFAULTS + ['revision'=>0, 'installed'=>false];
+            if (self::mobileClient()) {
+                $settings['splash_enabled'] = false;
+            }
+            return $settings;
         }
-        return array_replace(self::DEFAULTS, $row ? (json_decode($row['settings_json'], true) ?: []) : [], [
+
+        $settings = array_replace(self::DEFAULTS, $row ? (json_decode($row['settings_json'], true) ?: []) : [], [
             'revision'=>(int)($row['revision'] ?? 0), 'installed'=>true,
         ]);
+
+        // Fail open on mobile: a visual splash must never cover or lock the panel.
+        if (self::mobileClient()) {
+            $settings['splash_enabled'] = false;
+        }
+
+        return $settings;
     }
 
     public static function blocked(?array $actor): bool
