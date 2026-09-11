@@ -15,7 +15,6 @@ import android.view.WindowManager;
 import android.widget.TextView;
 
 import com.dark.panther.R;
-import com.team.dark.TeamDark2;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -91,8 +90,8 @@ public final class PantherSecurity {
                 boolean ok;
                 try {
                     ok = PantherIntegrity.verify(activity)
-                            && TeamDark2.nativeVerifySignature(activity)
-                            && TeamDark2.nativeCustomIntegrity(activity);
+                            && PantherNative.verifySignature(activity)
+                            && PantherNative.customIntegrity(activity);
                 } catch (Throwable ignored) {
                     ok = false;
                 }
