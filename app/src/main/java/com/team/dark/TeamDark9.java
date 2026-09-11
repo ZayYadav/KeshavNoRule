@@ -1,6 +1,7 @@
 package com.team.dark;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Color;
@@ -28,6 +29,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class TeamDark9 {
 
     private static final AtomicBoolean SHOWING = new AtomicBoolean(false);
+    private static final Handler MAIN_HANDLER = new Handler(Looper.getMainLooper());
 
     private static final String INTEGRITY_AUDIO_URL =
             "https://drive.google.com/uc?export=download&id=1ziE2Lfh4dHqYFWwAEY3nX_LCAvomyxep";
@@ -42,52 +44,143 @@ public final class TeamDark9 {
     public static void showIntegrityFailure(Activity activity, String detail) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
 
-        activity.runOnUiThread(() -> {
-            if (!SHOWING.compareAndSet(false, true)) return;
+        final String safeDetail = detail == null || detail.trim().isEmpty()
+                ? "Unauthorized modification or runtime injection was detected."
+                : detail;
 
-            final long audioSession = AUDIO_SESSION.incrementAndGet();
-            startIntegrityAudio(activity.getApplicationContext(), audioSession);
+        activity.runOnUiThread(() -> showWhenWindowReady(activity, safeDetail, 0));
+    }
 
-            try {
-                Dialog dialog = new Dialog(activity);
-                dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
-                dialog.setContentView(R.layout.integrity_failure_dialog);
-                dialog.setCancelable(false);
-                dialog.setCanceledOnTouchOutside(false);
+    private static void showWhenWindowReady(Activity activity, String detail, int attempt) {
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
+        if (SHOWING.get()) return;
 
-                Window window = dialog.getWindow();
-                if (window != null) {
-                    window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-                    window.setDimAmount(0.78f);
-                    window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-                }
+        try {
+            Window hostWindow = activity.getWindow();
+            View decor = hostWindow == null ? null : hostWindow.getDecorView();
 
-                TextView detailView = dialog.findViewById(R.id.integrityDetail);
-                if (detailView != null) {
-                    detailView.setText(detail == null || detail.trim().isEmpty()
-                            ? "Unauthorized modification or runtime injection was detected."
-                            : detail);
-                }
+            // Tamper can be detected from Activity.onCreate(), before the window token is
+            // attached. Never close the app in that state: wait until the Activity can
+            // actually host a Dialog.
+            if (decor == null || !decor.isAttachedToWindow()) {
+                long delay = attempt < 10 ? 120L : 250L;
+                MAIN_HANDLER.postDelayed(
+                        () -> showWhenWindowReady(activity, detail, attempt + 1),
+                        delay);
+                return;
+            }
+        } catch (Throwable ignored) {
+            MAIN_HANDLER.postDelayed(
+                    () -> showWhenWindowReady(activity, detail, attempt + 1),
+                    150L);
+            return;
+        }
 
-                View close = dialog.findViewById(R.id.integrityClose);
-                if (close != null) {
-                    close.setOnClickListener(v -> safeExit(activity, dialog));
-                }
+        if (!SHOWING.compareAndSet(false, true)) return;
 
-                dialog.setOnDismissListener(d -> {
-                    SHOWING.set(false);
-                    stopIntegrityAudio();
-                    safeFinish(activity);
-                });
+        try {
+            Dialog dialog = new Dialog(activity);
+            dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            dialog.setContentView(R.layout.integrity_failure_dialog);
+            dialog.setCancelable(false);
+            dialog.setCanceledOnTouchOutside(false);
 
-                dialog.show();
-            } catch (Throwable ignored) {
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                window.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+                window.setDimAmount(0.78f);
+                window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            }
+
+            TextView detailView = dialog.findViewById(R.id.integrityDetail);
+            if (detailView != null) {
+                detailView.setText(detail);
+            }
+
+            View close = dialog.findViewById(R.id.integrityClose);
+            if (close == null) {
+                throw new IllegalStateException("Missing integrityClose button");
+            }
+            close.setOnClickListener(v -> safeExit(activity, dialog));
+
+            dialog.setOnDismissListener(d -> {
                 SHOWING.set(false);
                 stopIntegrityAudio();
                 safeFinish(activity);
+            });
+
+            dialog.show();
+            startIntegrityAudio(activity.getApplicationContext(), AUDIO_SESSION.incrementAndGet());
+        } catch (Throwable customDialogFailure) {
+            // The old path immediately finished the Activity here, which looked like a
+            // direct app close on some tampered builds. Never terminate before presenting
+            // a visible security UI. Fall back to a framework-only dialog instead.
+            SHOWING.set(false);
+            MAIN_HANDLER.postDelayed(
+                    () -> showFrameworkFallback(activity, detail, 0),
+                    100L);
+        }
+    }
+
+    private static void showFrameworkFallback(Activity activity, String detail, int attempt) {
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
+        if (SHOWING.get()) return;
+
+        try {
+            Window hostWindow = activity.getWindow();
+            View decor = hostWindow == null ? null : hostWindow.getDecorView();
+            if (decor == null || !decor.isAttachedToWindow()) {
+                MAIN_HANDLER.postDelayed(
+                        () -> showFrameworkFallback(activity, detail, attempt + 1),
+                        attempt < 10 ? 120L : 250L);
+                return;
             }
-        });
+        } catch (Throwable ignored) {
+            MAIN_HANDLER.postDelayed(
+                    () -> showFrameworkFallback(activity, detail, attempt + 1),
+                    200L);
+            return;
+        }
+
+        if (!SHOWING.compareAndSet(false, true)) return;
+
+        try {
+            AlertDialog dialog = new AlertDialog.Builder(activity)
+                    .setTitle("FUCK YOUR MY SON")
+                    .setMessage(detail + "\n\nSESSION TERMINATED SAFELY")
+                    .setCancelable(false)
+                    .setPositiveButton("CLOSE LOADER", null)
+                    .create();
+
+            dialog.setCanceledOnTouchOutside(false);
+            dialog.setOnShowListener(d -> {
+                try {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                            .setOnClickListener(v -> safeExit(activity, dialog));
+                } catch (Throwable ignored) {}
+            });
+            dialog.setOnDismissListener(d -> {
+                SHOWING.set(false);
+                stopIntegrityAudio();
+                safeFinish(activity);
+            });
+
+            Window window = dialog.getWindow();
+            if (window != null) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
+
+            dialog.show();
+            startIntegrityAudio(activity.getApplicationContext(), AUDIO_SESSION.incrementAndGet());
+        } catch (Throwable fallbackFailure) {
+            SHOWING.set(false);
+            // Keep retrying while the Activity is alive. A tamper failure must never
+            // silently turn into an immediate process close.
+            MAIN_HANDLER.postDelayed(
+                    () -> showFrameworkFallback(activity, detail, attempt + 1),
+                    attempt < 10 ? 200L : 500L);
+        }
     }
 
     public static Runnable installRuntimeGuard(Activity activity, Handler handler) {
