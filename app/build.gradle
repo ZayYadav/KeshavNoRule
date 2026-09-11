@@ -5,8 +5,6 @@ plugins {
 
 apply plugin: 'top.niunaijun.blackobfuscator'
 
-
-
 class Scrambler {
     Random random = new Random()
 
@@ -17,25 +15,30 @@ class Scrambler {
 
 Scrambler scrambler = new Scrambler()
 
+def teamDarkKeystore = file('TeamDarkParallax.jks')
+def teamDarkStorePassword = 'TeamDarkParallax@2026#Release'
+def teamDarkKeyPassword = 'TeamDarkParallax@2026#Release'
+def teamDarkKeyAlias = 'TeamDarkParallax'
+
 android {
     namespace 'com.bgmi'
     compileSdk 34
-    
+
     signingConfigs {
         debug {
-            storeFile file("zen.jks")
-            storePassword "11111111"
-            keyPassword "11111111"
-            keyAlias "key0"
+            storeFile teamDarkKeystore
+            storePassword teamDarkStorePassword
+            keyPassword teamDarkKeyPassword
+            keyAlias teamDarkKeyAlias
         }
         release {
-            storeFile file("zen.jks")
-            storePassword "11111111"
-            keyPassword "11111111"
-            keyAlias "key0"
+            storeFile teamDarkKeystore
+            storePassword teamDarkStorePassword
+            keyPassword teamDarkKeyPassword
+            keyAlias teamDarkKeyAlias
         }
     }
-    
+
     lint {
         baseline = file("lint-baseline.xml")
     }
@@ -62,7 +65,6 @@ android {
             abiFilters "arm64-v8a"
         }
 
-        // Keep only the app's shipped locale to reduce packaged resources.
         resourceConfigurations += ['en']
     }
 
@@ -81,7 +83,7 @@ android {
             }
         }
         debug {
-            signingConfig signingConfigs.release
+            signingConfig signingConfigs.debug
             minifyEnabled false
         }
     }
@@ -108,10 +110,8 @@ android {
         includeInBundle = false
     }
 
-    // APK size kam karne ke liye native libs ko compress karke store karo
     packagingOptions {
         jniLibs {
-            // Legacy packaging keeps native libraries compressed inside the APK.
             useLegacyPackaging = true
         }
         resources {
@@ -137,8 +137,7 @@ android {
 
 dependencies {
     implementation fileTree(dir: "libs", includes: ["*.aar"])
-  //  implementation project(':MundoCore')
-implementation 'com.github.tiann:FreeReflection:3.2.2'
+    implementation 'com.github.tiann:FreeReflection:3.2.2'
     implementation 'com.github.CodingGay.BlackReflection:core:1.1.4'
     annotationProcessor 'com.github.CodingGay.BlackReflection:compiler:1.1.4'
     implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -150,7 +149,21 @@ implementation 'com.github.tiann:FreeReflection:3.2.2'
 BlackObfuscator {
     enabled true
     depth 2
-    // Obfuscate only this app's own code. Do not touch BlackBox/AAR dependencies.
     obfClass = ["com.bgmi"]
     blackClass = ["com.bgmi.R", "com.bgmi.BuildConfig", "com.bgmi.utils.BabaDark5"]
+}
+
+gradle.taskGraph.whenReady { graph ->
+    def signedBuildRequested = graph.allTasks.any { task ->
+        def n = task.name.toLowerCase(Locale.ROOT)
+        (n.contains('assemble') || n.contains('bundle') || n.contains('package'))
+    }
+    if (signedBuildRequested) {
+        if (!teamDarkKeystore.isFile()) {
+            throw new GradleException('Missing app/TeamDarkParallax.jks. BABATILLU must use the exact TeamDark signing keystore.')
+        }
+        if (teamDarkKeyAlias != 'TeamDarkParallax') {
+            throw new GradleException('BABATILLU signing alias must be TeamDarkParallax.')
+        }
+    }
 }
