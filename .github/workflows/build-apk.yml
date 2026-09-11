@@ -112,3 +112,5 @@ jobs:
           path: app/build/outputs/apk/release/BABA-DARK-LOADER.apk
           if-no-files-found: error
           retention-days: 14
+
+# BABATILLU build trigger
