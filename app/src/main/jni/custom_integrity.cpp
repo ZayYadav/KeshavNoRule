@@ -28,7 +28,7 @@ static std::string baseName(const std::string &path) {
 
 static bool isAllowedPackagedLibName(const std::string &name) {
     return name == std::string(oxorany("libTeamDarkLoader.so"))
-        || name == std::string(oxorany("libTeamDarkCore.so"));
+        || name == std::string(oxorany("libParallaxELiteCore.so"));
 }
 
 static bool isAllowedSdkStoredArtifact(const std::string &name) {
@@ -148,7 +148,7 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
         }
 
         if (name == std::string(oxorany("libTeamDarkLoader.so"))) foundLoader = true;
-        if (name == std::string(oxorany("libTeamDarkCore.so"))) foundCore = true;
+        if (name == std::string(oxorany("libParallaxELiteCore.so"))) foundCore = true;
     }
 
     closedir(dir);
@@ -307,7 +307,7 @@ static bool verifyProcessMaps(
             continue;
         }
 
-        // TeamDark AAR explicitly loads only this SDK runtime artifact.
+        // SDK explicitly loads only this trusted runtime artifact from no_backup/native.
         if (mappedPath == trustedSdkRuntime) {
             continue;
         }
@@ -432,9 +432,9 @@ bool run(JNIEnv *env, jobject context) {
      * Put your private integrity code below.
      *
      * Built-in checks above enforce:
-     * - libTeamDarkLoader + TeamDarkCore packaged allowlist
+     * - libTeamDarkLoader + ParallaxEliteCore packaged allowlist
      * - exact encrypted-bound files/loader/libbgmi.so exception
-     * - exact TeamDark SDK no_backup/native runtime compatibility
+     * - exact SDK no_backup/native runtime compatibility
      * - owner-only/ELF checks for SDK-staged native artifacts
      * - rejection of other app-private/external/temp mapped .so files
      *
