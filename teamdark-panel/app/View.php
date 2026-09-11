@@ -326,16 +326,16 @@ KOTLIN);
         $head = '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
             .'<title>'.$safeTitle.' • '.$app.'</title>'
-            .'<link rel="stylesheet" href="/assets/app.css?v=20260910-4">'
+            .'<link rel="stylesheet" href="/assets/app.css?v=20260911-1">'
             .'<link rel="stylesheet" href="/assets/themes.css?v=20260910-2">'
             .'<link rel="stylesheet" href="/assets/owner-tools.css?v=20260910-2">'
             .'<link rel="stylesheet" href="/assets/cinematic.css?v=20260910-2">'
-            .'<link rel="stylesheet" href="/assets/system-console.css?v=20260910-1">'
+            .'<link rel="stylesheet" href="/assets/system-console.css?v=20260911-1">'
             .'<meta name="theme-color" content="#020305">'
             .'<meta name="color-scheme" content="dark light"></head>';
 
         if (!$user) {
-            echo $head.'<body data-teamdark-ui="7" data-theme="obsidian" data-theme-user="guest" class="guest-body">'.$splash
+            echo $head.'<body data-teamdark-ui="5" data-theme="obsidian" data-theme-user="guest" class="guest-body">'.$splash
                 .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
                 .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
                 .'<div class="cursor-aura" aria-hidden="true"></div>'
@@ -415,7 +415,7 @@ KOTLIN);
             $body .= self::ownerConnectSection();
         }
 
-        echo $head.'<body data-teamdark-ui="7" data-theme="obsidian" data-theme-user="'.$themeUser.'">'.$splash
+        echo $head.'<body data-teamdark-ui="5" data-theme="obsidian" data-theme-user="'.$themeUser.'">'.$splash
             .'<div class="fx-grid" aria-hidden="true"></div><div class="fx-noise" aria-hidden="true"></div>'
             .'<div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="ambient ambient-three"></div>'
             .'<div class="cursor-aura" aria-hidden="true"></div>'
