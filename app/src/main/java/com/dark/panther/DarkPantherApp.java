@@ -5,7 +5,7 @@ import android.content.Context;
 import android.util.Log;
 
 import com.dark.panther.core.PantherLoaderUpdater;
-import com.team.dark.TeamDark1;
+import com.dark.panther.core.PantherNative;
 
 import net_62v.external.MetaActivationManager;
 
@@ -136,7 +136,7 @@ public class DarkPantherApp extends Application {
         super.onCreate();
         BlackBoxCore.get().doCreate();
         try {
-            MetaActivationManager.activateSdk(TeamDark1.getSdkKey());
+            MetaActivationManager.activateSdk(PantherNative.getSdkKey());
         } catch (Exception exception) {
             Log.e(TAG, "SDK activation failed", exception);
         }
