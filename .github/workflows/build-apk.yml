@@ -49,6 +49,47 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
+      - name: Verify TeamDark-style signature and dialog contract
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          JAVA_GUARD='app/src/main/java/com/bgmi/BabaDark8.java'
+          DIALOG_GUARD='app/src/main/java/com/bgmi/BabaDark9.java'
+          LOGIN='app/src/main/java/com/bgmi/BabaDark2.java'
+          HOME='app/src/main/java/com/bgmi/BabaDark3.java'
+          NATIVE='app/src/main/jni/main.cpp'
+          DIALOG='app/src/main/res/layout/integrity_failure_dialog.xml'
+
+          grep -F 'verifyInstalledSigningCertificate' "$JAVA_GUARD" >/dev/null
+          grep -F 'verifyBaseApkSigningCertificate' "$JAVA_GUARD" >/dev/null
+          grep -F '77f05d53ce8bf1855' "$JAVA_GUARD" >/dev/null
+          grep -F 'caef38ce87f13a8' "$JAVA_GUARD" >/dev/null
+          grep -F 'bb2b1b2cdd2d48da' "$JAVA_GUARD" >/dev/null
+          grep -F '9d3ba897eac4549e' "$JAVA_GUARD" >/dev/null
+
+          grep -F '77f05d53ce8bf1855caef38ce87f13a8bb2b1b2cdd2d48da9d3ba897eac4549e' "$NATIVE" >/dev/null
+          grep -F 'Java_com_bgmi_BabaDark2_nativeVerifySignature' "$NATIVE" >/dev/null
+          grep -F 'Java_com_bgmi_BabaDark2_nativeCustomIntegrity' "$NATIVE" >/dev/null
+
+          grep -F 'BabaDark8.verify(this)' "$LOGIN" >/dev/null
+          grep -F 'nativeVerifySignature(this) && nativeCustomIntegrity(this)' "$LOGIN" >/dev/null
+          grep -F 'BabaDark9.showIntegrityFailure' "$LOGIN" >/dev/null
+          grep -F 'BabaDark8.verify(this)' "$HOME" >/dev/null
+          grep -F 'BabaDark2.nativeVerifySignature(this)' "$HOME" >/dev/null
+          grep -F 'BabaDark9.showIntegrityFailure' "$HOME" >/dev/null
+
+          grep -F 'RUNTIME_GUARD_INTERVAL_MS = 3_000L' "$DIALOG_GUARD" >/dev/null
+          grep -F 'BabaDark8.verify(activity)' "$DIALOG_GUARD" >/dev/null
+          grep -F 'BabaDark2.nativeVerifySignature(activity)' "$DIALOG_GUARD" >/dev/null
+          grep -F 'BabaDark2.nativeCustomIntegrity(activity)' "$DIALOG_GUARD" >/dev/null
+          grep -F 'R.layout.integrity_failure_dialog' "$DIALOG_GUARD" >/dev/null
+          grep -F 'integrityClose' "$DIALOG_GUARD" >/dev/null
+
+          grep -F 'android:id="@+id/integrityDetail"' "$DIALOG" >/dev/null
+          grep -F 'android:id="@+id/integrityClose"' "$DIALOG" >/dev/null
+          grep -F 'APK INTEGRITY FAILED' "$DIALOG" >/dev/null
+
       - name: Build release APK
         run: ./gradlew clean :app:assembleRelease --stacktrace --no-daemon
 
