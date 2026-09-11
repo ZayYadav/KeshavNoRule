@@ -84,7 +84,7 @@
             android:progressBackgroundTint="#2846506A"
             android:progressTint="@color/cyber_cyan" />
 
-        <!-- The ID is on the real clickable button so error/wrong-key CLOSE always receives taps. -->
+        <!-- ID is on the real clickable button so wrong-key CLOSE always receives taps. -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/okButton"
             android:layout_width="match_parent"
@@ -97,9 +97,6 @@
             android:textStyle="bold"
             android:visibility="gone"
             app:backgroundTint="@color/cyber_cyan"
-            app:cornerRadius="17dp"
-            app:icon="@drawable/ic_close"
-            app:iconGravity="textStart"
-            app:iconTint="@color/text_dark" />
+            app:cornerRadius="17dp" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>
