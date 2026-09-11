@@ -1,78 +1,95 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="310dp"
     android:layout_height="wrap_content"
-    android:background="@drawable/px_dialog_bg"
+    android:background="@drawable/nova_dialog"
     android:elevation="18dp"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="22dp">
 
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="62dp"
-        android:layout_height="62dp"
-        app:cardBackgroundColor="@color/px_surface_alt"
-        app:cardCornerRadius="20dp"
-        app:cardElevation="0dp"
-        app:strokeColor="@color/px_stroke_bright"
-        app:strokeWidth="1dp">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-        <ImageView
-            android:id="@+id/loadingIcon"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
-            android:layout_gravity="center"
-            android:contentDescription="Parallax"
-            android:scaleType="centerInside"
-            android:src="@drawable/icon" />
-    </com.google.android.material.card.MaterialCardView>
+        <FrameLayout
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/nova_icon_tile">
+            <ImageView
+                android:id="@+id/loadingIcon"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_gravity="center"
+                android:contentDescription="Parallax"
+                android:src="@drawable/icon" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.12" android:text="PARALLAX CORE" android:textColor="@color/nova_cyan" android:textSize="8sp" android:textStyle="bold" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Secure handshake" android:textColor="@color/nova_text" android:textSize="16sp" android:textStyle="bold" />
+        </LinearLayout>
+
+        <View android:layout_width="8dp" android:layout_height="8dp" android:background="@drawable/nova_live_dot" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="3dp"
+        android:layout_marginTop="17dp"
+        android:background="@drawable/nova_rule" />
 
     <TextView
         android:id="@+id/loadingText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="17dp"
-        android:gravity="center"
+        android:gravity="start"
         android:lineSpacingExtra="2dp"
-        android:text="Checking secure session..."
-        android:textColor="@color/px_text"
-        android:textSize="16sp"
+        android:text="Verifying License..."
+        android:textColor="@color/nova_text"
+        android:textSize="14sp"
         android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/progressText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="7dp"
-        android:gravity="center"
-        android:text="Please keep this window open"
-        android:textColor="@color/px_muted"
-        android:textSize="11sp" />
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="5dp"
-        android:layout_marginTop="18dp"
+        android:layout_height="7dp"
+        android:layout_marginTop="15dp"
         android:indeterminate="true"
-        android:indeterminateTint="@color/px_blue"
-        android:progressBackgroundTint="#26384E"
-        android:progressTint="@color/px_blue" />
+        android:indeterminateTint="@color/nova_violet"
+        android:progressBackgroundTint="#24FFFFFF"
+        android:progressTint="@color/nova_cyan" />
+
+    <TextView
+        android:id="@+id/progressText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Encrypted channel established"
+        android:textColor="@color/nova_muted"
+        android:textSize="10sp" />
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/okButton"
         android:layout_width="match_parent"
-        android:layout_height="54dp"
-        android:layout_marginTop="18dp"
-        android:background="@drawable/px_button_primary"
+        android:layout_height="52dp"
+        android:layout_marginTop="17dp"
+        android:background="@drawable/nova_primary"
         android:clickable="true"
         android:focusable="true"
-        android:letterSpacing="0.05"
+        android:letterSpacing="0.06"
         android:text="CLOSE"
-        android:textColor="#06101A"
-        android:textSize="13sp"
+        android:textColor="@color/nova_dark_text"
+        android:textSize="12sp"
         android:textStyle="bold"
         android:visibility="gone" />
 </LinearLayout>

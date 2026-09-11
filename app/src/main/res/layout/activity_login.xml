@@ -3,7 +3,23 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/px_background">
+    android:background="@drawable/nova_background">
+
+    <View
+        android:layout_width="270dp"
+        android:layout_height="270dp"
+        android:layout_gravity="top|end"
+        android:translationX="95dp"
+        android:translationY="-95dp"
+        android:background="@drawable/nova_glow_cyan" />
+
+    <View
+        android:layout_width="250dp"
+        android:layout_height="250dp"
+        android:layout_gravity="bottom|start"
+        android:translationX="-105dp"
+        android:translationY="85dp"
+        android:background="@drawable/nova_glow_pink" />
 
     <ScrollView
         android:layout_width="match_parent"
@@ -16,10 +32,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="20dp"
-            android:paddingTop="36dp"
-            android:paddingEnd="20dp"
-            android:paddingBottom="28dp">
+            android:paddingStart="18dp"
+            android:paddingTop="30dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="26dp">
 
             <LinearLayout
                 android:id="@+id/headerArea"
@@ -28,30 +44,25 @@
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <com.google.android.material.card.MaterialCardView
+                <FrameLayout
                     android:id="@+id/logoContainer"
-                    android:layout_width="58dp"
-                    android:layout_height="58dp"
-                    app:cardBackgroundColor="@color/px_surface_alt"
-                    app:cardCornerRadius="19dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="@color/px_stroke_bright"
-                    app:strokeWidth="1dp">
+                    android:layout_width="54dp"
+                    android:layout_height="54dp"
+                    android:background="@drawable/nova_icon_tile">
 
                     <ImageView
                         android:layout_width="34dp"
                         android:layout_height="34dp"
                         android:layout_gravity="center"
                         android:contentDescription="Parallax Loader"
-                        android:scaleType="centerInside"
                         android:src="@drawable/icon" />
-                </com.google.android.material.card.MaterialCardView>
+                </FrameLayout>
 
                 <LinearLayout
                     android:id="@+id/titleBanner"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="13dp"
+                    android:layout_marginStart="12dp"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -59,27 +70,26 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-black"
-                        android:letterSpacing="0.02"
                         android:text="PARALLAX"
-                        android:textColor="@color/px_text"
-                        android:textSize="22sp"
+                        android:textColor="@color/nova_text"
+                        android:textSize="21sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:letterSpacing="0.16"
-                        android:text="PRIVATE LOADER"
-                        android:textColor="@color/px_blue"
-                        android:textSize="9sp"
+                        android:layout_marginTop="1dp"
+                        android:letterSpacing="0.17"
+                        android:text="OBSIDIAN ACCESS"
+                        android:textColor="@color/nova_cyan"
+                        android:textSize="8sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="32dp"
-                    android:background="@drawable/px_chip"
+                    android:background="@drawable/nova_chip"
                     android:gravity="center"
                     android:orientation="horizontal"
                     android:paddingStart="10dp"
@@ -88,279 +98,302 @@
                     <View
                         android:layout_width="7dp"
                         android:layout_height="7dp"
-                        android:background="@drawable/px_live_dot" />
+                        android:background="@drawable/nova_live_dot" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="7dp"
-                        android:letterSpacing="0.08"
-                        android:text="ONLINE"
-                        android:textColor="@color/px_green"
+                        android:text="LIVE"
+                        android:textColor="@color/nova_lime"
                         android:textSize="9sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="38dp"
-                android:fontFamily="sans-serif-light"
-                android:lineSpacingExtra="1dp"
-                android:text="Private access,\nwithout the clutter."
-                android:textColor="@color/px_text"
-                android:textSize="34sp" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="30dp"
+                android:layout_marginTop="34dp"
+                android:background="@drawable/nova_chip"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="11dp"
+                android:paddingEnd="11dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.12"
+                    android:text="PRIVATE • VERIFIED • ARM64"
+                    android:textColor="@color/nova_violet"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="14dp"
+                android:fontFamily="sans-serif-black"
+                android:lineSpacingExtra="-2dp"
+                android:text="ENTER THE\nPARALLAX GRID"
+                android:textColor="@color/nova_text"
+                android:textSize="35sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="9dp"
                 android:lineSpacingExtra="3dp"
-                android:text="Verify your license key to enter the protected Parallax workspace."
-                android:textColor="@color/px_muted"
-                android:textSize="13sp" />
+                android:text="One secure key. One private runtime. No extra steps between you and the control deck."
+                android:textColor="@color/nova_muted"
+                android:textSize="12sp" />
 
-            <com.google.android.material.card.MaterialCardView
+            <LinearLayout
                 android:id="@+id/loginCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
-                app:cardBackgroundColor="#F20A0F18"
-                app:cardCornerRadius="30dp"
-                app:cardElevation="0dp"
-                app:strokeColor="@color/px_stroke"
-                app:strokeWidth="1dp">
+                android:layout_marginTop="25dp"
+                android:background="@drawable/nova_panel_focus"
+                android:orientation="vertical"
+                android:padding="20dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="21dp">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <FrameLayout
-                            android:layout_width="44dp"
-                            android:layout_height="44dp"
-                            android:background="@drawable/px_icon_box">
-
-                            <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
-                                android:layout_gravity="center"
-                                android:contentDescription="Secure key"
-                                android:src="@drawable/ic_cyber_key"
-                                app:tint="@color/px_blue" />
-                        </FrameLayout>
-
-                        <LinearLayout
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
-                            android:layout_weight="1"
-                            android:orientation="vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="License gate"
-                                android:textColor="@color/px_text"
-                                android:textSize="17sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginTop="3dp"
-                                android:text="Native encrypted verification"
-                                android:textColor="@color/px_muted"
-                                android:textSize="10sp" />
-                        </LinearLayout>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:background="@drawable/px_chip"
-                            android:paddingStart="9dp"
-                            android:paddingTop="5dp"
-                            android:paddingEnd="9dp"
-                            android:paddingBottom="5dp"
-                            android:text="SECURE"
-                            android:textColor="@color/px_violet"
-                            android:textSize="8sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
                     <TextView
                         android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="22dp"
-                        android:letterSpacing="0.10"
-                        android:text="ACCESS KEY"
-                        android:textColor="@color/px_muted"
+                        android:layout_height="32dp"
+                        android:background="@drawable/nova_chip"
+                        android:gravity="center"
+                        android:paddingStart="11dp"
+                        android:paddingEnd="11dp"
+                        android:text="01 / AUTH"
+                        android:textColor="@color/nova_pink"
                         android:textSize="9sp"
                         android:textStyle="bold" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="62dp"
-                        android:layout_marginTop="9dp"
-                        android:background="@drawable/px_input"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="10dp">
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="11dp"
+                        android:layout_marginEnd="11dp"
+                        android:layout_weight="1"
+                        android:background="#22FFFFFF" />
 
-                        <EditText
-                            android:id="@+id/userkey"
-                            android:layout_width="0dp"
-                            android:layout_height="match_parent"
-                            android:layout_weight="1"
-                            android:background="@android:color/transparent"
-                            android:hint="Paste private license"
-                            android:inputType="textPassword"
-                            android:maxLines="1"
-                            android:paddingEnd="10dp"
-                            android:textColor="@color/px_text"
-                            android:textColorHint="#5F6E82"
-                            android:textSize="13sp" />
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="Protected"
+                        android:src="@drawable/ic_shield_check"
+                        app:tint="@color/nova_lime" />
+                </LinearLayout>
 
-                        <FrameLayout
-                            android:id="@+id/paste"
-                            android:layout_width="42dp"
-                            android:layout_height="42dp"
-                            android:background="@drawable/px_icon_box"
-                            android:clickable="true"
-                            android:focusable="true">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:text="License handshake"
+                    android:textColor="@color/nova_text"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
 
-                            <ImageView
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
-                                android:layout_gravity="center"
-                                android:contentDescription="Paste access key"
-                                android:src="@drawable/ic_content_paste"
-                                app:tint="@color/px_text" />
-                        </FrameLayout>
-                    </LinearLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:text="Native encrypted verification channel"
+                    android:textColor="@color/nova_muted"
+                    android:textSize="10sp" />
 
-                    <androidx.appcompat.widget.AppCompatButton
-                        android:id="@+id/login"
-                        android:layout_width="match_parent"
-                        android:layout_height="58dp"
-                        android:layout_marginTop="16dp"
-                        android:background="@drawable/px_button_primary"
-                        android:letterSpacing="0.05"
-                        android:text="UNLOCK WORKSPACE"
-                        android:textColor="#06101A"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:layout_marginTop="19dp"
+                    android:background="@drawable/nova_input"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="13dp"
+                    android:paddingEnd="9dp">
+
+                    <FrameLayout
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/nova_icon_tile">
+
+                        <ImageView
+                            android:layout_width="19dp"
+                            android:layout_height="19dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="License"
+                            android:src="@drawable/ic_cyber_key"
+                            app:tint="@color/nova_cyan" />
+                    </FrameLayout>
+
+                    <EditText
+                        android:id="@+id/userkey"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:background="@android:color/transparent"
+                        android:hint="ENTER PRIVATE KEY"
+                        android:inputType="textPassword"
+                        android:maxLines="1"
+                        android:paddingEnd="8dp"
+                        android:textColor="@color/nova_text"
+                        android:textColorHint="#666A80"
+                        android:textSize="12sp" />
+
+                    <FrameLayout
+                        android:id="@+id/paste"
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/nova_secondary"
+                        android:clickable="true"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="Paste key"
+                            android:src="@drawable/ic_content_paste"
+                            app:tint="@color/nova_text" />
+                    </FrameLayout>
+                </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/login"
+                    android:layout_width="match_parent"
+                    android:layout_height="58dp"
+                    android:layout_marginTop="13dp"
+                    android:background="@drawable/nova_primary"
+                    android:letterSpacing="0.07"
+                    android:text="AUTHORIZE SESSION  →"
+                    android:textAllCaps="false"
+                    android:textColor="@color/nova_dark_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
                     <LinearLayout
                         android:id="@+id/GetKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="56dp"
-                        android:layout_marginTop="11dp"
-                        android:background="@drawable/px_button_secondary"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:background="@drawable/nova_secondary"
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
                         android:orientation="horizontal">
 
                         <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
+                            android:layout_width="17dp"
+                            android:layout_height="17dp"
                             android:contentDescription="Telegram"
                             android:src="@drawable/ic_telegram"
-                            app:tint="@color/px_blue" />
+                            app:tint="@color/nova_cyan" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="9dp"
-                            android:letterSpacing="0.05"
-                            android:text="GET LICENSE"
-                            android:textColor="@color/px_text"
-                            android:textSize="12sp"
+                            android:layout_marginStart="8dp"
+                            android:text="GET KEY"
+                            android:textColor="@color/nova_text"
+                            android:textSize="11sp"
                             android:textStyle="bold" />
                     </LinearLayout>
 
                     <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="18dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:layout_width="112dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="10dp"
+                        android:background="@drawable/nova_chip"
+                        android:gravity="center"
+                        android:orientation="vertical">
 
                         <TextView
-                            android:layout_width="0dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="NATIVE AUTH"
-                            android:textColor="@color/px_muted"
-                            android:textSize="9sp"
+                            android:text="CHANNEL"
+                            android:textColor="@color/nova_muted"
+                            android:textSize="7sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="ARM64 • PRIVATE"
-                            android:textColor="@color/px_blue"
+                            android:layout_marginTop="2dp"
+                            android:text="ENCRYPTED"
+                            android:textColor="@color/nova_lime"
                             android:textSize="9sp"
                             android:textStyle="bold" />
                     </LinearLayout>
                 </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/footerArea"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="3dp"
-                android:paddingEnd="3dp">
+                android:layout_marginTop="15dp"
+                android:background="@drawable/nova_panel"
+                android:orientation="vertical"
+                android:padding="15dp">
 
                 <View
-                    android:layout_width="4dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/px_accent_bar" />
+                    android:layout_width="match_parent"
+                    android:layout_height="3dp"
+                    android:background="@drawable/nova_rule" />
 
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="11dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:layout_marginTop="13dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:text="PARALLAX SECURITY CORE"
-                        android:textColor="@color/px_text"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="CORE" android:textColor="@color/nova_muted" android:textSize="7sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="PARALLAX" android:textColor="@color/nova_text" android:textSize="10sp" android:textStyle="bold" />
+                    </LinearLayout>
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="Protected session environment"
-                        android:textColor="@color/px_muted"
-                        android:textSize="9sp" />
+                        android:layout_weight="1"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="MODE" android:textColor="@color/nova_muted" android:textSize="7sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="PRIVATE" android:textColor="@color/nova_violet" android:textSize="10sp" android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="end"
+                        android:orientation="vertical">
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="STATE" android:textColor="@color/nova_muted" android:textSize="7sp" android:textStyle="bold" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="READY" android:textColor="@color/nova_lime" android:textSize="10sp" android:textStyle="bold" />
+                    </LinearLayout>
                 </LinearLayout>
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:contentDescription="Protected"
-                    android:src="@drawable/ic_shield_check"
-                    app:tint="@color/px_green" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

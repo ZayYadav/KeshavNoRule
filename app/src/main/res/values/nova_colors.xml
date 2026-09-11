@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="nova_void">#05040A</color>
+    <color name="nova_void_2">#090713</color>
+    <color name="nova_panel">#0F1020</color>
+    <color name="nova_panel_alt">#15172C</color>
+    <color name="nova_text">#F8F7FF</color>
+    <color name="nova_muted">#9093AA</color>
+    <color name="nova_cyan">#5CEBFF</color>
+    <color name="nova_violet">#9B75FF</color>
+    <color name="nova_pink">#FF4FD8</color>
+    <color name="nova_lime">#B5FF6D</color>
+    <color name="nova_orange">#FFAA5C</color>
+    <color name="nova_red">#FF5D7A</color>
+    <color name="nova_stroke">#2BFFFFFF</color>
+    <color name="nova_stroke_hot">#669B75FF</color>
+    <color name="nova_dark_text">#080713</color>
+</resources>
