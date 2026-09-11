@@ -26,20 +26,47 @@ try {
     if (!in_array($method, ['GET','HEAD'], true)) cdnFail(405, 'Method not allowed.');
 
     $path = (string)(parse_url((string)($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '');
-    if (!preg_match('#/cdn-files/(\d+)/(\d+)/([a-f0-9]{64})/asset\.zip/?$#i', $path, $m)) {
+    $fileId = 0;
+    $legacyVersion = 0;
+    $signature = '';
+    $stableRoute = false;
+
+    // v2 permanent URL: /cdn-files/{file_id}/{stable_signature}/asset.zip
+    if (preg_match('#/cdn-files/(\d+)/([a-f0-9]{64})/asset\.zip/?$#i', $path, $m)) {
+        $fileId = (int)$m[1];
+        $signature = strtolower($m[2]);
+        $stableRoute = true;
+    // v1 compatibility URL retained for links shared before stable URLs shipped.
+    } elseif (preg_match('#/cdn-files/(\d+)/(\d+)/([a-f0-9]{64})/asset\.zip/?$#i', $path, $m)) {
+        $fileId = (int)$m[1];
+        $legacyVersion = (int)$m[2];
+        $signature = strtolower($m[3]);
+    } else {
         cdnFail(404, 'File not found.');
     }
 
-    $fileId = (int)$m[1];
-    $version = (int)$m[2];
-    $signature = strtolower($m[3]);
-    if ($fileId <= 0 || $version <= 0) cdnFail(404, 'File not found.');
+    if ($fileId <= 0 || (!$stableRoute && $legacyVersion <= 0)) cdnFail(404, 'File not found.');
 
     UploadManager::ensureSchema();
-    $q = Database::pdo()->prepare('SELECT * FROM user_uploads WHERE id=? AND version=? LIMIT 1');
-    $q->execute([$fileId, $version]);
+    $q = Database::pdo()->prepare('SELECT * FROM user_uploads WHERE id=? LIMIT 1');
+    $q->execute([$fileId]);
     $row = $q->fetch();
-    if (!$row || !CdnCache::verifyVaultSignature($row, $signature)) cdnFail(404, 'File not found.');
+    if (!$row) cdnFail(404, 'File not found.');
+
+    if ($stableRoute) {
+        if (!CdnCache::verifyStableVaultSignature($row, $signature)) {
+            cdnFail(404, 'File not found.');
+        }
+    } else {
+        $currentVersion = (int)$row['version'];
+        $validCurrentLegacy = $currentVersion === $legacyVersion
+            && CdnCache::verifyVaultSignature($row, $signature);
+        $validRememberedLegacy = !$validCurrentLegacy
+            && CdnCache::legacyAliasMatches($fileId, $legacyVersion, $signature);
+        if (!$validCurrentLegacy && !$validRememberedLegacy) {
+            cdnFail(404, 'File not found.');
+        }
+    }
 
     $storageName = (string)$row['storage_name'];
     if (!preg_match('/^[a-f0-9]{48}\.blob$/', $storageName)) cdnFail(404, 'File not found.');
@@ -56,6 +83,7 @@ try {
     $fallback = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?: 'download.'.(string)$row['extension'];
     $type = strtolower((string)$row['extension']) === 'zip' ? 'application/zip' : 'application/octet-stream';
     $ttl = CdnCache::cacheSeconds();
+    $version = (int)$row['version'];
     $etag = '"'.strtolower((string)$row['sha256']).'-v'.$version.'"';
     $mtime = filemtime($filePath) ?: time();
 
@@ -104,10 +132,14 @@ try {
     header('Accept-Ranges: bytes');
     header('ETag: '.$etag);
     header('Last-Modified: '.gmdate('D, d M Y H:i:s', $mtime).' GMT');
-    header('Cache-Control: public, max-age=300, s-maxage='.$ttl.', immutable');
+
+    // The URL is permanent while its bytes may change. Browsers therefore
+    // revalidate, while Cloudflare can retain the current object for the full TTL.
+    header('Cache-Control: public, max-age=0, s-maxage='.$ttl.', must-revalidate');
     header('CDN-Cache-Control: public, max-age='.$ttl);
     header('Cloudflare-CDN-Cache-Control: public, max-age='.$ttl);
-    header('X-TeamDark-CDN: signed-versioned-v1');
+    header('X-TeamDark-CDN: stable-signed-v2');
+    header('X-TeamDark-File-Version: '.$version);
     header('Content-Disposition: attachment; filename="'.addcslashes($fallback, "\\\"").'"; filename*=UTF-8\'\''.rawurlencode($name));
 
     $length = $size === 0 ? 0 : ($end - $start + 1);
