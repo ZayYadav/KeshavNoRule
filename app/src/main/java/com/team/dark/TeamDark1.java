@@ -1,13 +1,10 @@
 package com.team.dark;
 
-import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
-import android.os.Bundle;
 import android.util.Log;
 
 import com.team.dark.utils.TeamDark5;
-
 import com.parallax.ELite;
 
 import org.lsposed.lsparanoid.Obfuscate;
@@ -23,14 +20,6 @@ import com.parallaxelite.app.configuration.ClientConfiguration;
 @Obfuscate
 public class TeamDark1 extends Application {
 
-    static {
-        try {
-            System.loadLibrary("TeamDarkLoader");
-        } catch (Throwable ignored) {
-            // Login activity performs a fail-closed native readiness check.
-        }
-    }
-
     public static native String getSdkKey();
 
     private static final String TAG = "TeamDark1";
@@ -38,9 +27,9 @@ public class TeamDark1 extends Application {
     private static final AtomicBoolean CALLBACK_REGISTERED = new AtomicBoolean(false);
     private static final AtomicBoolean SERVER_LOADER_LOADING = new AtomicBoolean(false);
     private static final AtomicBoolean SERVER_LOADER_LOADED = new AtomicBoolean(false);
-    private static final AtomicBoolean TAMPER_CALLBACK_REGISTERED = new AtomicBoolean(false);
     private static volatile boolean HOST_SIGNATURE_CHECKED = false;
     private static volatile boolean HOST_SIGNATURE_VALID = false;
+    private static volatile boolean NATIVE_LOADED = false;
 
     public static boolean isHostSignatureVerified() {
         return HOST_SIGNATURE_CHECKED && HOST_SIGNATURE_VALID;
@@ -50,29 +39,23 @@ public class TeamDark1 extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
 
-        // Verify the real host before ParallaxElite installs PackageManager/runtime hooks.
-        // Layer 1: native certificate SHA-256 check.
-        // Layer 2: Java installed-package + base-APK certificate checks.
+        /*
+         * IMPORTANT: Do not touch TeamDark2, AppCompat or native code before the
+         * signer decision. A re-signed/tampered APK must stay on the lightweight
+         * framework-only launcher path so Android gets a chance to show the dialog.
+         */
         boolean signatureValid = false;
-        boolean javaSignatureValid = false;
         try {
-            signatureValid = TeamDark2.nativeVerifySignature(base);
+            signatureValid = TeamDarkSigner.verify(base);
         } catch (Throwable ignored) {
             signatureValid = false;
         }
-        try {
-            javaSignatureValid = TeamDark8.verifyHostIdentityBeforeElite(base);
-        } catch (Throwable ignored) {
-            javaSignatureValid = false;
-        }
 
-        signatureValid = signatureValid && javaSignatureValid;
         HOST_SIGNATURE_VALID = signatureValid;
         HOST_SIGNATURE_CHECKED = true;
+
         if (!signatureValid) {
-            Log.e(TAG, "Host APK package/signature verification failed before Elite attach");
-            // Do not terminate or initialize Elite here. TeamDarkGateActivity is the
-            // launcher and owns the visible tamper dialog from a real Activity window.
+            Log.e(TAG, "Host APK signer verification failed; blocking SDK/native startup");
             return;
         }
 
@@ -97,8 +80,23 @@ public class TeamDark1 extends Application {
                 }
             });
             registerServerLoaderCallback(base.getApplicationContext());
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Throwable throwable) {
+            Log.e(TAG, "Elite attach failed", throwable);
+        }
+    }
+
+    private static boolean ensureNativeLoaded() {
+        if (NATIVE_LOADED) return true;
+        synchronized (TeamDark1.class) {
+            if (NATIVE_LOADED) return true;
+            try {
+                System.loadLibrary("TeamDarkLoader");
+                NATIVE_LOADED = true;
+                return true;
+            } catch (Throwable throwable) {
+                Log.e(TAG, "TeamDark native library load failed", throwable);
+                return false;
+            }
         }
     }
 
@@ -191,54 +189,24 @@ public class TeamDark1 extends Application {
         }
     }
 
-    private void registerTamperDialogLifecycle() {
-        if (!TAMPER_CALLBACK_REGISTERED.compareAndSet(false, true)) return;
-
-        registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
-            @Override
-            public void onActivityCreated(Activity activity, Bundle savedInstanceState) {}
-
-            @Override
-            public void onActivityStarted(Activity activity) {}
-
-            @Override
-            public void onActivityResumed(Activity activity) {
-                if (!isHostSignatureVerified()) {
-                    TeamDark9.showIntegrityFailure(
-                            activity,
-                            "MY SON GO AND DRINK SOME MILK FROM YOUR MOM BOOBS BECAUSE YOUR FATHER IS PARALLAX MY SON.");
-                }
-            }
-
-            @Override
-            public void onActivityPaused(Activity activity) {}
-
-            @Override
-            public void onActivityStopped(Activity activity) {}
-
-            @Override
-            public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
-
-            @Override
-            public void onActivityDestroyed(Activity activity) {}
-        });
-    }
-
     @Override
     public void onCreate() {
         super.onCreate();
+
+        // Invalid signer: do absolutely no Elite/native work. The invisible launcher
+        // Activity exists only to host the tamper dialog.
         if (!isHostSignatureVerified()) {
-            Log.e(TAG, "Skipping Elite initialization because host signature is invalid");
-            // TeamDarkGateActivity is now the only startup tamper UI owner. Keeping the
-            // Application passive here avoids two competing dialogs and avoids any
-            // AppCompat/SDK work before the user sees the tamper warning.
+            Log.e(TAG, "Invalid signer: SDK/native initialization blocked");
             return;
         }
-        ParallaxELiteInstaller.get().doCreate();
+
         try {
-            ELite.activate(getSdkKey());
-        } catch (Exception exception) {
-            exception.printStackTrace();
+            ParallaxELiteInstaller.get().doCreate();
+            if (ensureNativeLoaded()) {
+                ELite.activate(getSdkKey());
+            }
+        } catch (Throwable throwable) {
+            Log.e(TAG, "Elite create/activation failed", throwable);
         }
     }
 }
