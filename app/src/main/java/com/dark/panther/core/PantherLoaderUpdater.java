@@ -4,8 +4,6 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 
-import com.team.dark.TeamDark5;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -52,8 +50,8 @@ public class PantherLoaderUpdater extends AsyncTask<String, Integer, String> {
         return new File(new File(context.getFilesDir(), "loader"), TRUSTED_LOADER_NAME);
     }
 
-    public static String versionUrl() { return TeamDark5.Version(); }
-    public static String downloadUrl() { return TeamDark5.Link(); }
+    public static String versionUrl() { return PantherNative.versionUrl(); }
+    public static String downloadUrl() { return PantherNative.downloadUrl(); }
 
     @Override
     protected String doInBackground(String... params) {
