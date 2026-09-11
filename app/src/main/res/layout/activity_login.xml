@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -16,10 +16,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="22dp"
-            android:paddingTop="34dp"
-            android:paddingEnd="22dp"
-            android:paddingBottom="28dp">
+            android:paddingStart="20dp"
+            android:paddingTop="28dp"
+            android:paddingEnd="20dp"
+            android:paddingBottom="30dp">
 
             <LinearLayout
                 android:id="@+id/headerArea"
@@ -28,42 +28,60 @@
                 android:gravity="center_horizontal"
                 android:orientation="vertical">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="34dp"
                     android:background="@drawable/cyber_badge_green"
-                    android:letterSpacing="0.10"
-                    android:paddingStart="13dp"
-                    android:paddingTop="7dp"
-                    android:paddingEnd="13dp"
-                    android:paddingBottom="7dp"
-                    android:text="TEAM DARK  •"
-                    android:textColor="@color/cyber_emerald"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
+                    android:gravity="center"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp">
+
+                    <View
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
+                        android:background="@drawable/circle_bg"
+                        android:backgroundTint="@color/cyber_emerald" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:letterSpacing="0.14"
+                        android:text="TEAM DARK  •  ELITE"
+                        android:textColor="@color/cyber_emerald"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/logoContainer"
-                    android:layout_width="92dp"
-                    android:layout_height="92dp"
-                    android:layout_marginTop="24dp"
-                    app:cardBackgroundColor="#D9111724"
-                    app:cardCornerRadius="30dp"
-                    app:cardElevation="0dp"
-                    app:strokeColor="#408B5CF6"
+                    android:layout_width="104dp"
+                    android:layout_height="104dp"
+                    android:layout_marginTop="22dp"
+                    app:cardBackgroundColor="#D70B1020"
+                    app:cardCornerRadius="34dp"
+                    app:cardElevation="12dp"
+                    app:strokeColor="#667C5CFF"
                     app:strokeWidth="1dp">
 
-                    <ImageView
-                        android:layout_width="52dp"
-                        android:layout_height="52dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="TeamDark Loader"
-                        android:src="@drawable/icon" />
+                    <FrameLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:padding="21dp">
+
+                        <ImageView
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="TeamDark Elite"
+                            android:scaleType="centerInside"
+                            android:src="@drawable/icon" />
+                    </FrameLayout>
                 </com.google.android.material.card.MaterialCardView>
 
                 <LinearLayout
                     android:id="@+id/titleBanner"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="18dp"
                     android:gravity="center"
@@ -73,10 +91,10 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-black"
-                        android:letterSpacing="0.01"
-                        android:text="TeamDark Loader"
+                        android:letterSpacing="0.02"
+                        android:text="TEAMDARK ELITE"
                         android:textColor="@color/white"
-                        android:textSize="30sp"
+                        android:textSize="31sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -84,9 +102,10 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:gravity="center"
-                        android:text="AntiBan • Safe server • Twitter + Facebook Login"
+                        android:letterSpacing="0.04"
+                        android:text="PRIVATE ACCESS  •  ELITE CORE  •  SECURE SESSION"
                         android:textColor="@color/text_muted"
-                        android:textSize="12sp" />
+                        android:textSize="10sp" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -94,11 +113,11 @@
                 android:id="@+id/loginCard"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                app:cardBackgroundColor="#E6111724"
-                app:cardCornerRadius="28dp"
-                app:cardElevation="0dp"
-                app:strokeColor="#24FFFFFF"
+                android:layout_marginTop="28dp"
+                app:cardBackgroundColor="#E80B1020"
+                app:cardCornerRadius="30dp"
+                app:cardElevation="10dp"
+                app:strokeColor="#367C5CFF"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
@@ -113,125 +132,146 @@
                         android:gravity="center_vertical"
                         android:orientation="horizontal">
 
-                        <FrameLayout
-                            android:layout_width="42dp"
-                            android:layout_height="42dp"
-                            android:background="@drawable/cyber_btn_secondary">
+                        <com.google.android.material.card.MaterialCardView
+                            android:layout_width="46dp"
+                            android:layout_height="46dp"
+                            app:cardBackgroundColor="#1A4FE6FF"
+                            app:cardCornerRadius="15dp"
+                            app:cardElevation="0dp"
+                            app:strokeColor="#4D4FE6FF"
+                            app:strokeWidth="1dp">
 
                             <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
+                                android:layout_width="21dp"
+                                android:layout_height="21dp"
                                 android:layout_gravity="center"
-                                android:contentDescription="License"
+                                android:contentDescription="License key"
                                 android:src="@drawable/ic_cyber_key"
                                 app:tint="@color/cyber_cyan" />
-                        </FrameLayout>
+                        </com.google.android.material.card.MaterialCardView>
 
                         <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="12dp"
+                            android:layout_marginStart="13dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Verify your access"
+                                android:text="Elite authorization"
                                 android:textColor="@color/white"
-                                android:textSize="18sp"
+                                android:textSize="19sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="3dp"
-                                android:text="Enter your license key to continue."
+                                android:text="Enter the private access key assigned to you."
                                 android:textColor="@color/text_muted"
-                                android:textSize="12sp" />
+                                android:textSize="11sp" />
                         </LinearLayout>
                     </LinearLayout>
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="58dp"
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
                         android:layout_marginTop="22dp"
-                        android:background="@drawable/cyber_input_bg"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="9dp">
-
-                        <EditText
-                            android:id="@+id/userkey"
-                            android:layout_width="0dp"
-                            android:layout_height="match_parent"
-                            android:layout_weight="1"
-                            android:background="@android:color/transparent"
-                            android:hint="LICENSE KEY"
-                            android:inputType="textPassword"
-                            android:maxLines="1"
-                            android:textColor="@color/white"
-                            android:textColorHint="@color/hintText"
-                            android:textSize="14sp" />
-
-                        <FrameLayout
-                            android:id="@+id/paste"
-                            android:layout_width="42dp"
-                            android:layout_height="42dp"
-                            android:background="@drawable/cyber_btn_secondary"
-                            android:clickable="true"
-                            android:focusable="true">
-
-                            <ImageView
-                                android:layout_width="18dp"
-                                android:layout_height="18dp"
-                                android:layout_gravity="center"
-                                android:contentDescription="Paste key"
-                                android:src="@drawable/ic_content_paste"
-                                app:tint="@color/cyber_cyan" />
-                        </FrameLayout>
-                    </LinearLayout>
-
-                    <androidx.appcompat.widget.AppCompatButton
-                        android:id="@+id/login"
-                        android:layout_width="match_parent"
-                        android:layout_height="58dp"
-                        android:layout_marginTop="16dp"
-                        android:background="@drawable/cyber_btn_primary"
-                        android:letterSpacing="0.04"
-                        android:text="VERIFY &amp; CONTINUE"
-                        android:textColor="@color/text_dark"
-                        android:textSize="14sp"
+                        android:letterSpacing="0.10"
+                        android:text="ACCESS KEY"
+                        android:textColor="@color/cyber_purple"
+                        android:textSize="10sp"
                         android:textStyle="bold" />
 
-                    <LinearLayout
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="match_parent"
+                        android:layout_height="60dp"
+                        android:layout_marginTop="8dp"
+                        app:cardBackgroundColor="#B5101627"
+                        app:cardCornerRadius="18dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="#334FE6FF"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="16dp"
+                            android:paddingEnd="7dp">
+
+                            <EditText
+                                android:id="@+id/userkey"
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:background="@android:color/transparent"
+                                android:hint="TD-ELITE-XXXXXX"
+                                android:inputType="textPassword"
+                                android:maxLines="1"
+                                android:paddingEnd="8dp"
+                                android:textColor="@color/white"
+                                android:textColorHint="@color/hintText"
+                                android:textSize="14sp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/paste"
+                                android:layout_width="48dp"
+                                android:layout_height="44dp"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:insetLeft="0dp"
+                                android:insetTop="0dp"
+                                android:insetRight="0dp"
+                                android:insetBottom="0dp"
+                                android:text=""
+                                app:backgroundTint="#1D7C5CFF"
+                                app:cornerRadius="14dp"
+                                app:icon="@drawable/ic_content_paste"
+                                app:iconGravity="textStart"
+                                app:iconPadding="0dp"
+                                app:iconTint="@color/cyber_cyan"
+                                app:strokeColor="#507C5CFF"
+                                app:strokeWidth="1dp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/login"
+                        android:layout_width="match_parent"
+                        android:layout_height="60dp"
+                        android:layout_marginTop="16dp"
+                        android:letterSpacing="0.08"
+                        android:text="UNLOCK ELITE ACCESS"
+                        android:textColor="@color/text_dark"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="@color/cyber_cyan"
+                        app:cornerRadius="18dp"
+                        app:icon="@drawable/ic_shield_check"
+                        app:iconGravity="textStart"
+                        app:iconTint="@color/text_dark" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/GetKey"
                         android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="12dp"
-                        android:background="@drawable/cyber_btn_secondary"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:gravity="center"
-                        android:orientation="horizontal">
-
-                        <ImageView
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:contentDescription="Get key"
-                            android:src="@drawable/ic_telegram"
-                            app:tint="@color/cyber_cyan" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="9dp"
-                            android:text="GET OFFICIAL KEY"
-                            android:textColor="@color/white"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
+                        android:layout_height="54dp"
+                        android:layout_marginTop="11dp"
+                        android:letterSpacing="0.06"
+                        android:text="GET OFFICIAL ELITE KEY"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        app:backgroundTint="#177C5CFF"
+                        app:cornerRadius="18dp"
+                        app:icon="@drawable/ic_telegram"
+                        app:iconGravity="textStart"
+                        app:iconTint="@color/cyber_purple"
+                        app:strokeColor="#557C5CFF"
+                        app:strokeWidth="1dp" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -245,28 +285,38 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="~PARALLAX"
-                            android:textColor="@color/cyber_emerald"
+                            android:text="PARALLAX"
+                            android:textColor="@color/cyber_cyan"
                             android:textSize="9sp"
                             android:textStyle="bold" />
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="15dp"
+                            android:background="#2EFFFFFF" />
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="~DARK DEVEL"
+                            android:text="DARK DEVEL"
                             android:textColor="@color/cyber_purple"
                             android:textSize="9sp"
                             android:textStyle="bold" />
 
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="15dp"
+                            android:background="#2EFFFFFF" />
+
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="~GONE CHACHA"
-                            android:textColor="@color/cyber_cyan"
+                            android:text="GONE CHACHA"
+                            android:textColor="@color/cyber_pink"
                             android:textSize="9sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -277,26 +327,27 @@
                 android:id="@+id/footerArea"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
+                android:layout_marginTop="20dp"
                 android:gravity="center"
                 android:orientation="vertical">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="TEAM DARK "
+                    android:letterSpacing="0.08"
+                    android:text="ELITE CORE • ENCRYPTED SESSION"
                     android:textColor="@color/text_muted"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="Authorized access only"
-                    android:textColor="#64748B"
+                    android:text="Authorized devices only"
+                    android:textColor="#667089"
                     android:textSize="10sp" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
-</RelativeLayout>
+</FrameLayout>
