@@ -59,7 +59,9 @@ jobs:
           test -f teamdark-panel/public/vault-entry.php
           test -f teamdark-panel/public/vault.php
           test -f teamdark-panel/public/file-download.php
+          test -f teamdark-panel/public/assets/vault-upload.js
           test -f teamdark-panel/app/UploadManager.php
+          test -f teamdark-panel/app/ChunkUploadManager.php
           test -f teamdark-panel/app/CdnCache.php
           test -f teamdark-panel/storage/private_uploads/.htaccess
 
@@ -75,18 +77,27 @@ jobs:
           test "$root_download" -lt "$root_catchall"
           test "$public_download" -lt "$public_catchall"
 
-      - name: Verify 50 MB upload and optional CDN purge wiring
+      - name: Verify 50 MB chunked upload and stable CDN wiring
         shell: bash
         run: |
           set -euo pipefail
           grep -F 'MAX_FILE_BYTES = 52428800' teamdark-panel/app/UploadManager.php >/dev/null
-          grep -F 'upload_max_filesize = 50M' teamdark-panel/.user.ini >/dev/null
-          grep -F 'post_max_size = 55M' teamdark-panel/.user.ini >/dev/null
-          grep -F 'upload_max_filesize = 50M' teamdark-panel/public/.user.ini >/dev/null
+          grep -F 'MAX_FILE_BYTES = 52428800' teamdark-panel/app/ChunkUploadManager.php >/dev/null
+          grep -F 'CHUNK_BYTES = 262144' teamdark-panel/app/ChunkUploadManager.php >/dev/null
+          grep -F "'/files/chunk'" teamdark-panel/public/vault.php >/dev/null
+          grep -F "'/files/chunk/finish'" teamdark-panel/public/vault.php >/dev/null
+          grep -F 'CHUNK_BYTES = 256 * 1024' teamdark-panel/public/assets/vault-upload.js >/dev/null
+          grep -F 'upload_max_filesize = 64M' teamdark-panel/.user.ini >/dev/null
+          grep -F 'post_max_size = 72M' teamdark-panel/.user.ini >/dev/null
+          grep -F 'upload_max_filesize = 64M' teamdark-panel/public/.user.ini >/dev/null
           grep -F 'CLOUDFLARE_CACHE_ENABLED' teamdark-panel/.env.example >/dev/null
           grep -F 'cloudflare_cache_enabled' teamdark-panel/app/Config.php >/dev/null
           grep -F 'CdnCache::purgeVaultFile' teamdark-panel/app/UploadManager.php >/dev/null
           grep -F '/purge_cache' teamdark-panel/app/CdnCache.php >/dev/null
+          grep -F '/latest/asset.zip' teamdark-panel/app/CdnCache.php >/dev/null
+          grep -F 'stable-resolver-v3' teamdark-panel/public/cdn-download.php >/dev/null
+          grep -F 'latest/asset\.zip' teamdark-panel/.htaccess >/dev/null
+          grep -F 'latest/asset\.zip' teamdark-panel/public/.htaccess >/dev/null
 
       - name: Verify modular Owner System and screenshot-inspired navigation
         shell: bash
