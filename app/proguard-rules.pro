@@ -1,5 +1,4 @@
 # Dark Panther release hardening
-# New user-facing/component classes.
 -keepnames class com.dark.panther.DarkPantherApp
 -keepnames class com.dark.panther.DarkPantherLoginActivity
 -keepnames class com.dark.panther.DarkPantherHomeActivity
@@ -8,13 +7,7 @@
 -keepnames class com.dark.panther.core.PantherIntegrity
 -keepnames class com.dark.panther.core.PantherSecurity
 -keep class com.dark.panther.core.PantherLoaderUpdater { *; }
-
-# Tiny legacy JNI ABI bridges. These names must remain stable because main.cpp
-# exports name-based JNI symbols from the existing native auth/server contract.
--keep class com.team.dark.TeamDark1 { *; }
--keep class com.team.dark.TeamDark2 { *; }
--keep class com.team.dark.TeamDark3 { *; }
--keep class com.team.dark.utils.TeamDark5 { *; }
+-keep class com.dark.panther.core.PantherNative { *; }
 
 -keepclasseswithmembernames,includedescriptorclasses class * {
     native <methods>;
