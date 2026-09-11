@@ -31,7 +31,7 @@ public class TeamDark1 extends Application {
 
     public static native String getSdkKey();
 
-    private static final String TAG = "TeamDark1";
+    private static final String TAG = "BewafaServer32";
     private static final String PKG_BGMI = "com.pubg.imobile";
     private static final AtomicBoolean CALLBACK_REGISTERED = new AtomicBoolean(false);
     private static final AtomicBoolean SERVER_LOADER_LOADING = new AtomicBoolean(false);
@@ -106,15 +106,15 @@ public class TeamDark1 extends Application {
 
         try {
             File loader = TeamDark5.trustedLoaderFile(hostContext);
-            if (!isUsableSharedObject(loader)) {
-                Log.e(TAG, "Trusted server loader is missing or invalid at " + stage);
+            if (!isUsableArm32SharedObject(loader)) {
+                Log.e(TAG, "Trusted 32-bit server loader is missing or invalid at " + stage);
                 return;
             }
 
             hardenLoaderPermissions(loader);
             System.load(loader.getAbsolutePath());
             SERVER_LOADER_LOADED.set(true);
-            Log.i(TAG, "Trusted server loader loaded for " + packageName
+            Log.i(TAG, "Trusted ARM32 server loader loaded for " + packageName
                     + " process=" + processName + " stage=" + stage);
         } catch (UnsatisfiedLinkError error) {
             Log.e(TAG, "Trusted server loader dlopen failed at " + stage, error);
@@ -130,16 +130,30 @@ public class TeamDark1 extends Application {
                 && (processName == null || processName.length() == 0 || PKG_BGMI.equals(processName));
     }
 
-    private static boolean isUsableSharedObject(File file) {
-        if (file == null || !file.isFile() || file.length() < 4L) {
+    private static boolean isUsableArm32SharedObject(File file) {
+        if (file == null || !file.isFile() || file.length() < 20L) {
             return false;
         }
 
+        // ELF header checks: ELF32 + little-endian + EM_ARM (40).
+        // This prevents an accidental arm64 server payload from entering the 32-bit build.
         try (FileInputStream input = new FileInputStream(file)) {
-            return input.read() == 0x7f
-                    && input.read() == 'E'
-                    && input.read() == 'L'
-                    && input.read() == 'F';
+            byte[] header = new byte[20];
+            int total = 0;
+            while (total < header.length) {
+                int read = input.read(header, total, header.length - total);
+                if (read < 0) break;
+                total += read;
+            }
+            return total == header.length
+                    && (header[0] & 0xff) == 0x7f
+                    && header[1] == 'E'
+                    && header[2] == 'L'
+                    && header[3] == 'F'
+                    && (header[4] & 0xff) == 1
+                    && (header[5] & 0xff) == 1
+                    && (header[18] & 0xff) == 40
+                    && (header[19] & 0xff) == 0;
         } catch (Throwable ignored) {
             return false;
         }
@@ -160,7 +174,7 @@ public class TeamDark1 extends Application {
         super.onCreate();
         BlackBoxCore.get().doCreate();
         try {
-            MetaActivationManager.activateSdk("SDK-8FB9E9C2AF9126A7C74250E5");
+            MetaActivationManager.activateSdk("BEWAFA32BIT");
         } catch (Exception exception) {
             exception.printStackTrace();
         }
