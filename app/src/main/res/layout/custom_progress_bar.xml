@@ -1,44 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="260dp"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="300dp"
     android:layout_height="wrap_content"
-    android:gravity="center"
-    android:background="@drawable/cyber_dialog_bg"
-    android:padding="26dp"
-    android:elevation="14dp"
-    android:orientation="vertical">
+    android:background="@drawable/panther_card"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="22dp">
+
+    <ImageView
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:contentDescription="Dark Panther"
+        android:src="@drawable/panther_icon" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:letterSpacing="0.08"
+        android:text="PANTHER DATA SYNC"
+        android:textColor="@color/panther_text"
+        android:textSize="13sp"
+        android:textStyle="bold" />
 
     <ProgressBar
         android:id="@+id/progressBar"
-        android:layout_width="54dp"
-        android:layout_height="54dp"
-        android:indeterminate="true"
-        android:indeterminateTint="@color/cyber_cyan"
-        style="?android:attr/progressBarStyleLarge" />
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:layout_marginTop="17dp"
+        android:max="100"
+        android:progress="0"
+        android:progressBackgroundTint="#30334439"
+        android:progressTint="@color/panther_green" />
 
     <TextView
         android:id="@+id/progressText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="Processing..."
-        android:textColor="@color/white"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.05"
-        android:shadowColor="@color/cyber_cyan"
-        android:shadowRadius="10" />
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="TeamDark Loader"
-        android:textColor="#64748B"
-        android:textSize="10sp"
-        android:letterSpacing="0.08"
+        android:layout_marginTop="10dp"
+        android:text="0/100"
+        android:textColor="@color/panther_gold"
+        android:textSize="11sp"
         android:textStyle="bold" />
-
 </LinearLayout>
