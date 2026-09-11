@@ -36,17 +36,44 @@ public final class TeamDark8 {
 
     private TeamDark8() {}
 
+    /**
+     * Must run from Application.attachBaseContext() before ParallaxElite installs
+     * PackageManager/runtime hooks. This mirrors the hard certificate checks from
+     * TeamDarkLoader while keeping Elite virtualization from influencing the result.
+     */
+    public static boolean verifyHostIdentityBeforeElite(Context context) {
+        if (context == null) return false;
+
+        try {
+            Context app = context.getApplicationContext();
+            if (app == null) app = context;
+
+            if (!expectedPackage().equals(app.getPackageName())) return false;
+            if ((app.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) return false;
+
+            // Two independent PackageManager views of the same TeamDark signer:
+            // installed package identity + certificate parsed from the base APK path.
+            if (!verifyInstalledSigningCertificate(app)) return false;
+            if (!verifyBaseApkSigningCertificate(app)) return false;
+
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     public static boolean verify(Context context) {
         if (context == null) return false;
 
         try {
             Context app = context.getApplicationContext();
+            if (app == null) app = context;
 
             if (!expectedPackage().equals(app.getPackageName())) return false;
             if ((app.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) return false;
 
-            // The host certificate was verified before Elite installed PM hooks.
-            // Re-reading it here would route through the virtual PackageManager.
+            // Host cert/package were verified twice in Java plus once in native code
+            // before Elite installed PM hooks. Never trust a post-hook PM result here.
             if (!TeamDark1.isHostSignatureVerified()) return false;
             if (!verifyApkNativeEntries(app)) return false;
             if (!verifyExtractedNativeDirectory(app)) return false;
@@ -62,6 +89,72 @@ public final class TeamDark8 {
 
     private static String expectedPackage() {
         return "com." + "team" + ".dark" + ".elite";
+    }
+
+    private static String expectedCertSha256() {
+        return "95d42274430c198e"
+                + "20056da00e5e4dca"
+                + "fd5935d93d2e4380"
+                + "e2788b1b7ff8a32f";
+    }
+
+    private static boolean verifyInstalledSigningCertificate(Context context) throws Exception {
+        PackageManager pm = context.getPackageManager();
+        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                ? PackageManager.GET_SIGNING_CERTIFICATES
+                : PackageManager.GET_SIGNATURES;
+
+        PackageInfo info = pm.getPackageInfo(context.getPackageName(), flags);
+        return signaturesTrusted(info);
+    }
+
+    private static boolean verifyBaseApkSigningCertificate(Context context) throws Exception {
+        PackageManager pm = context.getPackageManager();
+        ApplicationInfo ai = context.getApplicationInfo();
+
+        if (ai == null || ai.sourceDir == null || ai.sourceDir.trim().isEmpty()) return false;
+
+        File baseApk = new File(ai.sourceDir);
+        if (!baseApk.isFile() || baseApk.length() <= 0L) return false;
+
+        int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                ? PackageManager.GET_SIGNING_CERTIFICATES
+                : PackageManager.GET_SIGNATURES;
+
+        PackageInfo archive = pm.getPackageArchiveInfo(baseApk.getAbsolutePath(), flags);
+        return signaturesTrusted(archive);
+    }
+
+    private static boolean signaturesTrusted(PackageInfo info) throws Exception {
+        if (info == null) return false;
+
+        Signature[] signatures;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && info.signingInfo != null) {
+            SigningInfo signingInfo = info.signingInfo;
+            signatures = signingInfo.hasMultipleSigners()
+                    ? signingInfo.getApkContentsSigners()
+                    : signingInfo.getSigningCertificateHistory();
+        } else {
+            signatures = info.signatures;
+        }
+
+        if (signatures == null || signatures.length == 0) return false;
+
+        String expected = expectedCertSha256();
+        boolean matched = false;
+
+        for (Signature signature : signatures) {
+            if (signature == null) continue;
+
+            String actual = sha256Hex(signature.toByteArray());
+            if (expected.equals(actual)) {
+                matched = true;
+                break;
+            }
+        }
+
+        return matched;
     }
 
     private static boolean verifyApkNativeEntries(Context context) throws Exception {
@@ -191,7 +284,6 @@ public final class TeamDark8 {
             return false;
         }
     }
-
 
     private static boolean verifySdkRuntimeArtifacts(Context context) throws Exception {
         File root = context.getNoBackupFilesDir();
