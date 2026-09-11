@@ -1,6 +1,6 @@
-name: Build TeamDark SDK + Loader
+name: Build BEWAFA SERVER 32-bit
 
-run-name: TeamDark release from SDK ${{ inputs.sdk_ref || 'TeamDarkSDK' }}
+run-name: BEWAFA SERVER ARMv7 release from SDK ${{ inputs.sdk_ref || 'TeamDarkSDK' }}
 
 on:
   workflow_dispatch:
@@ -11,9 +11,10 @@ on:
         default: "TeamDarkSDK"
   push:
     branches:
-      - TeamDarkLoader
+      - BEWAFASERVER32bit
     paths:
       - 'app/**'
+      - 'scripts/**'
       - 'build.gradle'
       - 'settings.gradle'
       - 'gradle.properties'
@@ -23,12 +24,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: teamdark-loader-${{ github.ref }}
+  group: bewafa-server-32bit-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Build TeamDarkCore AAR and TeamDarkLoader APK
+    name: Build BEWAFA SERVER armeabi-v7a APK
     runs-on: ubuntu-22.04
     timeout-minutes: 70
 
@@ -36,7 +37,7 @@ jobs:
       SDK_REPO: ZayYadav/ParallaxSDK
       SDK_REF: ${{ inputs.sdk_ref || 'TeamDarkSDK' }}
       SDK_CHECKOUT_DIR: _teamdark_sdk
-      SDK_PROJECT_DIR: _teamdark_sdk/TeamDarkSDK/BLACK-OPNE
+      SDK_PROJECT_DIR: _teamdark_sdk/BLACK-OPNE
       SDK_MODULE: TeamDarkCore
       SDK_MODULE_DIR: RIYAZ-VIP
       APP_AAR_PATH: app/libs/TeamDarkCore-release.aar
@@ -45,9 +46,12 @@ jobs:
       APP_CMAKE_VERSION: 3.22.1
       TEAM_DARK_KEY_ALIAS: TeamDarkParallax
       TEAM_DARK_EXPECTED_CERT_SHA256: 95D42274430C198E20056DA00E5E4DCAFD5935D93D2E4380E2788B1B7FF8A32F
+      BEWAFA_AUTH_URL: https://teamdarkloader.parallaxserver.online/connect/BEWFASERVER-23a2148c3ba779eeec228dba
+      BEWAFA_SDK_KEY: BEWAFA32BIT
+      BEWAFA_ZIP_URL: https://github.com/danzermods132-art/YUVRAJ/releases/download/DARK/Saved.zip
 
     steps:
-      - name: Checkout TeamDarkLoader
+      - name: Checkout BEWAFA SERVER branch
         uses: actions/checkout@v4
 
       - name: Checkout TeamDark SDK source
@@ -91,6 +95,13 @@ jobs:
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > "${SDK_PROJECT_DIR}/local.properties"
           chmod +x ./gradlew
           chmod +x "${SDK_PROJECT_DIR}/gradlew"
+          chmod +x scripts/prepare-bewafa32-native.sh
+
+      - name: Prepare pinned ARMv7 curl and OpenSSL
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./scripts/prepare-bewafa32-native.sh
 
       - name: Record source revisions
         shell: bash
@@ -104,19 +115,27 @@ jobs:
             echo "sdk_ref=${SDK_REF}"
             echo "sdk_sha=${SDK_SHA}"
             echo "loader_sha=${LOADER_SHA}"
+            echo "abi=armeabi-v7a"
+            echo "branding=BEWAFA SERVER"
           } | tee build-integration-info/source-revisions.txt
 
-      - name: Verify preserved panel/runtime contracts
+      - name: Verify BEWAFA SERVER contracts
         shell: bash
         run: |
           set -euo pipefail
-          grep -R -F 'SDK-8FB9E9C2AF9126A7C74250E5' app/src/main >/dev/null
-          grep -R -F 'libbgmi.so' app/src/main/java >/dev/null
-          grep -R -F 'teamdarkloader.parallaxserver.online/connect' app/src/main/jni >/dev/null
+          grep -R -F "${BEWAFA_SDK_KEY}" app/src/main >/dev/null
+          grep -R -F "${BEWAFA_ZIP_URL}" app/src/main >/dev/null
+          grep -R -F "${BEWAFA_AUTH_URL}" app/src/main >/dev/null
+          grep -F 'abiFilters "armeabi-v7a"' app/build.gradle >/dev/null
+          grep -F 'APP_ABI := armeabi-v7a' app/src/main/jni/Application.mk >/dev/null
+          grep -F 'BEWAFA SERVER supports only armeabi-v7a' app/src/main/jni/CMakeLists.txt >/dev/null
           grep -F "namespace 'com.team.dark'" app/build.gradle >/dev/null
           grep -F 'applicationId "com.team.dark"' app/build.gradle >/dev/null
+          test -s app/src/main/jni/includes/curl/curl-android-armeabi-v7a/lib/libcurl.a
+          test -s app/src/main/jni/includes/curl/openssl-android-armeabi-v7a/lib/libssl.a
+          test -s app/src/main/jni/includes/curl/openssl-android-armeabi-v7a/lib/libcrypto.a
           if grep -R -E 'package com\.bgmi|import com\.bgmi|Java_com_bgmi_|applicationId "com\.bgmi"|namespace .com\.bgmi.|KESHAVFRIEND' app/src/main app/build.gradle; then
-            echo 'Old package/SDK identity remains in active TeamDark source.' >&2
+            echo 'Old package/SDK identity remains in active source.' >&2
             exit 1
           fi
 
@@ -127,14 +146,14 @@ jobs:
           set -euo pipefail
           ./gradlew :${SDK_MODULE}:assembleRelease --no-daemon --stacktrace
 
-      - name: Install fresh TeamDark SDK AAR
+      - name: Install fresh SDK AAR with ARMv7 core
         shell: bash
         run: |
           set -euo pipefail
           SOURCE_AAR="${SDK_PROJECT_DIR}/${SDK_MODULE_DIR}/build/outputs/aar/${SDK_MODULE}-release.aar"
           test -s "$SOURCE_AAR"
           unzip -tq "$SOURCE_AAR"
-          unzip -Z1 "$SOURCE_AAR" | grep -q 'jni/arm64-v8a/libTeamDarkCore.so'
+          unzip -Z1 "$SOURCE_AAR" | grep -q 'jni/armeabi-v7a/libTeamDarkCore.so'
           if unzip -Z1 "$SOURCE_AAR" | grep -q 'libKESHAVXOWNERCore\.so'; then
             echo 'Old SDK native library name remains in AAR.' >&2
             exit 1
@@ -144,25 +163,34 @@ jobs:
           cp -f "$SOURCE_AAR" "${APP_AAR_PATH}"
           sha256sum "${APP_AAR_PATH}" | tee build-integration-info/TeamDarkCore-release.aar.sha256
 
-      - name: Compile TeamDarkLoader debug validation
+      - name: Compile BEWAFA SERVER debug validation
         shell: bash
         run: |
           set -euo pipefail
           ./gradlew :app:assembleDebug --stacktrace --no-daemon
           DEBUG_APK="$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name '*.apk' | head -n1)"
           test -s "$DEBUG_APK"
-          "${ANDROID_HOME}/build-tools/34.0.0/aapt" dump badging "$DEBUG_APK"             | grep -q "package: name='com.team.dark'"
-          cp "$DEBUG_APK" app/build/outputs/apk/debug/TeamDarkLoader-debug-validation.apk
+          "${ANDROID_HOME}/build-tools/34.0.0/aapt" dump badging "$DEBUG_APK" \
+            | grep -q "package: name='com.team.dark'"
 
-      - name: Upload TeamDark debug validation APK
+          mapfile -t DEBUG_ABIS < <(
+            unzip -Z1 "$DEBUG_APK" \
+              | awk -F/ '/^lib\/.*\.so$/ {print $2}' \
+              | sort -u
+          )
+          test "${#DEBUG_ABIS[@]}" -eq 1
+          test "${DEBUG_ABIS[0]}" = 'armeabi-v7a'
+          cp "$DEBUG_APK" app/build/outputs/apk/debug/BEWAFASERVER32bit-debug-validation.apk
+
+      - name: Upload BEWAFA SERVER debug validation APK
         uses: actions/upload-artifact@v4
         with:
-          name: TeamDarkLoader-debug-validation
-          path: app/build/outputs/apk/debug/TeamDarkLoader-debug-validation.apk
+          name: BEWAFASERVER32bit-debug-validation
+          path: app/build/outputs/apk/debug/BEWAFASERVER32bit-debug-validation.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Validate TeamDark release signing config
+      - name: Validate release signing config
         shell: bash
         run: |
           set -euo pipefail
@@ -172,13 +200,13 @@ jobs:
           grep -F "keyAlias teamDarkKeyAlias" app/build.gradle >/dev/null
           grep -F "def teamDarkKeyAlias = 'TeamDarkParallax'" app/build.gradle >/dev/null
 
-      - name: Build TeamDarkLoader release APK
+      - name: Build BEWAFA SERVER release APK
         shell: bash
         run: |
           set -euo pipefail
           ./gradlew clean :app:assembleRelease --stacktrace --no-daemon
 
-      - name: Verify TeamDarkLoader release APK
+      - name: Verify BEWAFA SERVER is 32-bit ARM only
         shell: bash
         run: |
           set -euo pipefail
@@ -188,7 +216,10 @@ jobs:
 
           "${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK"
 
-          APK_CERT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --print-certs "$APK"             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'             | tr -d ':[:space:]'             | tr '[:lower:]' '[:upper:]')"
+          APK_CERT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --print-certs "$APK" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            | tr -d ':[:space:]' \
+            | tr '[:lower:]' '[:upper:]')"
           test "$APK_CERT" = "$TEAM_DARK_EXPECTED_CERT_SHA256" || {
             echo "Release APK signer mismatch: $APK_CERT" >&2
             exit 1
@@ -196,15 +227,32 @@ jobs:
 
           AAPT="${ANDROID_HOME}/build-tools/34.0.0/aapt"
           "$AAPT" dump badging "$APK" | grep -q "package: name='com.team.dark'"
+          "$AAPT" dump badging "$APK" | grep -q "application-label:'BEWAFA SERVER'"
+
+          mapfile -t ABI_DIRS < <(
+            unzip -Z1 "$APK" \
+              | awk -F/ '/^lib\/.*\.so$/ {print $2}' \
+              | sort -u
+          )
+          printf 'Packaged ABI directories:\n'
+          printf '  %s\n' "${ABI_DIRS[@]}"
+          test "${#ABI_DIRS[@]}" -eq 1 || {
+            echo 'APK contains more than one native ABI.' >&2
+            exit 1
+          }
+          test "${ABI_DIRS[0]}" = 'armeabi-v7a' || {
+            echo "Unexpected APK ABI: ${ABI_DIRS[0]}" >&2
+            exit 1
+          }
 
           mapfile -t LIBS < <(
             unzip -Z1 "$APK" \
-              | grep '^lib/arm64-v8a/.*\.so$' \
-              | sed 's#^lib/arm64-v8a/##' \
+              | grep '^lib/armeabi-v7a/.*\.so$' \
+              | sed 's#^lib/armeabi-v7a/##' \
               | sort
           )
 
-          printf 'Packaged arm64 libraries:\n'
+          printf 'Packaged armeabi-v7a libraries:\n'
           printf '  %s\n' "${LIBS[@]}"
           printf '%s\n' "${LIBS[@]}" | grep -qx 'libTeamDarkCore.so'
           printf '%s\n' "${LIBS[@]}" | grep -qx 'libTeamDarkLoader.so'
@@ -214,31 +262,38 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" app/build/outputs/apk/release/TeamDarkLoader-release.apk
-          sha256sum app/build/outputs/apk/release/TeamDarkLoader-release.apk \
-            | tee build-integration-info/TeamDarkLoader-release.apk.sha256
+          unzip -p "$APK" lib/armeabi-v7a/libTeamDarkLoader.so > /tmp/libTeamDarkLoader.so
+          unzip -p "$APK" lib/armeabi-v7a/libTeamDarkCore.so > /tmp/libTeamDarkCore.so
+          readelf -h /tmp/libTeamDarkLoader.so | grep -Eq 'Class:[[:space:]]+ELF32'
+          readelf -h /tmp/libTeamDarkLoader.so | grep -Eq 'Machine:[[:space:]]+ARM'
+          readelf -h /tmp/libTeamDarkCore.so | grep -Eq 'Class:[[:space:]]+ELF32'
+          readelf -h /tmp/libTeamDarkCore.so | grep -Eq 'Machine:[[:space:]]+ARM'
 
-      - name: Upload fresh TeamDark SDK AAR
+          cp "$APK" app/build/outputs/apk/release/BEWAFASERVER32bit-release.apk
+          sha256sum app/build/outputs/apk/release/BEWAFASERVER32bit-release.apk \
+            | tee build-integration-info/BEWAFASERVER32bit-release.apk.sha256
+
+      - name: Upload fresh SDK AAR
         uses: actions/upload-artifact@v4
         with:
-          name: TeamDarkCore-release-aar
+          name: BEWAFASERVER32bit-TeamDarkCore-release-aar
           path: ${{ env.APP_AAR_PATH }}
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload TeamDarkLoader release APK
+      - name: Upload BEWAFA SERVER release APK
         uses: actions/upload-artifact@v4
         with:
-          name: TeamDarkLoader-release
-          path: app/build/outputs/apk/release/TeamDarkLoader-release.apk
+          name: BEWAFASERVER32bit-release
+          path: app/build/outputs/apk/release/BEWAFASERVER32bit-release.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload TeamDark build info
+      - name: Upload BEWAFA SERVER build info
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TeamDark-build-info
+          name: BEWAFASERVER32bit-build-info
           path: build-integration-info/
           if-no-files-found: warn
           retention-days: 30
