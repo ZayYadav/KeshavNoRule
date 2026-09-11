@@ -50,15 +50,16 @@
         android:theme="@style/Base.AppTheme">
 
         <!--
-             Lightweight launcher gate. It only reads the pre-Elite host-signature result.
-             Tampered/re-signed APKs stop here and get a real framework dialog instead of
-             entering the heavy AppCompat/native/Elite login startup path.
+             Invisible launcher gate. Trusted builds route immediately to TeamDark2.
+             Invalid/re-signed builds never enter TeamDark2/Elite/native startup and
+             this window exists only to host the tamper dialog.
         -->
         <activity
             android:name=".TeamDarkGateActivity"
             android:configChanges="screenSize|orientation"
             android:excludeFromRecents="true"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/TamperGateTheme">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -70,9 +71,9 @@
             android:configChanges="screenSize|orientation"
             android:exported="false" />
 
-        <activity android:name=".TeamDark3"
-            android:configChanges="screenSize|orientation"
-            />
+        <activity
+            android:name=".TeamDark3"
+            android:configChanges="screenSize|orientation" />
 
     </application>
 
