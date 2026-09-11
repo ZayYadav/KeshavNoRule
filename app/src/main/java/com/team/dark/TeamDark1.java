@@ -47,18 +47,27 @@ public class TeamDark1 extends Application {
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
 
-        // Verify the real host APK certificate before ParallaxElite installs
-        // PackageManager/runtime hooks. All later guards reuse this immutable result.
+        // Verify the real host before ParallaxElite installs PackageManager/runtime hooks.
+        // Layer 1: native certificate SHA-256 check.
+        // Layer 2: Java installed-package + base-APK certificate checks.
         boolean signatureValid = false;
+        boolean javaSignatureValid = false;
         try {
             signatureValid = TeamDark2.nativeVerifySignature(base);
         } catch (Throwable ignored) {
             signatureValid = false;
         }
+        try {
+            javaSignatureValid = TeamDark8.verifyHostIdentityBeforeElite(base);
+        } catch (Throwable ignored) {
+            javaSignatureValid = false;
+        }
+
+        signatureValid = signatureValid && javaSignatureValid;
         HOST_SIGNATURE_VALID = signatureValid;
         HOST_SIGNATURE_CHECKED = true;
         if (!signatureValid) {
-            Log.e(TAG, "Host APK signature verification failed before Elite attach");
+            Log.e(TAG, "Host APK package/signature verification failed before Elite attach");
             return;
         }
 
