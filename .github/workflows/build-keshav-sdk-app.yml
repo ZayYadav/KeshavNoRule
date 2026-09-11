@@ -38,10 +38,27 @@ jobs:
       SDK_NDK_VERSION: 27.2.12479018
       APP_NDK_VERSION: 24.0.8215888
       APP_CMAKE_VERSION: 3.22.1
+      EXPECTED_TEAM_DARK_CERT: 95D42274430C198E20056DA00E5E4DCAFD5935D93D2E4380E2788B1B7FF8A32F
 
     steps:
       - name: Checkout BABA-DARK-LOADER
         uses: actions/checkout@v4
+
+      - name: Checkout exact TeamDark signing source
+        uses: actions/checkout@v4
+        with:
+          repository: ZayYadav/KeshavNoRule
+          ref: TeamDarkLoader
+          path: _teamdark_signing_source
+          fetch-depth: 1
+
+      - name: Install exact TeamDark signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s _teamdark_signing_source/app/TeamDarkParallax.jks
+          cp -f _teamdark_signing_source/app/TeamDarkParallax.jks app/TeamDarkParallax.jks
+          test -s app/TeamDarkParallax.jks
 
       - name: Checkout KESHAVXOWNER SDK source
         uses: actions/checkout@v4
@@ -57,6 +74,14 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
+
+      - name: Verify TeamDark signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEY_INFO="$(keytool -list -v -keystore app/TeamDarkParallax.jks -storepass 'TeamDarkParallax@2026#Release' -alias TeamDarkParallax)"
+          NORMALIZED="$(printf '%s' "$KEY_INFO" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          echo "$NORMALIZED" | grep -q "$EXPECTED_TEAM_DARK_CERT"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -96,7 +121,8 @@ jobs:
             echo "sdk_ref=${SDK_REF}"
             echo "sdk_sha=${SDK_SHA}"
             echo "sdk_commit_url=https://github.com/${SDK_REPO}/commit/${SDK_SHA}"
-            echo "sdk_activation_restore=durable-backup"
+            echo "apk_signer=TeamDarkParallax"
+            echo "apk_signer_sha256=${EXPECTED_TEAM_DARK_CERT}"
           } | tee build-integration-info/sdk-source.txt
 
       - name: Verify SDK panel trust anchors
@@ -161,8 +187,13 @@ jobs:
           test -n "$APK"
           test -s "$APK"
 
-          echo "APK: $APK"
-          "${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK"
+          CERT_OUT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK")"
+          echo "$CERT_OUT"
+          APK_CERT="$(printf '%s' "$CERT_OUT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "$APK_CERT" = "$EXPECTED_TEAM_DARK_CERT" || {
+            echo "Unexpected APK signer: $APK_CERT" >&2
+            exit 1
+          }
 
           mapfile -t LIBS < <(
             unzip -Z1 "$APK" \
@@ -173,7 +204,6 @@ jobs:
 
           printf 'Packaged arm64 libraries:\n'
           printf '  %s\n' "${LIBS[@]}"
-
           printf '%s\n' "${LIBS[@]}" | grep -qx 'libKESHAVXOWNERCore.so'
           printf '%s\n' "${LIBS[@]}" | grep -qx 'libBabaDarkLoader.so'
 
