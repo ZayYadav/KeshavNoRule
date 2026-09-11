@@ -65,9 +65,9 @@ public final class TeamDark9 {
 
                 TextView detailView = dialog.findViewById(R.id.integrityDetail);
                 if (detailView != null) {
-                    detailView.setText(detail == null || detail.trim().isEmpty()
-                            ? "Unauthorized modification or runtime injection was detected."
-                            : detail);
+                    // Keep all user-facing integrity errors consistently branded.
+                    // Callers may pass internal diagnostic text, but it is never exposed in UI.
+                    detailView.setText("BEWAFA SERVER blocked an unsafe or modified runtime. Please use the official 32-bit build.");
                 }
 
                 View close = dialog.findViewById(R.id.integrityClose);
@@ -215,7 +215,7 @@ public final class TeamDark9 {
                 connection.setInstanceFollowRedirects(false);
                 connection.setConnectTimeout(12_000);
                 connection.setReadTimeout(25_000);
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0 Android TeamDark");
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 Android BEWAFA-SERVER-32BIT");
                 connection.setRequestProperty("Accept", "audio/*,application/octet-stream,*/*");
                 connection.connect();
 
