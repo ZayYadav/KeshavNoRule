@@ -3,7 +3,6 @@ package com.dark.panther;
 import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
-import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,9 +22,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.dark.panther.core.PantherEffects;
 import com.dark.panther.core.PantherIntegrity;
+import com.dark.panther.core.PantherNative;
 import com.dark.panther.core.PantherSecurity;
-import com.team.dark.TeamDark2;
-import com.team.dark.TeamDark3;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -80,8 +78,8 @@ public class DarkPantherHomeActivity extends AppCompatActivity {
 
         boolean nativeIntegrityOk;
         try {
-            nativeIntegrityOk = TeamDark2.nativeVerifySignature(this)
-                    && TeamDark2.nativeCustomIntegrity(this);
+            nativeIntegrityOk = PantherNative.verifySignature(this)
+                    && PantherNative.customIntegrity(this);
         } catch (Throwable ignored) {
             nativeIntegrityOk = false;
         }
@@ -282,7 +280,7 @@ public class DarkPantherHomeActivity extends AppCompatActivity {
             public void run() {
                 try {
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-                    Date expiry = sdf.parse(TeamDark3.exdate());
+                    Date expiry = sdf.parse(PantherNative.expiryDate());
                     if (expiry == null) throw new IllegalStateException("No expiry");
 
                     long diff = expiry.getTime() - System.currentTimeMillis();
