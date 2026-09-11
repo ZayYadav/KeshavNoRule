@@ -142,7 +142,8 @@ jobs:
           test -f teamdark-panel/public/referrals-create.php
           test -f teamdark-panel/public/referral-limits.php
           test -f teamdark-panel/public/users-enhanced.php
-          test -f teamdark-panel/database/20260911_referral_registration_limits.sql
+          grep -F 'CREATE TABLE IF NOT EXISTS referral_invite_limits' teamdark-panel/database/schema.sql >/dev/null
+          grep -F 'CREATE TABLE IF NOT EXISTS referral_invite_uses' teamdark-panel/database/schema.sql >/dev/null
           grep -F 'REGISTRATION_LIMITS = [1, 2, 10, 100, 1000]' teamdark-panel/app/ReferralManager.php >/dev/null
           grep -F 'consumeRegistration' teamdark-panel/app/ReferralManager.php >/dev/null
           grep -F 'setMaxRegistrations' teamdark-panel/app/ReferralManager.php >/dev/null
