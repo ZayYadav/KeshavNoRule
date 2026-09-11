@@ -12,10 +12,12 @@ final class PanelControl
         'message'=>'The panel is temporarily under maintenance. Please try again later.',
         'announcement'=>'',
         'announcement_published_at'=>'',
+        // Splash has been permanently retired. Keep compatibility keys so any
+        // legacy settings page/database reads remain harmless, but it can never render.
         'splash_enabled'=>false,
         'splash_title'=>'TEAM DARK',
         'splash_subtitle'=>'Secure control plane',
-        'splash_duration_ms'=>2400,
+        'splash_duration_ms'=>0,
         'splash_version'=>1,
         'default_max_devices'=>10,
         'force_one_device_new_keys'=>false,
@@ -35,24 +37,12 @@ final class PanelControl
         'panel_release_label'=>'',
     ];
 
-    /**
-     * Cinematic splash is decorative and must never become an access gate.
-     * Mobile browsers/WebViews are more likely to suspend or delay the animation
-     * / deferred JS while the full-screen layer is active, so phones and tablets
-     * fail open directly to the real panel UI. Desktop keeps the owner's splash
-     * preference unchanged.
-     */
-    private static function mobileClient(): bool
+    private static function disableSplash(array $settings): array
     {
-        $ua = strtolower(trim((string)($_SERVER['HTTP_USER_AGENT'] ?? '')));
-        if ($ua === '') {
-            return false;
-        }
-
-        return (bool)preg_match(
-            '/android|iphone|ipad|ipod|mobile|tablet|webview|; wv\)|windows phone|opera mini|opera mobi|silk\//i',
-            $ua
-        );
+        // Hard fail-open: old database values or stale forms can never reactivate it.
+        $settings['splash_enabled'] = false;
+        $settings['splash_duration_ms'] = 0;
+        return $settings;
     }
 
     public static function settings(): array
@@ -62,23 +52,14 @@ final class PanelControl
         } catch (\PDOException $e) {
             // Existing installations stay operational until the single SQL upgrade is imported.
             if (($e->errorInfo[1] ?? 0) !== 1146) throw $e;
-            $settings = self::DEFAULTS + ['revision'=>0, 'installed'=>false];
-            if (self::mobileClient()) {
-                $settings['splash_enabled'] = false;
-            }
-            return $settings;
+            return self::disableSplash(self::DEFAULTS + ['revision'=>0, 'installed'=>false]);
         }
 
         $settings = array_replace(self::DEFAULTS, $row ? (json_decode($row['settings_json'], true) ?: []) : [], [
             'revision'=>(int)($row['revision'] ?? 0), 'installed'=>true,
         ]);
 
-        // Fail open on mobile: a visual splash must never cover or lock the panel.
-        if (self::mobileClient()) {
-            $settings['splash_enabled'] = false;
-        }
-
-        return $settings;
+        return self::disableSplash($settings);
     }
 
     public static function blocked(?array $actor): bool
@@ -114,10 +95,10 @@ final class PanelControl
                 'SELECT settings_json FROM panel_settings WHERE id=1 FOR UPDATE'
             );
             $row = $q->fetch();
-            $settings = array_replace(
+            $settings = self::disableSplash(array_replace(
                 self::DEFAULTS,
                 $row ? (json_decode((string)$row['settings_json'], true) ?: []) : []
-            );
+            ));
 
             $settings['announcement'] = $message;
             $settings['announcement_published_at'] = $message === ''
@@ -154,47 +135,11 @@ final class PanelControl
             $settings[$key] = ($input[$key] ?? '') === '1';
         }
 
-        if (($input['splash_present'] ?? '') === '1') {
-            $splashEnabled = ($input['splash_enabled'] ?? '') === '1';
-            $splashTitle = trim((string)($input['splash_title'] ?? self::DEFAULTS['splash_title']));
-            $splashSubtitle = trim((string)($input['splash_subtitle'] ?? self::DEFAULTS['splash_subtitle']));
-            $splashDuration = (int)($input['splash_duration_ms'] ?? self::DEFAULTS['splash_duration_ms']);
-
-            if ($splashTitle === '' || strlen($splashTitle) > 60) {
-                throw new \RuntimeException('Splash title must be 1–60 bytes.');
-            }
-            if (strlen($splashSubtitle) > 160) {
-                throw new \RuntimeException('Splash subtitle must be 160 bytes or fewer.');
-            }
-            if (!in_array($splashDuration, [1400,2000,2400,3200,4200], true)) {
-                throw new \RuntimeException('Invalid splash duration.');
-            }
-
-            $settings['splash_enabled'] = $splashEnabled;
-            $settings['splash_title'] = $splashTitle;
-            $settings['splash_subtitle'] = $splashSubtitle;
-            $settings['splash_duration_ms'] = $splashDuration;
-
-            $splashChanged =
-                (bool)($current['splash_enabled'] ?? false) !== $splashEnabled
-                || (string)($current['splash_title'] ?? '') !== $splashTitle
-                || (string)($current['splash_subtitle'] ?? '') !== $splashSubtitle
-                || (int)($current['splash_duration_ms'] ?? 0) !== $splashDuration;
-
-            $settings['splash_version'] = $splashChanged
-                ? max(1, (int)($current['splash_version'] ?? 1) + 1)
-                : max(1, (int)($current['splash_version'] ?? 1));
-        } else {
-            foreach ([
-                'splash_enabled',
-                'splash_title',
-                'splash_subtitle',
-                'splash_duration_ms',
-                'splash_version',
-            ] as $key) {
-                $settings[$key] = $current[$key] ?? self::DEFAULTS[$key];
-            }
-        }
+        // Ignore every legacy splash form field permanently.
+        $settings = self::disableSplash($settings);
+        $settings['splash_title'] = self::DEFAULTS['splash_title'];
+        $settings['splash_subtitle'] = self::DEFAULTS['splash_subtitle'];
+        $settings['splash_version'] = max(1, (int)($current['splash_version'] ?? 1));
 
         $message = trim((string)($input['message'] ?? ''));
         if (strlen($message) > 500) {
