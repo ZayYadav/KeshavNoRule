@@ -122,7 +122,7 @@ jobs:
           grep -F "MAX_REFERRAL_BALANCE = 1000000000" teamdark-panel/app/ReferralManager.php >/dev/null
           grep -F 'grantInviteBalanceToUser' teamdark-panel/app/ReferralManager.php >/dev/null
           grep -F "Referral balance grant" teamdark-panel/app/ReferralManager.php >/dev/null
-          grep -F "AND (expires_at IS NULL OR expires_at>NOW())" teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F "AND (i.expires_at IS NULL OR i.expires_at>NOW())" teamdark-panel/app/ReferralManager.php >/dev/null
           grep -F "AND (expires_at IS NULL OR expires_at>NOW())" teamdark-panel/public/index.php >/dev/null
           grep -F "'/my-apps'" teamdark-panel/app/View.php >/dev/null
           grep -F "My App APIs" teamdark-panel/public/index.php >/dev/null
@@ -134,6 +134,22 @@ jobs:
           grep -F 'ASSIGNED APP API ACCESS' teamdark-panel/public/index.php >/dev/null
           grep -F 'REFERRAL APP API' teamdark-panel/public/register-relaxed.php >/dev/null
           grep -F "'app_apis'=>" teamdark-panel/public/register-relaxed.php >/dev/null
+
+      - name: Verify owner referral registration limits
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f teamdark-panel/public/referrals-create.php
+          test -f teamdark-panel/public/referral-limits.php
+          test -f teamdark-panel/public/users-enhanced.php
+          test -f teamdark-panel/database/20260911_referral_registration_limits.sql
+          grep -F 'REGISTRATION_LIMITS = [1, 2, 10, 100, 1000]' teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F 'consumeRegistration' teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F 'setMaxRegistrations' teamdark-panel/app/ReferralManager.php >/dev/null
+          grep -F 'name="max_registrations"' teamdark-panel/public/users-enhanced.php >/dev/null
+          grep -F 'owner/referral-limits/?$ referral-limits.php' teamdark-panel/public/.htaccess >/dev/null
+          grep -F 'referrals/create/?$ referrals-create.php' teamdark-panel/public/.htaccess >/dev/null
+          grep -F 'users/?$ users-enhanced.php' teamdark-panel/public/.htaccess >/dev/null
 
       - name: Verify relaxed password and key editor wiring
         shell: bash
