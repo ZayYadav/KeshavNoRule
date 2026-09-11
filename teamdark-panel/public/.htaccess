@@ -17,7 +17,10 @@ RewriteRule ^telegram/webhook/?$ telegram-webhook.php [L,QSA]
 
 # Dedicated panel feature controllers.
 RewriteRule ^owner/apps(?:/.*)?$ app-api-manager.php [L,QSA]
+RewriteRule ^owner/referral-limits/?$ referral-limits.php [L,QSA]
 RewriteRule ^register/?$ register-relaxed.php [L,QSA]
+RewriteRule ^referrals/create/?$ referrals-create.php [L,QSA]
+RewriteRule ^users/?$ users-enhanced.php [L,QSA]
 RewriteRule ^(?:security/password|users/password)/?$ password-actions.php [L,QSA]
 RewriteRule ^key-edit/?$ key-edit.php [L,QSA]
 RewriteRule ^cdn-files/[0-9]+/[0-9]+/[a-f0-9]{64}/asset\.zip/?$ cdn-download.php [L,QSA,NC]

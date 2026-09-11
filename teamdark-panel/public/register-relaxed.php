@@ -108,7 +108,7 @@ try {
         if (!$invite) {
             $body = '<section class="auth"><div class="card"><div class="eyebrow">INVITE ONLY</div><h1>Create account</h1>'
                 .$flash
-                .'<p class="muted">A valid one-time referral code is required to register.</p>'
+                .'<p class="muted">A valid referral code is required to register.</p>'
                 .'<form method="get" action="/register" class="stack"><div class="field"><label>Referral code</label><input name="ref" maxlength="80" required value="'.View::e($ref).'" placeholder="TD-REF-..."></div><button class="primary wide">Verify invite</button></form>'
                 .'<p class="hint">Already registered? <a href="/login">Sign in</a>.</p></div></section>';
             View::page('Register', $body);
@@ -116,6 +116,9 @@ try {
         }
 
         $referralGrantPreview = (int)($invite['grant_balance'] ?? 0);
+        $remainingRegistrations = max(0, (int)($invite['remaining_registrations'] ?? 1));
+        $maxRegistrations = max(1, (int)($invite['max_registrations'] ?? 1));
+        $usedCount = max(0, (int)($invite['used_count'] ?? 0));
         $inviteApiPreview = '';
         foreach (($invite['app_apis'] ?? []) as $appApi) {
             if (!is_array($appApi)) continue;
@@ -126,8 +129,10 @@ try {
         }
         $body = '<section class="auth"><div class="card"><div class="eyebrow">SECURE REGISTRATION</div><h1>Create account</h1>'
             .$flash
-            .'<p class="muted">Invite verified for a '.View::e((string)$invite['role']).' account.'
+            .'<p class="muted">Referral verified for a '.View::e((string)$invite['role']).' account.'
             .($referralGrantPreview > 0 ? ' Includes '.number_format($referralGrantPreview).' starting credits.' : '').'</p>'
+            .'<div class="registration-summary"><div><span>Registration limit</span><strong>'.number_format($usedCount).' / '.number_format($maxRegistrations).' used</strong></div>'
+            .'<div><span>Remaining</span><strong>'.number_format($remainingRegistrations).' registration'.($remainingRegistrations === 1 ? '' : 's').'</strong></div></div>'
             .'<div class="registration-api-access"><div class="eyebrow">REFERRAL APP API</div><p class="muted">Registration will grant exactly the App API access selected by the referral creator.</p>'.$inviteApiPreview.'</div>'
             .'<form method="post" action="/register" class="stack" data-busy="Creating account…">'.View::csrf()
             .'<input type="hidden" name="referral" value="'.View::e($ref).'">'
@@ -175,6 +180,7 @@ try {
         }
 
         $pdo = Database::pdo();
+        ReferralManager::prepareStorage();
         $pdo->beginTransaction();
         $invite = ReferralManager::lockForRegistration($pdo, $ref);
 
@@ -212,8 +218,7 @@ try {
             throw new RuntimeException('Could not resolve the allotted App API details.');
         }
         $referralGrant = ReferralManager::grantInviteBalanceToUser($pdo, $invite, $uid);
-        $pdo->prepare("UPDATE referral_invites SET status='used',used_by=?,used_at=NOW() WHERE id=? AND status='pending'")
-            ->execute([$uid, $invite['id']]);
+        $referralUsage = ReferralManager::consumeRegistration($pdo, $invite, $uid);
 
         if ($signup > 0) {
             $pdo->prepare('INSERT INTO balance_ledger(user_id,actor_user_id,amount,reason) VALUES(?,?,?,?)')
@@ -234,6 +239,9 @@ try {
             'invite_id'=>(int)$invite['id'],
             'app_ids'=>$grantedAppIds,
             'referral_balance'=>$referralGrant,
+            'referral_used_count'=>(int)$referralUsage['used_count'],
+            'referral_max_registrations'=>(int)$referralUsage['max_registrations'],
+            'referral_remaining'=>(int)$referralUsage['remaining_registrations'],
         ]);
     } catch (Throwable $e) {
         if ($pdo instanceof \PDO && $pdo->inTransaction()) $pdo->rollBack();
@@ -261,6 +269,9 @@ try {
         'referral_balance'=>$referralGrant,
         'starting_balance'=>$signup + $referralGrant,
         'app_apis'=>$registrationApps,
+        'referral_used_count'=>(int)$referralUsage['used_count'],
+        'referral_max_registrations'=>(int)$referralUsage['max_registrations'],
+        'referral_remaining'=>(int)$referralUsage['remaining_registrations'],
         'created_at'=>date('Y-m-d H:i:s'),
         'created_ts'=>time(),
     ];
