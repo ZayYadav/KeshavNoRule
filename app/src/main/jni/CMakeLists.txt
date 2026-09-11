@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10.2)
 
-project("TeamDarkLoader")
+project("DarkPantherLoader")
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,13 +27,13 @@ add_library(libcrypto STATIC IMPORTED)
 set_target_properties(libcrypto PROPERTIES IMPORTED_LOCATION
     ${CMAKE_CURRENT_SOURCE_DIR}/includes/curl/openssl-android-${ANDROID_ABI}/lib/libcrypto.a)
 
-add_library(TeamDarkLoader SHARED
+add_library(DarkPantherLoader SHARED
     main.cpp
     oxorany.cpp
     custom_integrity.cpp
 )
 
-target_link_libraries(TeamDarkLoader
+target_link_libraries(DarkPantherLoader
     libcurl
     libssl
     libcrypto
@@ -42,8 +42,7 @@ target_link_libraries(TeamDarkLoader
     z
 )
 
-# Unused code strip karne ke liye linker flag (APK size kam)
-target_link_options(TeamDarkLoader PRIVATE
+target_link_options(DarkPantherLoader PRIVATE
     -Wl,--gc-sections
     -Wl,--strip-all
     -Wl,--exclude-libs,ALL
@@ -51,4 +50,3 @@ target_link_options(TeamDarkLoader PRIVATE
     -Wl,-z,now
     -Wl,--build-id=none
 )
-
