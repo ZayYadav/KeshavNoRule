@@ -71,8 +71,8 @@ public class TeamDark1 extends Application {
         HOST_SIGNATURE_CHECKED = true;
         if (!signatureValid) {
             Log.e(TAG, "Host APK package/signature verification failed before Elite attach");
-            // Do not terminate here. The launcher Activity must be allowed to reach a
-            // real window so TeamDark9 can present the tamper dialog first.
+            // Do not terminate or initialize Elite here. TeamDarkGateActivity is the
+            // launcher and owns the visible tamper dialog from a real Activity window.
             return;
         }
 
@@ -229,7 +229,9 @@ public class TeamDark1 extends Application {
         super.onCreate();
         if (!isHostSignatureVerified()) {
             Log.e(TAG, "Skipping Elite initialization because host signature is invalid");
-            registerTamperDialogLifecycle();
+            // TeamDarkGateActivity is now the only startup tamper UI owner. Keeping the
+            // Application passive here avoids two competing dialogs and avoids any
+            // AppCompat/SDK work before the user sees the tamper warning.
             return;
         }
         ParallaxELiteInstaller.get().doCreate();
