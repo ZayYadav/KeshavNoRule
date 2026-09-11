@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">TeamDark Loader</string>
+    <string name="app_name">Dark Panther Loader</string>
+    <string name="panther_brand">DARK PANTHER</string>
+    <string name="panther_tagline">Shadow-grade private loader</string>
 </resources>
