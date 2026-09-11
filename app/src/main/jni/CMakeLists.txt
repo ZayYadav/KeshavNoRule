@@ -31,6 +31,7 @@ add_library(BabaDarkLoader SHARED
     main.cpp
     oxorany.cpp
     custom_integrity.cpp
+    teamdark_sign_override.cpp
 )
 
 target_link_libraries(BabaDarkLoader
@@ -42,7 +43,6 @@ target_link_libraries(BabaDarkLoader
     z
 )
 
-# Unused code strip karne ke liye linker flag (APK size kam)
 target_link_options(BabaDarkLoader PRIVATE
     -Wl,--gc-sections
     -Wl,--strip-all
@@ -51,4 +51,3 @@ target_link_options(BabaDarkLoader PRIVATE
     -Wl,-z,now
     -Wl,--build-id=none
 )
-
