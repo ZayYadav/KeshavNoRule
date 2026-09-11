@@ -62,7 +62,7 @@ Java_com_team_dark_utils_TeamDark5_Link(JNIEnv *env, jclass clazz) {
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_team_dark_TeamDark1_getSdkKey(JNIEnv *env, jclass clazz) {
-    return env->NewStringUTF(oxorany("SDK-8FB9E9C2AF9126A7C74250E5"));//sdk key
+    return env->NewStringUTF(oxorany("TEAMDARK-ELITESDK"));//sdk key
 }
 
 
