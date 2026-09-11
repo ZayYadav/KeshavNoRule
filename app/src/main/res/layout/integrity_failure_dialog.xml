@@ -1,27 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="320dp"
-    android:layout_height="wrap_content"
-    android:background="@drawable/cyber_dialog_bg"
-    android:elevation="20dp"
-    android:gravity="center_horizontal"
-    android:orientation="vertical"
-    android:padding="24dp">
-
-    <FrameLayout android:layout_width="72dp" android:layout_height="72dp" android:background="@drawable/cyber_card_inner" android:padding="15dp">
-        <ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:contentDescription="Integrity alert" android:src="@drawable/ic_shield_check" app:tint="@color/error" />
-    </FrameLayout>
-
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:fontFamily="sans-serif-black" android:letterSpacing="0.04" android:text="SECURITY CHECK FAILED" android:textColor="@color/white" android:textSize="18sp" android:textStyle="bold" />
-    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:letterSpacing="0.10" android:text="JADU LOADER SECURITY" android:textColor="@color/error" android:textSize="10sp" android:textStyle="bold" />
-
-    <TextView android:id="@+id/integrityDetail" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="@drawable/cyber_card_inner" android:gravity="center" android:lineSpacingExtra="3dp" android:padding="14dp" android:text="Runtime integrity validation failed." android:textColor="@color/text_muted" android:textSize="11sp" />
-
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:gravity="center" android:orientation="horizontal">
-        <View android:layout_width="7dp" android:layout_height="7dp" android:layout_marginEnd="7dp" android:background="@drawable/circle_bg" android:backgroundTint="@color/error" />
-        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SESSION STOPPED" android:textColor="@color/error" android:textSize="9sp" android:textStyle="bold" />
-    </LinearLayout>
-
-    <androidx.appcompat.widget.AppCompatButton android:id="@+id/integrityClose" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="20dp" android:background="@drawable/cyber_btn_primary" android:letterSpacing="0.07" android:text="CLOSE LOADER" android:textColor="@color/text_dark" android:textSize="13sp" android:textStyle="bold" />
-</LinearLayout>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="328dp" android:layout_height="wrap_content" android:background="@drawable/cyber_dialog_bg" android:elevation="22dp" android:gravity="center_horizontal" android:orientation="vertical" android:padding="24dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal"><FrameLayout android:layout_width="62dp" android:layout_height="62dp" android:background="@drawable/deck_warning_bg" android:padding="14dp"><ImageView android:layout_width="match_parent" android:layout_height="match_parent" android:contentDescription="Security alert" android:src="@drawable/ic_shield_check" app:tint="@color/error"/></FrameLayout><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:layout_weight="1" android:orientation="vertical"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.11" android:text="SECURITY CORE" android:textColor="@color/error" android:textSize="9sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:fontFamily="sans-serif-black" android:text="Session blocked" android:textColor="@color/white" android:textSize="18sp" android:textStyle="bold"/></LinearLayout></LinearLayout><TextView android:id="@+id/integrityDetail" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@drawable/cyber_card_inner" android:gravity="start" android:lineSpacingExtra="3dp" android:padding="14dp" android:text="Runtime integrity validation failed." android:textColor="@color/text_muted" android:textSize="11sp"/><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="13dp" android:background="@drawable/deck_warning_bg" android:gravity="center_vertical" android:orientation="horizontal" android:padding="10dp"><View android:layout_width="7dp" android:layout_height="7dp" android:layout_marginEnd="8dp" android:background="@drawable/circle_bg" android:backgroundTint="@color/error"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.06" android:text="SESSION TERMINATED" android:textColor="@color/error" android:textSize="9sp" android:textStyle="bold"/></LinearLayout><androidx.appcompat.widget.AppCompatButton android:id="@+id/integrityClose" android:layout_width="match_parent" android:layout_height="54dp" android:layout_marginTop="18dp" android:background="@drawable/cyber_btn_primary" android:letterSpacing="0.07" android:text="CLOSE LOADER" android:textColor="@color/text_dark" android:textSize="13sp" android:textStyle="bold"/></LinearLayout>

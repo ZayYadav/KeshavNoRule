@@ -1,32 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <gradient
-                android:angle="315"
-                android:startColor="#050812"
-                android:centerColor="#0A1020"
-                android:endColor="#160A22" />
-        </shape>
-    </item>
-    <item android:top="-180dp" android:right="-170dp">
-        <shape android:shape="oval">
-            <size android:width="430dp" android:height="430dp" />
-            <gradient
-                android:type="radial"
-                android:gradientRadius="215dp"
-                android:startColor="#557C5CFF"
-                android:endColor="#007C5CFF" />
-        </shape>
-    </item>
-    <item android:left="-190dp" android:bottom="-210dp">
-        <shape android:shape="oval">
-            <size android:width="430dp" android:height="430dp" />
-            <gradient
-                android:type="radial"
-                android:gradientRadius="215dp"
-                android:startColor="#4022D3EE"
-                android:endColor="#0022D3EE" />
-        </shape>
-    </item>
+    <item><shape android:shape="rectangle"><gradient android:angle="315" android:startColor="#05070B" android:centerColor="#0B1018" android:endColor="#11101A" /></shape></item>
+    <item android:top="-190dp" android:right="-175dp"><shape android:shape="oval"><size android:width="430dp" android:height="430dp" /><gradient android:type="radial" android:gradientRadius="215dp" android:startColor="#386E56CF" android:endColor="#006E56CF" /></shape></item>
+    <item android:left="-205dp" android:bottom="-215dp"><shape android:shape="oval"><size android:width="450dp" android:height="450dp" /><gradient android:type="radial" android:gradientRadius="225dp" android:startColor="#305EE7F7" android:endColor="#005EE7F7" /></shape></item>
+    <item android:left="40dp" android:top="210dp" android:right="40dp" android:bottom="210dp"><shape android:shape="rectangle"><gradient android:angle="90" android:startColor="#08B7FF5A" android:endColor="#00B7FF5A" /></shape></item>
 </layer-list>

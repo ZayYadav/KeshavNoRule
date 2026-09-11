@@ -1,9 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <gradient
-        android:angle="315"
-        android:startColor="#FA10182A"
-        android:endColor="#FA080D18" />
-    <corners android:radius="30dp" />
-    <stroke android:width="1dp" android:color="#4D8B6CFF" />
-</shape>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle"><gradient android:angle="315" android:startColor="#FA1A2030" android:centerColor="#FA101620" android:endColor="#FA0A0E15" /><corners android:radius="32dp" /><stroke android:width="1dp" android:color="#4A5EE7F7" /></shape>
