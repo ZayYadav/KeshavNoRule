@@ -64,10 +64,10 @@ public final class BabaDark8 {
     }
 
     private static String expectedCertSha256() {
-        return "77f05d53ce8bf1855"
-                + "caef38ce87f13a8"
-                + "bb2b1b2cdd2d48da"
-                + "9d3ba897eac4549e";
+        return "95d42274430c198e"
+                + "20056da00e5e4dca"
+                + "fd5935d93d2e4380"
+                + "e2788b1b7ff8a32f";
     }
 
     private static boolean verifyInstalledSigningCertificate(Context context) throws Exception {
@@ -214,13 +214,10 @@ public final class BabaDark8 {
         if (expectedHash.isEmpty() || expectedSize.isEmpty()) {
             long age = Math.abs(System.currentTimeMillis() - loader.lastModified());
 
-            // A brand-new file can briefly exist while the updater is binding its hash.
             if (age <= 120000L) {
                 return true;
             }
 
-            // Migration from an older build: remove the unbound loader and let the updater
-            // fetch a fresh trusted copy. Failure to remove means integrity cannot be trusted.
             try {
                 return loader.delete() || !loader.exists();
             } catch (Throwable ignored) {
@@ -251,7 +248,6 @@ public final class BabaDark8 {
             return false;
         }
     }
-
 
     private static boolean verifySdkRuntimeArtifacts(Context context) throws Exception {
         File root = context.getNoBackupFilesDir();
