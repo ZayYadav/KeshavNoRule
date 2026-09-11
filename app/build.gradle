@@ -14,7 +14,6 @@ class Scrambler {
 
 Scrambler scrambler = new Scrambler()
 
-// Keep the existing signing identity so the loader/SDK contract remains compatible.
 def teamDarkKeystore = file('TeamDarkParallax.jks')
 def teamDarkStorePassword = 'TeamDarkParallax@2026#Release'
 def teamDarkKeyPassword = 'TeamDarkParallax@2026#Release'
@@ -39,27 +38,19 @@ android {
         }
     }
 
-    lint {
-        baseline = file("lint-baseline.xml")
-    }
+    lint { baseline = file("lint-baseline.xml") }
 
     defaultConfig {
-        // Application id intentionally stays unchanged for the existing SDK/signing/server contract.
+        // Keep host id unchanged for current SDK/signing/panel compatibility.
         applicationId "com.team.dark"
         minSdk 24
         //noinspection OldTargetApi,EditedTargetSdkVersion,ExpiredTargetSdkVersion
         targetSdk 28
         versionCode 1
         versionName "PANTHERv1"
-
-        vectorDrawables {
-            useSupportLibrary true
-        }
-
+        vectorDrawables { useSupportLibrary true }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        externalNativeBuild {
-            cmake { cppFlags '' }
-        }
+        externalNativeBuild { cmake { cppFlags '' } }
         ndk { abiFilters "arm64-v8a" }
         resourceConfigurations += ['en']
     }
@@ -146,7 +137,10 @@ BlackObfuscator {
             "com.dark.panther.R",
             "com.dark.panther.BuildConfig",
             "com.dark.panther.core.PantherLoaderUpdater",
-            "com.team.dark.TeamDark5"
+            "com.team.dark.TeamDark1",
+            "com.team.dark.TeamDark2",
+            "com.team.dark.TeamDark3",
+            "com.team.dark.utils.TeamDark5"
     ]
 }
 
@@ -157,7 +151,7 @@ gradle.taskGraph.whenReady { graph ->
     }
     if (releaseRequested) {
         if (!teamDarkKeystore.isFile()) {
-            throw new GradleException('Missing app/TeamDarkParallax.jks. Existing signing keystore is required for compatibility.')
+            throw new GradleException('Missing release keystore required for current compatibility identity.')
         }
         if (teamDarkKeyAlias != 'TeamDarkParallax') {
             throw new GradleException('Release signing alias mismatch.')
