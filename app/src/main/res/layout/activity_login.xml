@@ -37,7 +37,7 @@
                     android:paddingTop="7dp"
                     android:paddingEnd="13dp"
                     android:paddingBottom="7dp"
-                    android:text="TEAM DARK  •"
+                    android:text="BEWAFA SERVER  •  32 BIT"
                     android:textColor="@color/cyber_emerald"
                     android:textSize="10sp"
                     android:textStyle="bold" />
@@ -57,7 +57,7 @@
                         android:layout_width="52dp"
                         android:layout_height="52dp"
                         android:layout_gravity="center"
-                        android:contentDescription="TeamDark Loader"
+                        android:contentDescription="BEWAFA SERVER"
                         android:src="@drawable/icon" />
                 </com.google.android.material.card.MaterialCardView>
 
@@ -74,7 +74,7 @@
                         android:layout_height="wrap_content"
                         android:fontFamily="sans-serif-black"
                         android:letterSpacing="0.01"
-                        android:text="TeamDark Loader"
+                        android:text="BEWAFA SERVER"
                         android:textColor="@color/white"
                         android:textSize="30sp"
                         android:textStyle="bold" />
@@ -84,7 +84,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
                         android:gravity="center"
-                        android:text="AntiBan • Safe server • Twitter + Facebook Login"
+                        android:text="32 Bit ARM • Secure server • Twitter + Facebook Login"
                         android:textColor="@color/text_muted"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -137,7 +137,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Verify your access"
+                                android:text="Verify BEWAFA SERVER access"
                                 android:textColor="@color/white"
                                 android:textSize="18sp"
                                 android:textStyle="bold" />
@@ -245,7 +245,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="~PARALLAX"
+                            android:text="~BEWAFA SERVER"
                             android:textColor="@color/cyber_emerald"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -255,7 +255,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="~DARK DEVEL"
+                            android:text="~ARMV7"
                             android:textColor="@color/cyber_purple"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -265,7 +265,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:gravity="center"
-                            android:text="~GONE CHACHA"
+                            android:text="~32 BIT ONLY"
                             android:textColor="@color/cyber_cyan"
                             android:textSize="9sp"
                             android:textStyle="bold" />
@@ -284,7 +284,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="TEAM DARK "
+                    android:text="BEWAFA SERVER • 32 BIT"
                     android:textColor="@color/text_muted"
                     android:textSize="10sp"
                     android:textStyle="bold" />
