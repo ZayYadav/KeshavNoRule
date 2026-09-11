@@ -8,8 +8,6 @@ import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
 import android.os.Build;
 
-import com.team.dark.TeamDark2;
-
 import org.lsposed.lsparanoid.Obfuscate;
 
 import java.io.File;
@@ -53,7 +51,7 @@ public final class PantherIntegrity {
     }
 
     private static String expectedHostPackage() {
-        // Kept unchanged so the existing SDK/panel/signing contract remains compatible.
+        // Host application id stays unchanged for the existing SDK/panel/signing contract.
         return "com." + "team" + ".dark";
     }
 
@@ -175,7 +173,7 @@ public final class PantherIntegrity {
         long boundSize;
         try { boundSize = Long.parseLong(expectedSize); } catch (Throwable ignored) { return false; }
         try {
-            return TeamDark2.nativeVerifyServerLoader(context, expectedHash, boundSize);
+            return PantherNative.verifyServerLoader(context, expectedHash, boundSize);
         } catch (Throwable ignored) {
             return false;
         }
