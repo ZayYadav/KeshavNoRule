@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define TEAMDARK_INTEGRITY_TAG "TeamDarkIntegrity"
+#define DARKPANTHER_INTEGRITY_TAG "DarkPantherIntegrity"
 
 namespace {
 
@@ -27,7 +27,7 @@ static std::string baseName(const std::string &path) {
 }
 
 static bool isAllowedPackagedLibName(const std::string &name) {
-    return name == std::string(oxorany("libTeamDarkLoader.so"))
+    return name == std::string(oxorany("libDarkPantherLoader.so"))
         || name == std::string(oxorany("libTeamDarkCore.so"));
 }
 
@@ -147,7 +147,7 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
             break;
         }
 
-        if (name == std::string(oxorany("libTeamDarkLoader.so"))) foundLoader = true;
+        if (name == std::string(oxorany("libDarkPantherLoader.so"))) foundLoader = true;
         if (name == std::string(oxorany("libTeamDarkCore.so"))) foundCore = true;
     }
 
@@ -177,7 +177,6 @@ static bool verifySdkArtifactDirectory(const std::string &noBackupDir) {
 
     struct stat rootStat {};
     if (lstat(sdkDir.c_str(), &rootStat) != 0) {
-        // SDK runtime artifacts are optional until the SDK downloads/stages them.
         return true;
     }
 
@@ -195,7 +194,6 @@ static bool verifySdkArtifactDirectory(const std::string &noBackupDir) {
         std::string name(entry->d_name);
         if (name == "." || name == "..") continue;
 
-        // NativeArtifactStore may briefly create a hidden .tmp while doing an atomic update.
         if (!endsWith(name, std::string(oxorany(".so")))) {
             continue;
         }
@@ -294,7 +292,6 @@ static bool verifyProcessMaps(
             continue;
         }
 
-        // APK/AAR packaged native libraries.
         if (mappedPath.find(nativeDir + "/") == 0) {
             if (!isAllowedPackagedLibName(baseName(mappedPath))) {
                 return false;
@@ -302,23 +299,19 @@ static bool verifyProcessMaps(
             continue;
         }
 
-        // Host-downloaded trusted game/runtime loader.
         if (mappedPath == trustedServerLoader) {
             continue;
         }
 
-        // TeamDark AAR explicitly loads only this SDK runtime artifact.
         if (mappedPath == trustedSdkRuntime) {
             continue;
         }
 
-        // Any other shared object mapped from app-private runtime storage is rejected.
         if (mappedPath.find(filesDir + "/") == 0
                 || mappedPath.find(noBackupDir + "/") == 0) {
             return false;
         }
 
-        // Reject typical external/temp injection locations.
         const std::string lowerPath = lowerCopy(mappedPath);
         if (lowerPath.find(std::string(oxorany("/data/local/tmp/"))) == 0
             || lowerPath.find(std::string(oxorany("/dev/shm/"))) == 0
@@ -333,6 +326,8 @@ static bool verifyProcessMaps(
 
 } // namespace
 
+// The namespace name is retained as an internal native ABI detail because main.cpp
+// already calls it. It is not a user-facing brand or packaged library name.
 namespace teamdark_integrity {
 
 bool verify_server_loader(
@@ -426,21 +421,11 @@ bool run(JNIEnv *env, jobject context) {
     }
 
     /*
-     * ============================================================
-     * KESHAV CUSTOM INTEGRITY ZONE
-     * ============================================================
-     * Put your private integrity code below.
-     *
-     * Built-in checks above enforce:
-     * - libTeamDarkLoader + TeamDarkCore packaged allowlist
-     * - exact encrypted-bound files/loader/libbgmi.so exception
-     * - exact TeamDark SDK no_backup/native runtime compatibility
-     * - owner-only/ELF checks for SDK-staged native artifacts
-     * - rejection of other app-private/external/temp mapped .so files
-     *
-     * return true  -> integrity accepted
-     * return false -> stylish integrity dialog + safe shutdown
-     * ============================================================
+     * Dark Panther integrity zone.
+     * Packaged loader: libDarkPantherLoader.so
+     * SDK compatibility core: libTeamDarkCore.so
+     * Downloaded server loader contract: files/loader/libbgmi.so
+     * SDK runtime artifact contract remains unchanged.
      */
 
     return true;
