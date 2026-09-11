@@ -105,6 +105,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          grep -F 'applicationId "com.team.dark.elite"' app/build.gradle >/dev/null
+          grep -F 'return "com." + "team" + ".dark" + ".elite";' app/src/main/java/com/team/dark/TeamDark8.java >/dev/null
           grep -F 'import com.parallax.ELite;' app/src/main/java/com/team/dark/TeamDark1.java >/dev/null
           grep -F 'import com.parallax.ELite;' app/src/main/java/com/team/dark/TeamDark3.java >/dev/null
           grep -F 'import com.parallax.ELite;' app/src/main/java/com/team/dark/utils/TeamDark4.java >/dev/null
@@ -192,7 +194,7 @@ jobs:
           APKSIGNER="${ANDROID_HOME}/build-tools/34.0.0/apksigner"
 
           "${APKSIGNER}" verify --verbose --print-certs "${APK}"
-          "${AAPT}" dump badging "${APK}" | grep -q "package: name='com.team.dark'"
+          "${AAPT}" dump badging "${APK}" | grep -q "package: name='com.team.dark.elite'"
 
           # Verify the release keystore itself carries the same certificate as the APK.
           KEYSTORE_CERT="$(keytool -list -v             -keystore app/TeamDarkParallax.jks             -storepass 'TeamDarkParallax@2026#Release'             -alias TeamDarkParallax             | sed -n 's/^[[:space:]]*SHA256:[[:space:]]*//p'             | tr -d ':[:space:]'             | tr '[:lower:]' '[:upper:]')"
