@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="px_bg">#05070D</color>
+    <color name="px_surface">#0B101A</color>
+    <color name="px_surface_alt">#101725</color>
+    <color name="px_surface_soft">#141D2B</color>
+    <color name="px_text">#F5F8FF</color>
+    <color name="px_muted">#8995A8</color>
+    <color name="px_blue">#4CC9FF</color>
+    <color name="px_violet">#8B7CFF</color>
+    <color name="px_green">#58E8A5</color>
+    <color name="px_danger">#FF627D</color>
+    <color name="px_stroke">#26354A</color>
+    <color name="px_stroke_bright">#516E93</color>
+</resources>

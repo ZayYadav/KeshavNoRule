@@ -1,83 +1,78 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="300dp"
+    android:layout_width="310dp"
     android:layout_height="wrap_content"
+    android:background="@drawable/px_dialog_bg"
+    android:elevation="18dp"
     android:gravity="center"
-    android:background="@drawable/cyber_dialog_bg"
-    android:padding="26dp"
-    android:elevation="16dp"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:padding="24dp">
 
-    <!-- Icon Frame -->
-    <FrameLayout
-        android:layout_width="72dp"
-        android:layout_height="72dp"
-        android:background="@drawable/cyber_card_glass"
-        android:padding="6dp">
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="62dp"
+        android:layout_height="62dp"
+        app:cardBackgroundColor="@color/px_surface_alt"
+        app:cardCornerRadius="20dp"
+        app:cardElevation="0dp"
+        app:strokeColor="@color/px_stroke_bright"
+        app:strokeWidth="1dp">
 
         <ImageView
             android:id="@+id/loadingIcon"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="10dp"
-            android:src="@drawable/ic_launcher"
-            android:scaleType="centerInside" />
-    </FrameLayout>
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_gravity="center"
+            android:contentDescription="Parallax"
+            android:scaleType="centerInside"
+            android:src="@drawable/icon" />
+    </com.google.android.material.card.MaterialCardView>
 
     <TextView
         android:id="@+id/loadingText"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="18dp"
-        android:text="Keshav Secure Core"
-        android:textColor="@color/white"
+        android:layout_marginTop="17dp"
+        android:gravity="center"
+        android:lineSpacingExtra="2dp"
+        android:text="Checking secure session..."
+        android:textColor="@color/px_text"
         android:textSize="16sp"
-        android:textStyle="bold"
-        android:letterSpacing="0.04"
-        android:gravity="center" />
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/progressText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:gravity="center"
+        android:text="Please keep this window open"
+        android:textColor="@color/px_muted"
+        android:textSize="11sp" />
 
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
         android:layout_width="match_parent"
-        android:layout_height="6dp"
+        android:layout_height="5dp"
         android:layout_marginTop="18dp"
         android:indeterminate="true"
-        android:indeterminateTint="@color/cyber_cyan"
-        android:progressTint="@color/cyber_cyan"
-        android:progressBackgroundTint="#33475569" />
+        android:indeterminateTint="@color/px_blue"
+        android:progressBackgroundTint="#26384E"
+        android:progressTint="@color/px_blue" />
 
-    <TextView
-        android:id="@+id/progressText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="Validating secure session..."
-        android:textColor="@color/text_muted"
-        android:textSize="12sp"
-        android:letterSpacing="0.04"
-        android:gravity="center" />
-
-    <androidx.cardview.widget.CardView
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/okButton"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="54dp"
         android:layout_marginTop="18dp"
-        android:visibility="gone"
-        app:cardCornerRadius="14dp"
-        app:cardBackgroundColor="@android:color/transparent"
-        app:cardElevation="4dp">
-
-        <androidx.appcompat.widget.AppCompatButton
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/cyber_btn_primary"
-            android:text="CLOSE"
-            android:textColor="#050811"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-    </androidx.cardview.widget.CardView>
-
+        android:background="@drawable/px_button_primary"
+        android:clickable="true"
+        android:focusable="true"
+        android:letterSpacing="0.05"
+        android:text="CLOSE"
+        android:textColor="#06101A"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
 </LinearLayout>
