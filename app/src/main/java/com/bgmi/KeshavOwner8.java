@@ -38,7 +38,9 @@ public final class KeshavOwner8 {
         try {
             Context app = context.getApplicationContext();
             if (!expectedPackage().equals(app.getPackageName())) return false;
-            if ((app.getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) return false;
+            // The Team Dark debug artifact is intentionally debuggable. Trust is
+            // anchored to its signing certificate below; the Activities still
+            // reject an actually attached/waiting debugger before calling here.
             if (!verifyInstalledSigningCertificate(app)) return false;
             if (!verifyBaseApkSigningCertificate(app)) return false;
             if (!verifyApkNativeEntries(app)) return false;
