@@ -1,79 +1,77 @@
 package com.bgmi;
 
-import android.animation.ObjectAnimator;
-import android.animation.PropertyValuesHolder;
 import android.content.Intent;
-import android.graphics.Color;
-import android.os.Build;
+import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Debug;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.View;
-import android.view.Window;
 import android.view.WindowManager;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatButton;
+import androidx.appcompat.widget.SwitchCompat;
 
-import com.bgmi.utils.KeshavOwner4;
 import com.bgmi.utils.KeshavOwner7;
+
 import net_62v.external.MetaActivationManager;
-import top.niunaijun.blackbox.BlackBoxCore;
-import top.niunaijun.blackbox.entity.pm.InstallResult;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.nio.channels.FileChannel;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import top.niunaijun.blackbox.BlackBoxCore;
+import top.niunaijun.blackbox.entity.pm.InstallResult;
 
 @Obfuscate
 public class KeshavOwner3 extends AppCompatActivity {
+
+    private static final int USER_ID = 0;
+    private static final long SDK_ACTIVATION_POLL_MS = 500L;
+    private static final long SDK_ACTIVATION_TIMEOUT_MS = 60_000L;
+    private static final String PREFS_POLICY = "parallax_virtual_policy";
+    private static final String KEY_PRIVILEGED_PACKAGES = "sandbox_privileged_packages";
+
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
+    private final Handler sdkActivationHandler = new Handler(Looper.getMainLooper());
+    private final AtomicBoolean sdkActivationPending = new AtomicBoolean(false);
+
+    private LinearLayout clonedAppsContainer;
+    private TextView tvCloneCount;
     private Runnable securityGuard;
-    private ObjectAnimator titleAnimator;
-    private ObjectAnimator startPulseAnimator;
-    private boolean dashboardReady = false;
+    private Runnable pendingSdkAction;
+    private boolean dashboardReady;
+    private boolean doubleBackExit;
 
     static {
         try {
             System.loadLibrary("KeshavLoader");
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
-
-    private static final String PKG_BGMI = "com.pubg.imobile";
-    private static final int USER_ID = 0;
-    private final Handler timerHandler = new Handler(Looper.getMainLooper());
-    private final Handler sdkActivationHandler = new Handler(Looper.getMainLooper());
-    private final AtomicBoolean sdkActivationPending = new AtomicBoolean(false);
-    private static final long SDK_ACTIVATION_POLL_MS = 500L;
-    private static final long SDK_ACTIVATION_TIMEOUT_MS = 60_000L;
-    private boolean doubleBackExit = false;
-
-    private TextView tvExpires;
-    private TextView tvDays;
-    private TextView tvHours;
-    private TextView tvMins;
-    private TextView tvSecs;
-
-    public static native String exdate();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+
         if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
             KeshavOwner9.showIntegrityFailure(this,
                     "Debugger or runtime instrumentation was detected.");
@@ -82,11 +80,11 @@ public class KeshavOwner3 extends AppCompatActivity {
 
         if (!KeshavOwner8.verify(this)) {
             KeshavOwner9.showIntegrityFailure(this,
-                    "APK signature, package, native library, or loader integrity validation failed.");
+                    "APK signature, package, or host native-library integrity validation failed.");
             return;
         }
 
-        boolean nativeIntegrityOk = false;
+        boolean nativeIntegrityOk;
         try {
             nativeIntegrityOk = KeshavOwner2.nativeVerifySignature(this)
                     && KeshavOwner2.nativeCustomIntegrity(this);
@@ -101,192 +99,373 @@ public class KeshavOwner3 extends AppCompatActivity {
             return;
         }
 
-        // Immersive Cyber Transparent Status Bar
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            Window window = getWindow();
-            window.getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            );
-            window.setStatusBarColor(Color.TRANSPARENT);
-        }
-
         setContentView(R.layout.activity_main);
+        clonedAppsContainer = findViewById(R.id.clonedAppsContainer);
+        tvCloneCount = findViewById(R.id.tvCloneCount);
 
-        tvExpires = findViewById(R.id.tvExpires);
-        tvDays = findViewById(R.id.tvDays);
-        tvHours = findViewById(R.id.tvHours);
-        tvMins = findViewById(R.id.tvMins);
-        tvSecs = findViewById(R.id.tvSecs);
-
-        // Animate Entrance
-        animateEntrance();
-
-        // Animate Title
-        View tvMainTitle = findViewById(R.id.tvMainTitle);
-        if (tvMainTitle != null) {
-            titleAnimator = ObjectAnimator.ofPropertyValuesHolder(
-                    tvMainTitle,
-                    PropertyValuesHolder.ofFloat("scaleX", 1.0f, 1.03f),
-                    PropertyValuesHolder.ofFloat("scaleY", 1.0f, 1.03f)
-            );
-            titleAnimator.setDuration(1500);
-            titleAnimator.setRepeatCount(ObjectAnimator.INFINITE);
-            titleAnimator.setRepeatMode(ObjectAnimator.REVERSE);
-            titleAnimator.start();
-        }
-
-        // Start Button Setup
-        View btnStart = findViewById(R.id.btnStart);
-        View btnStartContainer = findViewById(R.id.btnStartContainer);
-
-        if (btnStartContainer != null) {
-            // Pulse animation on start button
-            startPulseAnimator = ObjectAnimator.ofPropertyValuesHolder(
-                    btnStartContainer,
-                    PropertyValuesHolder.ofFloat("scaleX", 1.0f, 1.025f),
-                    PropertyValuesHolder.ofFloat("scaleY", 1.0f, 1.025f)
-            );
-            startPulseAnimator.setDuration(1200);
-            startPulseAnimator.setRepeatCount(ObjectAnimator.INFINITE);
-            startPulseAnimator.setRepeatMode(ObjectAnimator.REVERSE);
-            startPulseAnimator.start();
-        }
-
-        if (btnStart != null) {
-            KeshavOwner7.applyTouchBounce(btnStart, () -> {
-                KeshavOwner7.getInstance().playLaunch();
-                handleStart();
-            });
+        View btnAddApp = findViewById(R.id.btnAddApp);
+        if (btnAddApp != null) {
+            KeshavOwner7.applyTouchBounce(btnAddApp, this::showInstalledAppPicker);
         }
 
         dashboardReady = true;
+        refreshClonedApps();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         if (!dashboardReady) return;
-
-        // The dashboard is allowed to do periodic UI/security work only while it
-        // is actually foreground. As soon as BGMI takes over, onPause() removes
-        // every scheduled callback so the loader cannot steal game-frame time.
         securityHandler.removeCallbacksAndMessages(null);
-        timerHandler.removeCallbacksAndMessages(null);
         securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
-        doCountTimerAccount();
-
-        try {
-            if (titleAnimator != null && !titleAnimator.isStarted()) {
-                titleAnimator.start();
-            }
-            if (startPulseAnimator != null && !startPulseAnimator.isStarted()) {
-                startPulseAnimator.start();
-            }
-        } catch (Throwable ignored) {
-        }
+        refreshClonedApps();
     }
 
     @Override
     protected void onPause() {
-        try {
-            securityHandler.removeCallbacksAndMessages(null);
-            timerHandler.removeCallbacksAndMessages(null);
-            sdkActivationHandler.removeCallbacksAndMessages(null);
-            sdkActivationPending.set(false);
-            securityGuard = null;
-
-            if (titleAnimator != null) titleAnimator.cancel();
-            if (startPulseAnimator != null) startPulseAnimator.cancel();
-        } catch (Throwable ignored) {
-        }
+        securityHandler.removeCallbacksAndMessages(null);
+        securityGuard = null;
         super.onPause();
     }
 
-    private void animateEntrance() {
-        try {
-            View mainHeader = findViewById(R.id.mainHeader);
-            View timerCard = findViewById(R.id.timerCard);
-            View gameCard = findViewById(R.id.gameCard);
-            View tipsCard = findViewById(R.id.tipsCard);
-
-            if (mainHeader != null) {
-                Animation anim = AnimationUtils.loadAnimation(this, R.anim.anim_fade_slide_up);
-                mainHeader.startAnimation(anim);
-            }
-            if (timerCard != null) {
-                Animation anim = AnimationUtils.loadAnimation(this, R.anim.anim_fade_slide_up);
-                anim.setStartOffset(100);
-                timerCard.startAnimation(anim);
-            }
-            if (gameCard != null) {
-                Animation anim = AnimationUtils.loadAnimation(this, R.anim.anim_fade_slide_up);
-                anim.setStartOffset(200);
-                gameCard.startAnimation(anim);
-            }
-            if (tipsCard != null) {
-                Animation anim = AnimationUtils.loadAnimation(this, R.anim.anim_fade_slide_up);
-                anim.setStartOffset(300);
-                tipsCard.startAnimation(anim);
-            }
-        } catch (Exception ignored) {}
+    @Override
+    protected void onDestroy() {
+        securityHandler.removeCallbacksAndMessages(null);
+        sdkActivationHandler.removeCallbacksAndMessages(null);
+        mainHandler.removeCallbacksAndMessages(null);
+        pendingSdkAction = null;
+        super.onDestroy();
     }
 
-    private void handleStart() {
-        if (!ensureSdkActivatedThenContinue()) {
-            return;
-        }
-        handleStartAfterSdkReady();
+    private void showInstalledAppPicker() {
+        runWhenSdkReady(() -> new Thread(() -> {
+            final List<AppChoice> choices = loadInstalledApps();
+            runOnUiThread(() -> showAppPickerDialog(choices));
+        }, "pv-installed-apps").start());
     }
 
-    private boolean ensureSdkActivatedThenContinue() {
+    private List<AppChoice> loadInstalledApps() {
+        List<AppChoice> out = new ArrayList<>();
+        PackageManager pm = getPackageManager();
         try {
-            if (MetaActivationManager.getActivatedStatus()) {
-                sdkActivationPending.set(false);
-                sdkActivationHandler.removeCallbacksAndMessages(null);
-                return true;
+            List<ApplicationInfo> installed = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+            for (ApplicationInfo info : installed) {
+                if (info == null || info.packageName == null || info.sourceDir == null) continue;
+                if (getPackageName().equals(info.packageName)) continue;
+
+                String label;
+                try {
+                    CharSequence cs = pm.getApplicationLabel(info);
+                    label = cs == null ? info.packageName : cs.toString();
+                } catch (Throwable ignored) {
+                    label = info.packageName;
+                }
+
+                boolean system = (info.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
+                out.add(new AppChoice(info.packageName, label, system));
             }
         } catch (Throwable ignored) {
         }
 
+        Collections.sort(out, Comparator.comparing(
+                choice -> choice.label.toLowerCase(Locale.US)));
+        return out;
+    }
+
+    private void showAppPickerDialog(List<AppChoice> choices) {
+        if (isFinishing() || isDestroyed()) return;
+        if (choices == null || choices.isEmpty()) {
+            Toast.makeText(this, "No installed apps found", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        CharSequence[] labels = new CharSequence[choices.size()];
+        for (int i = 0; i < choices.size(); i++) {
+            AppChoice choice = choices.get(i);
+            labels[i] = choice.label + "\n" + choice.packageName
+                    + (choice.systemApp ? "  • system" : "");
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle("Clone installed app")
+                .setItems(labels, (dialog, which) -> clonePackage(choices.get(which)))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void clonePackage(AppChoice choice) {
+        if (choice == null) return;
+        Toast.makeText(this, "Cloning " + choice.label + "...", Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            String message;
+            boolean success = false;
+            try {
+                if (BlackBoxCore.get().isInstalled(choice.packageName, USER_ID)) {
+                    success = true;
+                    message = choice.label + " is already cloned";
+                } else {
+                    InstallResult result = BlackBoxCore.get().installPackageAsUser(
+                            choice.packageName, USER_ID);
+                    success = result != null && result.success;
+                    message = success
+                            ? choice.label + " cloned"
+                            : "Clone failed: " + (result == null ? "unknown error" : result.msg);
+                }
+            } catch (Throwable throwable) {
+                message = "Clone failed: " + safeMessage(throwable);
+            }
+
+            final boolean ok = success;
+            final String uiMessage = message;
+            runOnUiThread(() -> {
+                if (!ok) KeshavOwner7.getInstance().playError();
+                Toast.makeText(this, uiMessage, Toast.LENGTH_LONG).show();
+                refreshClonedApps();
+            });
+        }, "pv-clone-app").start();
+    }
+
+    private void refreshClonedApps() {
+        if (!dashboardReady) return;
+        new Thread(() -> {
+            List<PackageInfo> packages = new ArrayList<>();
+            try {
+                List<PackageInfo> installed = BlackBoxCore.get().getInstalledPackages(0, USER_ID);
+                if (installed != null) packages.addAll(installed);
+            } catch (Throwable ignored) {
+            }
+
+            Collections.sort(packages, Comparator.comparing(
+                    item -> labelForPackage(item).toLowerCase(Locale.US)));
+
+            runOnUiThread(() -> renderClonedApps(packages));
+        }, "pv-refresh-apps").start();
+    }
+
+    private String labelForPackage(PackageInfo info) {
+        if (info == null || info.packageName == null) return "Unknown app";
+        try {
+            ApplicationInfo hostInfo = getPackageManager().getApplicationInfo(info.packageName, 0);
+            CharSequence label = getPackageManager().getApplicationLabel(hostInfo);
+            if (label != null && label.length() > 0) return label.toString();
+        } catch (Throwable ignored) {
+        }
+        return info.packageName;
+    }
+
+    private void renderClonedApps(List<PackageInfo> packages) {
+        if (clonedAppsContainer == null || isFinishing() || isDestroyed()) return;
+        clonedAppsContainer.removeAllViews();
+
+        int count = packages == null ? 0 : packages.size();
+        if (tvCloneCount != null) {
+            tvCloneCount.setText(count + (count == 1 ? " APP" : " APPS"));
+        }
+
+        if (count == 0) {
+            TextView empty = new TextView(this);
+            empty.setText("No cloned apps yet. Tap + ADD INSTALLED APP.");
+            empty.setTextColor(getResources().getColor(R.color.text_muted));
+            empty.setTextSize(11f);
+            empty.setPadding(dp(14), dp(18), dp(14), dp(18));
+            empty.setBackgroundResource(R.drawable.cyber_card_inner);
+            clonedAppsContainer.addView(empty, fullWidthParams(dp(10)));
+            return;
+        }
+
+        for (PackageInfo info : packages) {
+            if (info == null || info.packageName == null) continue;
+            clonedAppsContainer.addView(createAppCard(info), fullWidthParams(dp(10)));
+        }
+    }
+
+    private View createAppCard(PackageInfo info) {
+        final String packageName = info.packageName;
+        final String label = labelForPackage(info);
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(15), dp(14), dp(15), dp(14));
+        card.setBackgroundResource(R.drawable.cyber_card_inner);
+
+        TextView title = new TextView(this);
+        title.setText(label);
+        title.setTextColor(getResources().getColor(R.color.white));
+        title.setTextSize(16f);
+        title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
+        card.addView(title);
+
+        TextView pkg = new TextView(this);
+        pkg.setText(packageName);
+        pkg.setTextColor(getResources().getColor(R.color.text_muted));
+        pkg.setTextSize(10f);
+        LinearLayout.LayoutParams pkgParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        pkgParams.topMargin = dp(3);
+        card.addView(pkg, pkgParams);
+
+        SwitchCompat privilege = new SwitchCompat(this);
+        privilege.setText("Sandbox privilege");
+        privilege.setTextColor(getResources().getColor(R.color.cyber_orange));
+        privilege.setTextSize(11f);
+        privilege.setChecked(isSandboxPrivileged(packageName));
+        LinearLayout.LayoutParams switchParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        switchParams.topMargin = dp(10);
+        card.addView(privilege, switchParams);
+        privilege.setOnCheckedChangeListener((buttonView, isChecked) ->
+                setSandboxPrivileged(packageName, isChecked));
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        actionsParams.topMargin = dp(10);
+        card.addView(actions, actionsParams);
+
+        AppCompatButton launch = new AppCompatButton(this);
+        launch.setText("LAUNCH");
+        launch.setTextSize(11f);
+        launch.setTextColor(getResources().getColor(R.color.text_dark));
+        launch.setBackgroundResource(R.drawable.cyber_btn_primary);
+        LinearLayout.LayoutParams launchParams = new LinearLayout.LayoutParams(
+                0, dp(48), 1f);
+        launchParams.rightMargin = dp(5);
+        actions.addView(launch, launchParams);
+
+        AppCompatButton remove = new AppCompatButton(this);
+        remove.setText("REMOVE");
+        remove.setTextSize(11f);
+        remove.setTextColor(getResources().getColor(R.color.white));
+        remove.setBackgroundResource(R.drawable.cyber_btn_secondary);
+        LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(
+                0, dp(48), 1f);
+        removeParams.leftMargin = dp(5);
+        actions.addView(remove, removeParams);
+
+        KeshavOwner7.applyTouchBounce(launch,
+                () -> launchVirtualApp(packageName, label));
+        KeshavOwner7.applyTouchBounce(remove,
+                () -> confirmRemove(packageName, label));
+
+        return card;
+    }
+
+    private void launchVirtualApp(String packageName, String label) {
+        runWhenSdkReady(() -> {
+            try {
+                // This does not grant host/device root. It only chooses whether
+                // the virtual engine hides root indicators for this app launch.
+                BlackBoxCore.setHideRoot(!isSandboxPrivileged(packageName));
+                boolean launched = BlackBoxCore.get().launchApk(packageName, USER_ID);
+                if (!launched) {
+                    KeshavOwner7.getInstance().playError();
+                    Toast.makeText(this, "Unable to launch " + label,
+                            Toast.LENGTH_LONG).show();
+                }
+            } catch (Throwable throwable) {
+                KeshavOwner7.getInstance().playError();
+                Toast.makeText(this, "Launch failed: " + safeMessage(throwable),
+                        Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void confirmRemove(String packageName, String label) {
+        new AlertDialog.Builder(this)
+                .setTitle("Remove virtual copy?")
+                .setMessage(label + " will be removed only from Parallax Virtual.")
+                .setPositiveButton("Remove", (dialog, which) -> removeVirtualApp(packageName))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void removeVirtualApp(String packageName) {
+        new Thread(() -> {
+            String message = "Virtual app removed";
+            try {
+                BlackBoxCore.get().stopPackage(packageName, USER_ID);
+                BlackBoxCore.get().uninstallPackageAsUser(packageName, USER_ID);
+                setSandboxPrivileged(packageName, false);
+            } catch (Throwable throwable) {
+                message = "Remove failed: " + safeMessage(throwable);
+            }
+            final String uiMessage = message;
+            runOnUiThread(() -> {
+                Toast.makeText(this, uiMessage, Toast.LENGTH_SHORT).show();
+                refreshClonedApps();
+            });
+        }, "pv-remove-app").start();
+    }
+
+    private boolean isSandboxPrivileged(String packageName) {
+        SharedPreferences prefs = getSharedPreferences(PREFS_POLICY, MODE_PRIVATE);
+        Set<String> current = prefs.getStringSet(KEY_PRIVILEGED_PACKAGES,
+                Collections.emptySet());
+        return current != null && current.contains(packageName);
+    }
+
+    private void setSandboxPrivileged(String packageName, boolean enabled) {
+        SharedPreferences prefs = getSharedPreferences(PREFS_POLICY, MODE_PRIVATE);
+        Set<String> current = prefs.getStringSet(KEY_PRIVILEGED_PACKAGES,
+                Collections.emptySet());
+        Set<String> copy = new HashSet<>();
+        if (current != null) copy.addAll(current);
+        if (enabled) copy.add(packageName); else copy.remove(packageName);
+        prefs.edit().putStringSet(KEY_PRIVILEGED_PACKAGES, copy).apply();
+    }
+
+    private void runWhenSdkReady(Runnable action) {
+        try {
+            if (MetaActivationManager.getActivatedStatus()) {
+                action.run();
+                return;
+            }
+        } catch (Throwable ignored) {
+        }
+
+        pendingSdkAction = action;
         if (!sdkActivationPending.compareAndSet(false, true)) {
             Toast.makeText(this, "SDK activation in progress...", Toast.LENGTH_SHORT).show();
-            return false;
+            return;
         }
 
         final String sdkKey;
         try {
             sdkKey = KeshavOwner1.getSdkKey();
         } catch (Throwable throwable) {
-            sdkActivationPending.set(false);
-            KeshavOwner7.getInstance().playError();
-            Toast.makeText(this, "SDK key unavailable", Toast.LENGTH_LONG).show();
-            return false;
+            sdkKey = null;
         }
 
         if (sdkKey == null || sdkKey.trim().isEmpty()) {
             sdkActivationPending.set(false);
+            pendingSdkAction = null;
             KeshavOwner7.getInstance().playError();
             Toast.makeText(this, "SDK key unavailable", Toast.LENGTH_LONG).show();
-            return false;
+            return;
         }
 
         try {
             MetaActivationManager.activateSdk(sdkKey.trim());
         } catch (Throwable throwable) {
             sdkActivationPending.set(false);
+            pendingSdkAction = null;
             KeshavOwner7.getInstance().playError();
             Toast.makeText(this, "SDK activation could not start", Toast.LENGTH_LONG).show();
-            return false;
+            return;
         }
 
-        Toast.makeText(this, "Activating SDK...", Toast.LENGTH_SHORT).show();
         final long deadline = SystemClock.elapsedRealtime() + SDK_ACTIVATION_TIMEOUT_MS;
-
         sdkActivationHandler.post(new Runnable() {
             @Override
             public void run() {
                 if (isFinishing() || isDestroyed()) {
                     sdkActivationPending.set(false);
+                    pendingSdkAction = null;
                     return;
                 }
 
@@ -298,14 +477,16 @@ public class KeshavOwner3 extends AppCompatActivity {
 
                 if (activated) {
                     sdkActivationPending.set(false);
+                    Runnable next = pendingSdkAction;
+                    pendingSdkAction = null;
                     sdkActivationHandler.removeCallbacksAndMessages(null);
-                    Toast.makeText(KeshavOwner3.this, "SDK Activated", Toast.LENGTH_SHORT).show();
-                    handleStartAfterSdkReady();
+                    if (next != null) next.run();
                     return;
                 }
 
                 if (SystemClock.elapsedRealtime() >= deadline) {
                     sdkActivationPending.set(false);
+                    pendingSdkAction = null;
                     String message = "SDK activation failed";
                     try {
                         String serverMessage = MetaActivationManager.getServerMessage();
@@ -322,101 +503,27 @@ public class KeshavOwner3 extends AppCompatActivity {
                 sdkActivationHandler.postDelayed(this, SDK_ACTIVATION_POLL_MS);
             }
         });
-        return false;
     }
 
-    private void handleStartAfterSdkReady() {
-        if (BlackBoxCore.get() == null) {
-            KeshavOwner7.getInstance().playError();
-            Toast.makeText(this, "Core is null!", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (!BlackBoxCore.get().isInstalled(PKG_BGMI, USER_ID)) {
-            Toast.makeText(this, "Installing BGMI in Virtual Space...", Toast.LENGTH_SHORT).show();
-            InstallResult res = BlackBoxCore.get().installPackageAsUser(PKG_BGMI, USER_ID);
-            if (res.success) {
-                forceAutoCopyObb();
-            } else {
-                KeshavOwner7.getInstance().playError();
-                Toast.makeText(this, "Install Failed: " + res.msg, Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            forceAutoCopyObb();
-        }
+    private LinearLayout.LayoutParams fullWidthParams(int topMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.topMargin = topMargin;
+        return params;
     }
 
-    private void forceAutoCopyObb() {
-        String internalRoot = Environment.getExternalStorageDirectory().getAbsolutePath();
-        File sourceFolder = new File(internalRoot + "/Android/obb/" + PKG_BGMI);
-        File destFolder = new File(internalRoot + "/Sdcard/Android/obb/" + PKG_BGMI);
-
-        if (!destFolder.exists()) destFolder.mkdirs();
-
-        File[] existingFiles = destFolder.listFiles((dir, name) -> name.endsWith(".obb"));
-        if (existingFiles != null && existingFiles.length > 0) {
-            launchGame();
-            return;
-        }
-
-        Toast.makeText(this, "OBB Copying... Please wait", Toast.LENGTH_SHORT).show();
-        AtomicBoolean isFinished = new AtomicBoolean(false);
-
-        timerHandler.postDelayed(() -> {
-            if (!isFinished.get()) {
-                isFinished.set(true);
-                Toast.makeText(KeshavOwner3.this, "Copy Timeout! Check manually.", Toast.LENGTH_LONG).show();
-            }
-        }, 60000);
-
-        new Thread(() -> {
-            try {
-                File[] sourceFiles = sourceFolder.listFiles((dir, name) -> name.endsWith(".obb"));
-                if (sourceFiles == null || sourceFiles.length == 0) {
-                    if (!isFinished.get()) {
-                        isFinished.set(true);
-                        runOnUiThread(() -> {
-                            KeshavOwner7.getInstance().playError();
-                            Toast.makeText(KeshavOwner3.this, "Source OBB missing!", Toast.LENGTH_LONG).show();
-                        });
-                    }
-                    return;
-                }
-
-                File srcFile = sourceFiles[0];
-                File destFile = new File(destFolder, srcFile.getName());
-
-                try (FileChannel srcChannel = new FileInputStream(srcFile).getChannel();
-                     FileChannel destChannel = new FileOutputStream(destFile).getChannel()) {
-                    srcChannel.transferTo(0, srcChannel.size(), destChannel);
-                }
-
-                if (!isFinished.get()) {
-                    isFinished.set(true);
-                    runOnUiThread(() -> {
-                        Toast.makeText(KeshavOwner3.this, "OBB Ready! Launching...", Toast.LENGTH_SHORT).show();
-                        launchGame();
-                    });
-                }
-            } catch (Exception e) {
-                if (!isFinished.get()) {
-                    isFinished.set(true);
-                    runOnUiThread(() -> {
-                        KeshavOwner7.getInstance().playError();
-                        Toast.makeText(KeshavOwner3.this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    });
-                }
-            }
-        }).start();
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    private void launchGame() {
-        try {
-            BlackBoxCore.get().launchApk(PKG_BGMI, USER_ID);
-        } catch (Exception e) {
-            KeshavOwner7.getInstance().playError();
-            Toast.makeText(this, "Launch Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+    private static String safeMessage(Throwable throwable) {
+        if (throwable == null || throwable.getMessage() == null
+                || throwable.getMessage().trim().isEmpty()) {
+            return "unknown error";
         }
+        String value = throwable.getMessage().trim();
+        return value.length() > 120 ? value.substring(0, 120) : value;
     }
 
     @Override
@@ -425,63 +532,20 @@ public class KeshavOwner3 extends AppCompatActivity {
             finishAffinity();
             return;
         }
-        this.doubleBackExit = true;
-        KeshavOwner7.getInstance().playClick();
+        doubleBackExit = true;
         Toast.makeText(this, "Press BACK again to exit", Toast.LENGTH_SHORT).show();
-        timerHandler.postDelayed(() -> doubleBackExit = false, 2000);
+        mainHandler.postDelayed(() -> doubleBackExit = false, 2000L);
     }
 
-    private void doCountTimerAccount() {
-        timerHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-                    Date expiry = sdf.parse(exdate());
-                    if (expiry != null) {
-                        long diff = expiry.getTime() - System.currentTimeMillis();
+    private static final class AppChoice {
+        final String packageName;
+        final String label;
+        final boolean systemApp;
 
-                        if (diff > 0) {
-                            long d = diff / 86400000;
-                            long h = (diff / 3600000) % 24;
-                            long m = (diff / 60000) % 60;
-                            long s = (diff / 1000) % 60;
-
-                            String timeLeft = String.format(Locale.getDefault(), "%dd %dh %dm %ds", d, h, m, s);
-                            if (tvExpires != null) tvExpires.setText(timeLeft);
-
-                            if (tvDays != null) tvDays.setText(String.format(Locale.getDefault(), "%02d", d));
-                            if (tvHours != null) tvHours.setText(String.format(Locale.getDefault(), "%02d", h));
-                            if (tvMins != null) tvMins.setText(String.format(Locale.getDefault(), "%02d", m));
-                            if (tvSecs != null) tvSecs.setText(String.format(Locale.getDefault(), "%02d", s));
-
-                            timerHandler.postDelayed(this, 1000);
-                        } else {
-                            if (tvExpires != null) tvExpires.setText("Expired");
-                            Toast.makeText(KeshavOwner3.this, "Subscription Expired!", Toast.LENGTH_SHORT).show();
-                            finish();
-                        }
-                    }
-                } catch (Throwable ignored) {
-                    if (tvExpires != null) tvExpires.setText("Active");
-                }
-            }
-        });
+        AppChoice(String packageName, String label, boolean systemApp) {
+            this.packageName = packageName;
+            this.label = label;
+            this.systemApp = systemApp;
+        }
     }
-
-    @Override
-    protected void onDestroy() {
-        dashboardReady = false;
-        try {
-            securityHandler.removeCallbacksAndMessages(null);
-            timerHandler.removeCallbacksAndMessages(null);
-            sdkActivationHandler.removeCallbacksAndMessages(null);
-            sdkActivationPending.set(false);
-            securityGuard = null;
-            if (titleAnimator != null) titleAnimator.cancel();
-            if (startPulseAnimator != null) startPulseAnimator.cancel();
-        } catch (Throwable ignored) {}
-        super.onDestroy();
-    }
-
 }
