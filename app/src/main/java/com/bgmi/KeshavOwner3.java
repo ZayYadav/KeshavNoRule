@@ -5,13 +5,16 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.os.Debug;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,8 +25,6 @@ import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.bgmi.utils.KeshavOwner7;
-
-import net_62v.external.MetaActivationManager;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
@@ -37,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import top.niunaijun.blackbox.BlackBoxCore;
+import top.niunaijun.blackbox.core.system.api.MetaActivationManager;
 import top.niunaijun.blackbox.entity.pm.InstallResult;
 
 @Obfuscate
@@ -254,6 +256,28 @@ public class KeshavOwner3 extends AppCompatActivity {
         return info.packageName;
     }
 
+    private Drawable iconForPackage(String packageName) {
+        if (packageName != null) {
+            try {
+                return getPackageManager().getApplicationIcon(packageName);
+            } catch (Throwable ignored) {
+            }
+        }
+        try {
+            return getApplicationInfo().loadIcon(getPackageManager());
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private boolean isVirtualAppRunning(String packageName) {
+        try {
+            return BlackBoxCore.get().isAppRunning(packageName, USER_ID);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private void renderClonedApps(List<PackageInfo> packages) {
         if (clonedAppsContainer == null || isFinishing() || isDestroyed()) return;
         clonedAppsContainer.removeAllViews();
@@ -283,18 +307,39 @@ public class KeshavOwner3 extends AppCompatActivity {
     private View createAppCard(PackageInfo info) {
         final String packageName = info.packageName;
         final String label = labelForPackage(info);
+        final boolean running = isVirtualAppRunning(packageName);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(15), dp(14), dp(15), dp(14));
         card.setBackgroundResource(R.drawable.cyber_card_inner);
 
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        card.addView(header, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        ImageView icon = new ImageView(this);
+        icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        Drawable appIcon = iconForPackage(packageName);
+        if (appIcon != null) icon.setImageDrawable(appIcon);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(58), dp(58));
+        iconParams.rightMargin = dp(12);
+        header.addView(icon, iconParams);
+
+        LinearLayout identity = new LinearLayout(this);
+        identity.setOrientation(LinearLayout.VERTICAL);
+        header.addView(identity, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
         TextView title = new TextView(this);
         title.setText(label);
         title.setTextColor(getResources().getColor(R.color.white));
         title.setTextSize(16f);
         title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
-        card.addView(title);
+        identity.addView(title);
 
         TextView pkg = new TextView(this);
         pkg.setText(packageName);
@@ -303,11 +348,23 @@ public class KeshavOwner3 extends AppCompatActivity {
         LinearLayout.LayoutParams pkgParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        pkgParams.topMargin = dp(3);
-        card.addView(pkg, pkgParams);
+        pkgParams.topMargin = dp(2);
+        identity.addView(pkg, pkgParams);
+
+        TextView state = new TextView(this);
+        state.setText(running ? "● RUNNING" : "○ READY");
+        state.setTextColor(getResources().getColor(
+                running ? R.color.cyber_emerald : R.color.cyber_cyan));
+        state.setTextSize(9f);
+        state.setTypeface(state.getTypeface(), android.graphics.Typeface.BOLD);
+        LinearLayout.LayoutParams stateParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        stateParams.topMargin = dp(5);
+        identity.addView(state, stateParams);
 
         SwitchCompat privilege = new SwitchCompat(this);
-        privilege.setText("Sandbox privilege");
+        privilege.setText("Developer sandbox mode");
         privilege.setTextColor(getResources().getColor(R.color.cyber_orange));
         privilege.setTextSize(11f);
         privilege.setChecked(isSandboxPrivileged(packageName));
@@ -319,36 +376,63 @@ public class KeshavOwner3 extends AppCompatActivity {
         privilege.setOnCheckedChangeListener((buttonView, isChecked) ->
                 setSandboxPrivileged(packageName, isChecked));
 
+        TextView privilegeInfo = new TextView(this);
+        privilegeInfo.setText("Virtual compatibility profile only — no host/device root is granted.");
+        privilegeInfo.setTextColor(getResources().getColor(R.color.text_muted));
+        privilegeInfo.setTextSize(9f);
+        LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        infoParams.topMargin = dp(2);
+        card.addView(privilegeInfo, infoParams);
+
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams actionsParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-        actionsParams.topMargin = dp(10);
+        actionsParams.topMargin = dp(11);
         card.addView(actions, actionsParams);
 
         AppCompatButton launch = new AppCompatButton(this);
-        launch.setText("LAUNCH");
-        launch.setTextSize(11f);
+        launch.setText(running ? "OPEN" : "LAUNCH");
+        launch.setTextSize(10f);
         launch.setTextColor(getResources().getColor(R.color.text_dark));
         launch.setBackgroundResource(R.drawable.cyber_btn_primary);
         LinearLayout.LayoutParams launchParams = new LinearLayout.LayoutParams(
-                0, dp(48), 1f);
-        launchParams.rightMargin = dp(5);
+                0, dp(46), 1f);
+        launchParams.rightMargin = dp(4);
         actions.addView(launch, launchParams);
+
+        AppCompatButton stop = new AppCompatButton(this);
+        stop.setText("STOP");
+        stop.setEnabled(running);
+        stop.setAlpha(running ? 1f : 0.45f);
+        stop.setTextSize(10f);
+        stop.setTextColor(getResources().getColor(R.color.white));
+        stop.setBackgroundResource(R.drawable.cyber_btn_secondary);
+        LinearLayout.LayoutParams stopParams = new LinearLayout.LayoutParams(
+                0, dp(46), 1f);
+        stopParams.leftMargin = dp(4);
+        stopParams.rightMargin = dp(4);
+        actions.addView(stop, stopParams);
 
         AppCompatButton remove = new AppCompatButton(this);
         remove.setText("REMOVE");
-        remove.setTextSize(11f);
+        remove.setTextSize(10f);
         remove.setTextColor(getResources().getColor(R.color.white));
         remove.setBackgroundResource(R.drawable.cyber_btn_secondary);
         LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(
-                0, dp(48), 1f);
-        removeParams.leftMargin = dp(5);
+                0, dp(46), 1f);
+        removeParams.leftMargin = dp(4);
         actions.addView(remove, removeParams);
 
         KeshavOwner7.applyTouchBounce(launch,
                 () -> launchVirtualApp(packageName, label));
+        if (running) {
+            KeshavOwner7.applyTouchBounce(stop,
+                    () -> stopVirtualApp(packageName, label));
+        }
         KeshavOwner7.applyTouchBounce(remove,
                 () -> confirmRemove(packageName, label));
 
@@ -358,14 +442,16 @@ public class KeshavOwner3 extends AppCompatActivity {
     private void launchVirtualApp(String packageName, String label) {
         runWhenSdkReady(() -> {
             try {
-                // This does not grant host/device root. It only chooses whether
-                // the virtual engine hides root indicators for this app launch.
+                // This toggles root visibility compatibility inside the virtual engine.
+                // It does not grant Linux/Android host root or cross-app memory privileges.
                 BlackBoxCore.setHideRoot(!isSandboxPrivileged(packageName));
                 boolean launched = BlackBoxCore.get().launchApk(packageName, USER_ID);
                 if (!launched) {
                     KeshavOwner7.getInstance().playError();
                     Toast.makeText(this, "Unable to launch " + label,
                             Toast.LENGTH_LONG).show();
+                } else {
+                    mainHandler.postDelayed(this::refreshClonedApps, 700L);
                 }
             } catch (Throwable throwable) {
                 KeshavOwner7.getInstance().playError();
@@ -373,6 +459,18 @@ public class KeshavOwner3 extends AppCompatActivity {
                         Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    private void stopVirtualApp(String packageName, String label) {
+        try {
+            BlackBoxCore.get().stopPackage(packageName, USER_ID);
+            Toast.makeText(this, label + " stopped", Toast.LENGTH_SHORT).show();
+            mainHandler.postDelayed(this::refreshClonedApps, 300L);
+        } catch (Throwable throwable) {
+            KeshavOwner7.getInstance().playError();
+            Toast.makeText(this, "Stop failed: " + safeMessage(throwable),
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void confirmRemove(String packageName, String label) {
