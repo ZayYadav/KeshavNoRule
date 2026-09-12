@@ -386,7 +386,7 @@ final class TelegramBot
         if ($isOwner) {
             self::send(
                 $chatId,
-                "👑 <b>TEAM DARK BOT OWNER</b>\n"
+                "👑 <b>NO RULE BOT OWNER</b>\n"
                 .self::h($name)
                 ."\n\nFull control is available through the inline buttons below.",
                 self::ownerKeyboard()
@@ -397,7 +397,7 @@ final class TelegramBot
         if ($panelUser) {
             self::send(
                 $chatId,
-                "⚡ <b>TEAM DARK</b>\nWelcome "
+                "⚡ <b>NO RULE</b>\nWelcome "
                 .self::h($panelUser['name'] ?: $panelUser['username'])
                 ."\n\nPanel: @".self::h($panelUser['username'])
                 ."\nRole: ".self::h(strtoupper($panelUser['role']))
@@ -409,7 +409,7 @@ final class TelegramBot
 
         self::send(
             $chatId,
-            "⚡ <b>TEAM DARK GUEST</b>\n"
+            "⚡ <b>NO RULE GUEST</b>\n"
             .self::h($name)
             ."\n\n".(
                 (bool)Config::get('telegram_guest_free_keys_enabled', false)
@@ -445,7 +445,7 @@ final class TelegramBot
 
             self::send(
                 $chatId,
-                "🛡 <b>TEAM DARK 2FA ACTIVATION</b>\n\n"
+                "🛡 <b>NO RULE 2FA ACTIVATION</b>\n\n"
                 ."Use this one-time key on your Dashboard:\n<code>"
                 .self::h($activation['code'])
                 ."</code>\n\n⏱ Expires in 10 minutes.\n"
