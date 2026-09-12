@@ -116,7 +116,7 @@ final class TelegramService
         )->execute([$panelUser['id']]);
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            $code = 'TDLINK-'.strtoupper(bin2hex(random_bytes(12)));
+            $code = 'NRLINK-'.strtoupper(bin2hex(random_bytes(12)));
             $hash = Crypto::fingerprint('telegram-link|'.$code);
 
             try {
@@ -152,7 +152,9 @@ final class TelegramService
     ): array {
         $code = strtoupper(trim($code));
 
-        if (!preg_match('/^TDLINK-[A-F0-9]{24}$/', $code)) {
+        // New No Rule codes use NRLINK. Accept the previous prefix while an
+        // already-issued 15-minute challenge may still be pending.
+        if (!preg_match('/^(?:NRLINK|TDLINK)-[A-F0-9]{24}$/', $code)) {
             throw new RuntimeException('Invalid verification code.');
         }
 
