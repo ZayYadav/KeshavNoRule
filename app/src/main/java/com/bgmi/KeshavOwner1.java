@@ -94,7 +94,19 @@ public class KeshavOwner1 extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        BlackBoxCore.get().doCreate();
+
+        // Install diagnostics before the virtual core starts so startup crashes from
+        // host/server/virtual processes are captured in the private crash-report store.
+        ParallaxCrashReporter.install(this);
+
+        try {
+            BlackBoxCore.get().doCreate();
+        } catch (Throwable throwable) {
+            Log.e(TAG, "Virtual core create failed", throwable);
+            // Preserve fail-closed behavior while allowing the uncaught handler to
+            // capture a useful report if this startup failure cannot recover.
+            throw throwable;
+        }
 
         // Activation is host-only. Virtual app processes must not restart it.
         if (!isHostMainProcess()) {
