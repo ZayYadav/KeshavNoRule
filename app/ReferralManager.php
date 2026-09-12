@@ -57,7 +57,7 @@ final class ReferralManager
         self::ensureSupportTables($pdo);
 
         for ($attempt = 0; $attempt < 8; $attempt++) {
-            $code = 'TD-REF-'.strtoupper(bin2hex(random_bytes(6)));
+            $code = 'NR-REF-'.strtoupper(bin2hex(random_bytes(6)));
             $pdo->beginTransaction();
             try {
                 // Serialize referral balance reservations per creator so parallel
