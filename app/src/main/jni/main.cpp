@@ -62,7 +62,7 @@ Java_com_bgmi_utils_KeshavOwner5_Link(JNIEnv *env, jclass clazz) {
 extern "C"
 JNIEXPORT jstring JNICALL
 Java_com_bgmi_KeshavOwner1_getSdkKey(JNIEnv *env, jclass clazz) {
-    return env->NewStringUTF(oxorany("KESHAVPAPA"));//sdk key
+    return env->NewStringUTF(oxorany("PARALLAXVIRTUAL"));//sdk key
 }
 
 

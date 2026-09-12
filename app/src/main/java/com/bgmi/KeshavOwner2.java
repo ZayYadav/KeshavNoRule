@@ -9,15 +9,20 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PermissionInfo;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Debug;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.provider.Settings;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -33,8 +38,15 @@ import com.bgmi.utils.KeshavOwner7;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Obfuscate
 public class KeshavOwner2 extends AppCompatActivity {
+    private static final int REQUEST_RUNTIME_PERMISSIONS = 47001;
+    private static final int REQUEST_OVERLAY_PERMISSION = 47002;
+    private static final int REQUEST_ALL_FILES_PERMISSION = 47003;
+
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
     private Runnable securityGuard;
 
@@ -192,6 +204,103 @@ public class KeshavOwner2 extends AppCompatActivity {
                     Toast.makeText(this, "Clipboard empty", Toast.LENGTH_SHORT).show();
                 }
             });
+        }
+
+        beginStartupPermissionFlow();
+    }
+
+    private void beginStartupPermissionFlow() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            List<String> missingPermissions = new ArrayList<>();
+            try {
+                PackageInfo packageInfo = getPackageManager().getPackageInfo(
+                        getPackageName(), PackageManager.GET_PERMISSIONS);
+                String[] requestedPermissions = packageInfo.requestedPermissions;
+                if (requestedPermissions != null) {
+                    for (String permission : requestedPermissions) {
+                        try {
+                            PermissionInfo permissionInfo = getPackageManager()
+                                    .getPermissionInfo(permission, 0);
+                            int baseProtection = permissionInfo.protectionLevel
+                                    & PermissionInfo.PROTECTION_MASK_BASE;
+                            if (baseProtection == PermissionInfo.PROTECTION_DANGEROUS
+                                    && checkSelfPermission(permission)
+                                    != PackageManager.PERMISSION_GRANTED) {
+                                missingPermissions.add(permission);
+                            }
+                        } catch (PackageManager.NameNotFoundException ignored) {
+                            // Vendor-specific permissions may not exist on every device.
+                        }
+                    }
+                }
+            } catch (PackageManager.NameNotFoundException ignored) {
+            }
+
+            if (!missingPermissions.isEmpty()) {
+                requestPermissions(missingPermissions.toArray(new String[0]),
+                        REQUEST_RUNTIME_PERMISSIONS);
+                return;
+            }
+        }
+        requestOverlayPermissionIfNeeded();
+    }
+
+    private void requestOverlayPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                && !Settings.canDrawOverlays(this)) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName()));
+                startActivityForResult(intent, REQUEST_OVERLAY_PERMISSION);
+                return;
+            } catch (Exception ignored) {
+                // Continue to the next special permission if this Settings page is absent.
+            }
+        }
+        requestAllFilesPermissionIfNeeded();
+    }
+
+    private void requestAllFilesPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
+                && !Environment.isExternalStorageManager()) {
+            try {
+                Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                        Uri.parse("package:" + getPackageName()));
+                startActivityForResult(intent, REQUEST_ALL_FILES_PERMISSION);
+                return;
+            } catch (Exception ignored) {
+                try {
+                    startActivityForResult(new Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+                            REQUEST_ALL_FILES_PERMISSION);
+                    return;
+                } catch (Exception ignoredAgain) {
+                    // The device has no all-files Settings surface.
+                }
+            }
+        }
+        onStartupPermissionFlowFinished();
+    }
+
+    private void onStartupPermissionFlowFinished() {
+        Toast.makeText(this, "Permissions setup complete", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                           int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_RUNTIME_PERMISSIONS) {
+            requestOverlayPermissionIfNeeded();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_OVERLAY_PERMISSION) {
+            requestAllFilesPermissionIfNeeded();
+        } else if (requestCode == REQUEST_ALL_FILES_PERMISSION) {
+            onStartupPermissionFlowFinished();
         }
     }
 

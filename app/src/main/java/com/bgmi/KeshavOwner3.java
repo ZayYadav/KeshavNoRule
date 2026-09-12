@@ -17,7 +17,9 @@ import android.provider.OpenableColumns;
 import android.database.Cursor;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -208,18 +210,41 @@ public class KeshavOwner3 extends AppCompatActivity {
             return;
         }
 
-        CharSequence[] labels = new CharSequence[choices.size()];
-        for (int i = 0; i < choices.size(); i++) {
-            AppChoice choice = choices.get(i);
-            StringBuilder suffix = new StringBuilder();
-            if (choice.systemApp) suffix.append("  • system");
-            if (choice.splitApk) suffix.append("  • split APK");
-            labels[i] = choice.label + "\n" + choice.packageName + suffix;
-        }
+        ArrayAdapter<AppChoice> adapter = new ArrayAdapter<AppChoice>(
+                this, android.R.layout.simple_list_item_1, choices) {
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                AppChoice choice = getItem(position);
+                LinearLayout row = new LinearLayout(KeshavOwner3.this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                row.setGravity(Gravity.CENTER_VERTICAL);
+                row.setPadding(dp(18), dp(12), dp(18), dp(12));
+
+                ImageView icon = new ImageView(KeshavOwner3.this);
+                icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                if (choice != null) {
+                    Drawable drawable = iconForPackage(choice.packageName);
+                    if (drawable != null) icon.setImageDrawable(drawable);
+                }
+                LinearLayout.LayoutParams iconParams =
+                        new LinearLayout.LayoutParams(dp(48), dp(48));
+                iconParams.rightMargin = dp(14);
+                row.addView(icon, iconParams);
+
+                TextView name = new TextView(KeshavOwner3.this);
+                name.setText(choice == null ? "Unknown app" : choice.label);
+                name.setTextColor(getResources().getColor(R.color.white));
+                name.setTextSize(15f);
+                name.setTypeface(name.getTypeface(), android.graphics.Typeface.BOLD);
+                row.addView(name, new LinearLayout.LayoutParams(
+                        0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+                return row;
+            }
+        };
 
         new AlertDialog.Builder(this)
                 .setTitle("Clone installed app")
-                .setItems(labels, (dialog, which) -> clonePackage(choices.get(which)))
+                .setAdapter(adapter, (dialog, which) -> clonePackage(choices.get(which)))
                 .setNegativeButton("Cancel", null)
                 .show();
     }
@@ -385,30 +410,8 @@ public class KeshavOwner3 extends AppCompatActivity {
         title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
         identity.addView(title);
 
-        TextView pkg = new TextView(this);
-        pkg.setText(packageName);
-        pkg.setTextColor(getResources().getColor(R.color.text_muted));
-        pkg.setTextSize(10f);
-        LinearLayout.LayoutParams pkgParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        pkgParams.topMargin = dp(2);
-        identity.addView(pkg, pkgParams);
-
-        TextView state = new TextView(this);
-        state.setText(running ? "● RUNNING" : "○ READY");
-        state.setTextColor(getResources().getColor(
-                running ? R.color.cyber_emerald : R.color.cyber_cyan));
-        state.setTextSize(9f);
-        state.setTypeface(state.getTypeface(), android.graphics.Typeface.BOLD);
-        LinearLayout.LayoutParams stateParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        stateParams.topMargin = dp(5);
-        identity.addView(state, stateParams);
-
         SwitchCompat privilege = new SwitchCompat(this);
-        privilege.setText("Developer sandbox mode");
+        privilege.setText("ROOT");
         privilege.setTextColor(getResources().getColor(R.color.cyber_orange));
         privilege.setTextSize(11f);
         privilege.setChecked(isSandboxPrivileged(packageName));
@@ -419,30 +422,6 @@ public class KeshavOwner3 extends AppCompatActivity {
         card.addView(privilege, switchParams);
         privilege.setOnCheckedChangeListener((buttonView, isChecked) ->
                 setSandboxPrivileged(packageName, isChecked));
-
-        TextView privilegeInfo = new TextView(this);
-        privilegeInfo.setText("Compatibility/root-visibility profile inside the virtual engine only. "
-                + "No host root or cross-app memory permission is granted.");
-        privilegeInfo.setTextColor(getResources().getColor(R.color.text_muted));
-        privilegeInfo.setTextSize(9f);
-        LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        infoParams.topMargin = dp(2);
-        card.addView(privilegeInfo, infoParams);
-
-        TextView debugState = new TextView(this);
-        debugState.setText(debugLibrary == null
-                ? "Debug bridge: no library selected"
-                : "Debug bridge: " + debugLibrary.getName());
-        debugState.setTextColor(getResources().getColor(
-                debugLibrary == null ? R.color.text_muted : R.color.cyber_cyan));
-        debugState.setTextSize(9f);
-        LinearLayout.LayoutParams debugStateParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        debugStateParams.topMargin = dp(7);
-        card.addView(debugState, debugStateParams);
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);

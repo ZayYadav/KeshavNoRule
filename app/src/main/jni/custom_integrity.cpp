@@ -24,7 +24,7 @@ static std::string baseName(const std::string &path) {
 
 static bool isAllowedPackagedLibName(const std::string &name) {
     return name == std::string(oxorany("libKeshavLoader.so"))
-        || name == std::string(oxorany("libKESHAVXOWNERCore.so"));
+        || name == std::string(oxorany("libParallaxCore.so"));
 }
 
 static std::string getJavaFilePath(
@@ -140,7 +140,7 @@ static bool verifyNativeDirectory(const std::string &dirPath) {
         if (name == std::string(oxorany("libKeshavLoader.so"))) {
             foundLoader = true;
         }
-        if (name == std::string(oxorany("libKESHAVXOWNERCore.so"))) {
+        if (name == std::string(oxorany("libParallaxCore.so"))) {
             foundVirtualCore = true;
         }
     }
