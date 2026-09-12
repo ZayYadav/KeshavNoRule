@@ -7,8 +7,6 @@ import android.os.Build;
 import android.os.Process;
 import android.util.Log;
 
-import net_62v.external.MetaActivationManager;
-
 import org.lsposed.lsparanoid.Obfuscate;
 
 import java.io.File;
@@ -16,14 +14,14 @@ import java.util.List;
 
 import top.niunaijun.blackbox.BlackBoxCore;
 import top.niunaijun.blackbox.app.configuration.ClientConfiguration;
+import top.niunaijun.blackbox.core.system.api.MetaActivationManager;
 
 @Obfuscate
 public class KeshavOwner1 extends Application {
 
     static {
         try {
-            // This is the loader host's own JNI bridge. No cloned-app library is
-            // downloaded or injected from here.
+            // Host JNI bridge only. No cloned-app library is downloaded or injected.
             System.loadLibrary("KeshavLoader");
         } catch (Throwable ignored) {
             // Login activity performs a fail-closed native readiness check.
