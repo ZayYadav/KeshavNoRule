@@ -434,7 +434,7 @@ public class KeshavOwner3 extends AppCompatActivity {
             return;
         }
 
-        final String sdkKey;
+        String sdkKey;
         try {
             sdkKey = KeshavOwner1.getSdkKey();
         } catch (Throwable throwable) {
