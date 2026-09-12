@@ -1,10 +1,7 @@
 package com.bgmi;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 
-import android.Manifest;
 import android.animation.ObjectAnimator;
 import android.animation.PropertyValuesHolder;
 import android.app.Dialog;
@@ -18,27 +15,19 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Debug;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.provider.Settings;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.view.animation.AnimationUtils;
-import android.widget.Button;
 import android.widget.EditText;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.security.MessageDigest;
-
-import com.bgmi.utils.KeshavOwner5;
 import com.bgmi.utils.KeshavOwner6;
 import com.bgmi.utils.KeshavOwner7;
 
@@ -49,11 +38,10 @@ public class KeshavOwner2 extends AppCompatActivity {
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
     private Runnable securityGuard;
 
-
     private static final boolean NATIVE_READY;
 
     static {
-        boolean loaded = false;
+        boolean loaded;
         try {
             System.loadLibrary("KeshavLoader");
             loaded = true;
@@ -64,7 +52,7 @@ public class KeshavOwner2 extends AppCompatActivity {
     }
 
     private KeshavOwner6 prefs;
-    private final String USER = "USER";
+    private static final String USER = "USER";
 
     private EditText textUsername;
     private View btnLogin;
@@ -72,20 +60,13 @@ public class KeshavOwner2 extends AppCompatActivity {
     private View getKey;
     private Dialog loadingDialog;
 
-    private static final int REQUEST_MANAGE_STORAGE_PERMISSION = 100;
-    private static final int REQUEST_MANAGE_UNKNOWN_APP_SOURCES = 200;
-
     public static native boolean nativeVerifySignature(Context context);
     public static native boolean nativeCustomIntegrity(Context context);
-    public static native boolean nativeVerifyServerLoader(
-            Context context,
-            String expectedHash,
-            long expectedSize);
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Security: prevent screenshots/recording of license UI and fail closed under an attached debugger.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         if (Debug.isDebuggerConnected() || Debug.waitingForDebugger()) {
             KeshavOwner9.showIntegrityFailure(this,
@@ -95,7 +76,7 @@ public class KeshavOwner2 extends AppCompatActivity {
 
         if (!KeshavOwner8.verify(this)) {
             KeshavOwner9.showIntegrityFailure(this,
-                    "APK signature, package, native library, or loader integrity validation failed.");
+                    "APK signature, package, or host native-library integrity validation failed.");
             return;
         }
         if (!NATIVE_READY) {
@@ -104,7 +85,7 @@ public class KeshavOwner2 extends AppCompatActivity {
             return;
         }
 
-        boolean integrityOk = false;
+        boolean integrityOk;
         try {
             integrityOk = nativeVerifySignature(this) && nativeCustomIntegrity(this);
         } catch (Throwable ignored) {
@@ -117,7 +98,6 @@ public class KeshavOwner2 extends AppCompatActivity {
             return;
         }
 
-        // Make status bar transparent for dark immersive cyber look
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             Window window = getWindow();
             window.getDecorView().setSystemUiVisibility(
@@ -127,26 +107,18 @@ public class KeshavOwner2 extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_login);
-
         securityGuard = KeshavOwner9.installRuntimeGuard(this, securityHandler);
 
         prefs = new KeshavOwner6(this);
-        checkAndRequestPermissions();
-
         textUsername = findViewById(R.id.userkey);
         btnLogin = findViewById(R.id.login);
         pasteBtn = findViewById(R.id.paste);
         getKey = findViewById(R.id.GetKey);
 
         textUsername.setText(prefs.getSt(USER, ""));
-
-        // Play intro sound
         KeshavOwner7.getInstance().playClick();
-
-        // Staggered Entrance Animations
         animateEntrance();
 
-        // Pulse Animation on Logo
         View logoContainer = findViewById(R.id.logoContainer);
         if (logoContainer != null) {
             ObjectAnimator pulseAnim = ObjectAnimator.ofPropertyValuesHolder(
@@ -160,7 +132,6 @@ public class KeshavOwner2 extends AppCompatActivity {
             pulseAnim.start();
         }
 
-        // Animated Floating Glow on Title "NO RULE LOADER"
         View titleBanner = findViewById(R.id.titleBanner);
         if (titleBanner != null) {
             ObjectAnimator titleAnim = ObjectAnimator.ofPropertyValuesHolder(
@@ -175,7 +146,6 @@ public class KeshavOwner2 extends AppCompatActivity {
             titleAnim.start();
         }
 
-        // Action: Get Key (Telegram)
         if (getKey != null) {
             KeshavOwner7.applyTouchBounce(getKey, () -> {
                 try {
@@ -188,7 +158,6 @@ public class KeshavOwner2 extends AppCompatActivity {
             });
         }
 
-        // Action: Login Button
         if (btnLogin != null) {
             KeshavOwner7.applyTouchBounce(btnLogin, () -> {
                 String userKey = textUsername.getText().toString().trim();
@@ -202,13 +171,12 @@ public class KeshavOwner2 extends AppCompatActivity {
             });
         }
 
-        // Action: Paste Button
         if (pasteBtn != null) {
             KeshavOwner7.applyTouchBounce(pasteBtn, () -> {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                 if (clipboard != null && clipboard.hasPrimaryClip()) {
                     ClipData clip = clipboard.getPrimaryClip();
-                    if (clip != null && clip.getItemCount() > 0) {
+                    if (clip != null && clip.getItemCount() > 0 && clip.getItemAt(0).getText() != null) {
                         String pasted = clip.getItemAt(0).getText().toString().trim();
                         if (pasted.length() > 3) {
                             KeshavOwner7.getInstance().playPaste();
@@ -249,61 +217,19 @@ public class KeshavOwner2 extends AppCompatActivity {
                 anim3.setStartOffset(300);
                 footerArea.startAnimation(anim3);
             }
-        } catch (Exception ignored) {}
-    }
-
-    private void checkAndRequestPermissions() {
-        if (!isStoragePermissionGranted()) {
-            requestStoragePermissionDirect();
-        } else if (!canRequestPackageInstalls()) {
-            requestUnknownAppPermissionsDirect();
+        } catch (Exception ignored) {
         }
     }
 
-    private boolean isStoragePermissionGranted() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager();
-    }
-
-    private void requestStoragePermissionDirect() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
-            intent.setData(Uri.fromParts("package", getPackageName(), null));
-            startActivityForResult(intent, REQUEST_MANAGE_STORAGE_PERMISSION);
-        } else {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_MANAGE_STORAGE_PERMISSION);
-        }
-    }
-
-    private boolean canRequestPackageInstalls() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls();
-    }
-
-    private void requestUnknownAppPermissionsDirect() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, REQUEST_MANAGE_UNKNOWN_APP_SOURCES);
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        checkAndRequestPermissions();
-    }
-
-    private void Login(final Context m_Context, final String userKey) {
-        showLoadingDialog("Verifying License...", false);
+    private void Login(final Context context, final String userKey) {
+        showLoadingDialog("Verifying Parallax Virtual license...", false);
 
         Handler loginHandler = new Handler(Looper.getMainLooper(), msg -> {
             dismissLoadingDialog();
             if (msg.what == 0) {
-                // Play Success Fanfare Chime
                 KeshavOwner7.getInstance().playSuccess();
-
-                // Do not copy the license back to the system clipboard after authentication.
-                startDownload(m_Context);
+                openVirtualDashboard(context);
             } else if (msg.what == 1) {
-                // Play Error Buzz
                 KeshavOwner7.getInstance().playError();
                 showLoadingDialog((String) msg.obj, true);
             }
@@ -311,7 +237,7 @@ public class KeshavOwner2 extends AppCompatActivity {
         });
 
         new Thread(() -> {
-            String result = Check(m_Context, userKey);
+            String result = Check(context, userKey);
             if ("OK".equals(result)) {
                 loginHandler.sendEmptyMessage(0);
             } else {
@@ -320,58 +246,18 @@ public class KeshavOwner2 extends AppCompatActivity {
                 msg.obj = result;
                 loginHandler.sendMessage(msg);
             }
-        }).start();
+        }, "pv-license-check").start();
     }
 
-    private void startDownload(Context m_Context) {
-        showLoadingDialog("Checking Security Assets...", false);
-
-        KeshavOwner5 task = new KeshavOwner5(KeshavOwner2.this, success -> {
-            dismissLoadingDialog();
-
-            if (!success) {
-                KeshavOwner9.showIntegrityFailure(
-                        KeshavOwner2.this,
-                        "The trusted server loader could not be verified or securely bound.");
-                return;
-            }
-
-            if (!KeshavOwner8.verify(KeshavOwner2.this)) {
-                KeshavOwner9.showIntegrityFailure(
-                        KeshavOwner2.this,
-                        "The downloaded loader failed path, signature, or encrypted fingerprint validation.");
-                return;
-            }
-
-            Intent i = new Intent(m_Context, KeshavOwner3.class);
-            i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            m_Context.startActivity(i);
-            overridePendingTransition(R.anim.anim_slide_in_right, R.anim.anim_slide_out_left);
-            finish();
-        });
-
-        task.setProgressListener(progress -> runOnUiThread(() -> {
-            if (loadingDialog != null && loadingDialog.isShowing()) {
-                ProgressBar progressBar = loadingDialog.findViewById(R.id.progressBar);
-                TextView progressText = loadingDialog.findViewById(R.id.progressText);
-                if (progressBar != null) {
-                    progressBar.setIndeterminate(false);
-                    progressBar.setMax(100);
-                    progressBar.setProgress(progress);
-                }
-                if (progressText != null) {
-                    progressText.setText("Downloading Engine... " + progress + "%");
-                }
-            }
-        }));
-
-        try {
-            task.execute(KeshavOwner5.Link());
-        } catch (Throwable ignored) {
-            KeshavOwner9.showIntegrityFailure(
-                    KeshavOwner2.this,
-                    "The secure loader update could not be started safely.");
-        }
+    private void openVirtualDashboard(Context context) {
+        // Parallax Virtual no longer downloads/extracts a ZIP or stages a
+        // game-specific shared library after login. A successful license check
+        // goes directly to the generic installed-app virtualization dashboard.
+        Intent intent = new Intent(context, KeshavOwner3.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        context.startActivity(intent);
+        overridePendingTransition(R.anim.anim_slide_in_right, R.anim.anim_slide_out_left);
+        finish();
     }
 
     private void showLoadingDialog(String message, boolean isError) {
@@ -400,7 +286,10 @@ public class KeshavOwner2 extends AppCompatActivity {
             }
             if (loadingText != null) loadingText.setText("Access Denied: " + message);
         } else {
-            if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
+            if (progressBar != null) {
+                progressBar.setVisibility(View.VISIBLE);
+                progressBar.setIndeterminate(true);
+            }
             if (okButton != null) okButton.setVisibility(View.GONE);
             if (loadingText != null) loadingText.setText(message != null ? message : "Authenticating...");
         }
@@ -414,15 +303,15 @@ public class KeshavOwner2 extends AppCompatActivity {
         }
     }
 
-    private static native String Check(Context mContext, String userKey);
+    private static native String Check(Context context, String userKey);
     private native String GetKey();
 
     @Override
     protected void onDestroy() {
         try {
             securityHandler.removeCallbacksAndMessages(null);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
         super.onDestroy();
     }
-
 }
