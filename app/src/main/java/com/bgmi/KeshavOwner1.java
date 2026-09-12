@@ -21,20 +21,41 @@ public class KeshavOwner1 extends Application {
 
     static {
         try {
-            // Host JNI bridge only. No cloned-app library is downloaded or injected.
             System.loadLibrary("KeshavLoader");
         } catch (Throwable ignored) {
-            // Login activity performs a fail-closed native readiness check.
+            // Login activity performs the visible native-readiness validation.
         }
     }
 
     public static native String getSdkKey();
 
     private static final String TAG = "ParallaxVirtual";
+    private static volatile boolean coreAttached;
+    private static volatile boolean coreReady;
+    private static volatile String coreStartupError = "";
+
+    public static boolean isVirtualCoreReady() {
+        return coreReady;
+    }
+
+    public static String getVirtualCoreStartupError() {
+        return coreStartupError == null ? "" : coreStartupError;
+    }
+
+    private static void rememberCoreError(String stage, Throwable throwable) {
+        String message = throwable == null ? null : throwable.getMessage();
+        String type = throwable == null ? "UnknownError" : throwable.getClass().getSimpleName();
+        coreStartupError = stage + ": " + type
+                + (message == null || message.trim().isEmpty() ? "" : " - " + message.trim());
+    }
 
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
+        coreAttached = false;
+        coreReady = false;
+        coreStartupError = "";
+
         try {
             BlackBoxCore.get().doAttachBaseContext(base, new ClientConfiguration() {
                 @Override
@@ -55,8 +76,10 @@ public class KeshavOwner1 extends Application {
                     return false;
                 }
             });
-        } catch (Throwable e) {
-            Log.e(TAG, "Virtual core attach failed", e);
+            coreAttached = true;
+        } catch (Throwable throwable) {
+            rememberCoreError("attach", throwable);
+            Log.e(TAG, "Virtual core attach failed; keeping app alive", throwable);
         }
     }
 
@@ -95,21 +118,25 @@ public class KeshavOwner1 extends Application {
     public void onCreate() {
         super.onCreate();
 
-        // Install diagnostics before the virtual core starts so startup crashes from
-        // host/server/virtual processes are captured in the private crash-report store.
+        // Install diagnostics first. Startup failures are recorded, but are no
+        // longer rethrown from Application.onCreate().
         ParallaxCrashReporter.install(this);
 
-        try {
-            BlackBoxCore.get().doCreate();
-        } catch (Throwable throwable) {
-            Log.e(TAG, "Virtual core create failed", throwable);
-            if (throwable instanceof RuntimeException) {
-                throw (RuntimeException) throwable;
+        if (coreAttached) {
+            try {
+                BlackBoxCore.get().doCreate();
+                coreReady = true;
+                coreStartupError = "";
+            } catch (Throwable throwable) {
+                coreReady = false;
+                rememberCoreError("create", throwable);
+                Log.e(TAG, "Virtual core create failed; keeping app alive", throwable);
             }
-            if (throwable instanceof Error) {
-                throw (Error) throwable;
+        } else {
+            coreReady = false;
+            if (coreStartupError == null || coreStartupError.trim().isEmpty()) {
+                coreStartupError = "attach: virtual core was not initialized";
             }
-            throw new RuntimeException("Virtual core create failed", throwable);
         }
 
         // Activation is host-only. Virtual app processes must not restart it.
