@@ -1,8 +1,190 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/cyber_bg_gradient">
-<ScrollView android:layout_width="match_parent" android:layout_height="match_parent" android:clipToPadding="false" android:fillViewport="true" android:overScrollMode="never" android:scrollbars="none"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:paddingStart="18dp" android:paddingTop="30dp" android:paddingEnd="18dp" android:paddingBottom="26dp">
-<LinearLayout android:id="@+id/mainHeader" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal"><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.13" android:text="OBSIDIAN COMMAND DECK" android:textColor="@color/cyber_cyan" android:textSize="9sp" android:textStyle="bold"/><TextView android:id="@+id/tvMainTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:fontFamily="sans-serif-black" android:text="JADU LOADER" android:textColor="@color/white" android:textSize="27sp" android:textStyle="bold"/></LinearLayout><LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/cyber_badge_green" android:gravity="center_vertical" android:paddingStart="10dp" android:paddingTop="7dp" android:paddingEnd="10dp" android:paddingBottom="7dp"><View android:layout_width="7dp" android:layout_height="7dp" android:layout_marginEnd="6dp" android:background="@drawable/circle_bg" android:backgroundTint="@color/cyber_emerald"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="LIVE" android:textColor="@color/cyber_emerald" android:textSize="9sp" android:textStyle="bold"/></LinearLayout></LinearLayout>
-<com.google.android.material.card.MaterialCardView android:id="@+id/timerCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="22dp" app:cardBackgroundColor="#E8121721" app:cardCornerRadius="30dp" app:cardElevation="10dp" app:strokeColor="#34FFFFFF" app:strokeWidth="1dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/deck_hero_bg" android:orientation="vertical" android:padding="20dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal"><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.11" android:text="SESSION REMAINING" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold"/><TextView android:id="@+id/tvExpires" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Active" android:textColor="@color/cyber_emerald" android:textSize="13sp" android:textStyle="bold"/></LinearLayout><FrameLayout android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/cyber_btn_secondary"><ImageView android:layout_width="20dp" android:layout_height="20dp" android:layout_gravity="center" android:contentDescription="Timer" android:src="@drawable/ic_timer" app:tint="@color/cyber_cyan"/></FrameLayout></LinearLayout><View android:layout_width="match_parent" android:layout_height="3dp" android:layout_marginTop="16dp" android:background="@drawable/deck_accent_line"/><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:orientation="horizontal"><LinearLayout android:layout_width="0dp" android:layout_height="82dp" android:layout_marginEnd="4dp" android:layout_weight="1" android:background="@drawable/cyber_digit_bg" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/tvDays" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_emerald" android:textSize="24sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="DAYS" android:textColor="@color/text_muted" android:textSize="8sp" android:textStyle="bold"/></LinearLayout><LinearLayout android:layout_width="0dp" android:layout_height="82dp" android:layout_marginStart="4dp" android:layout_marginEnd="4dp" android:layout_weight="1" android:background="@drawable/cyber_digit_bg" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/tvHours" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_cyan" android:textSize="24sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="HRS" android:textColor="@color/text_muted" android:textSize="8sp" android:textStyle="bold"/></LinearLayout><LinearLayout android:layout_width="0dp" android:layout_height="82dp" android:layout_marginStart="4dp" android:layout_marginEnd="4dp" android:layout_weight="1" android:background="@drawable/cyber_digit_bg" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/tvMins" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_orange" android:textSize="24sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="MIN" android:textColor="@color/text_muted" android:textSize="8sp" android:textStyle="bold"/></LinearLayout><LinearLayout android:layout_width="0dp" android:layout_height="82dp" android:layout_marginStart="4dp" android:layout_weight="1" android:background="@drawable/cyber_digit_bg" android:gravity="center" android:orientation="vertical"><TextView android:id="@+id/tvSecs" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="00" android:textColor="@color/cyber_purple" android:textSize="24sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="SEC" android:textColor="@color/text_muted" android:textSize="8sp" android:textStyle="bold"/></LinearLayout></LinearLayout></LinearLayout></com.google.android.material.card.MaterialCardView>
-<com.google.android.material.card.MaterialCardView android:id="@+id/gameCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="13dp" app:cardBackgroundColor="#E8121721" app:cardCornerRadius="28dp" app:cardElevation="8dp" app:strokeColor="#30FFFFFF" app:strokeWidth="1dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="19dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal"><FrameLayout android:layout_width="50dp" android:layout_height="50dp" android:background="@drawable/cyber_btn_secondary"><ImageView android:layout_width="25dp" android:layout_height="25dp" android:layout_gravity="center" android:contentDescription="BGMI" android:src="@drawable/ic_gamepad" app:tint="@color/cyber_emerald"/></FrameLayout><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="13dp" android:layout_weight="1" android:orientation="vertical"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="BGMI launch bay" android:textColor="@color/white" android:textSize="17sp" android:textStyle="bold"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Container linked • ready to open" android:textColor="@color/text_muted" android:textSize="10sp"/></LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:background="@drawable/cyber_badge_green" android:paddingStart="9dp" android:paddingTop="6dp" android:paddingEnd="9dp" android:paddingBottom="6dp" android:text="READY" android:textColor="@color/cyber_emerald" android:textSize="8sp" android:textStyle="bold"/></LinearLayout><FrameLayout android:id="@+id/btnStartContainer" android:layout_width="match_parent" android:layout_height="59dp" android:layout_marginTop="18dp"><androidx.appcompat.widget.AppCompatButton android:id="@+id/btnStart" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/cyber_btn_primary" android:letterSpacing="0.07" android:text="LAUNCH BGMI" android:textColor="@color/text_dark" android:textSize="13sp" android:textStyle="bold"/></FrameLayout></LinearLayout></com.google.android.material.card.MaterialCardView>
-<com.google.android.material.card.MaterialCardView android:id="@+id/tipsCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="13dp" app:cardBackgroundColor="#CA111721" app:cardCornerRadius="24dp" app:cardElevation="4dp" app:strokeColor="#28FFFFFF" app:strokeWidth="1dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:letterSpacing="0.10" android:text="SYSTEM TELEMETRY" android:textColor="@color/cyber_purple" android:textSize="9sp" android:textStyle="bold"/><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:orientation="horizontal"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginEnd="4dp" android:layout_weight="1" android:background="@drawable/deck_chip_muted" android:gravity="center" android:padding="9dp" android:text="AUTH • OK" android:textColor="@color/cyber_emerald" android:textSize="9sp" android:textStyle="bold"/><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:layout_marginEnd="4dp" android:layout_weight="1" android:background="@drawable/deck_chip_muted" android:gravity="center" android:padding="9dp" android:text="SDK • READY" android:textColor="@color/cyber_cyan" android:textSize="9sp" android:textStyle="bold"/><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:layout_weight="1" android:background="@drawable/deck_chip_muted" android:gravity="center" android:padding="9dp" android:text="CORE • LIVE" android:textColor="@color/cyber_orange" android:textSize="9sp" android:textStyle="bold"/></LinearLayout></LinearLayout></com.google.android.material.card.MaterialCardView>
-</LinearLayout></ScrollView></FrameLayout>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/cyber_bg_gradient">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="18dp"
+            android:paddingTop="30dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="28dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.13"
+                        android:text="MULTI APP VIRTUAL SPACE"
+                        android:textColor="@color/cyber_cyan"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="sans-serif-black"
+                        android:text="PARALLAX VIRTUAL"
+                        android:textColor="@color/white"
+                        android:textSize="27sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/cyber_badge_green"
+                    android:paddingStart="10dp"
+                    android:paddingTop="7dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="7dp"
+                    android:text="CORE LIVE"
+                    android:textColor="@color/cyber_emerald"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                app:cardBackgroundColor="#E8121721"
+                app:cardCornerRadius="28dp"
+                app:cardElevation="8dp"
+                app:strokeColor="#34FFFFFF"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="19dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CLONE AN INSTALLED APP"
+                        android:textColor="@color/white"
+                        android:textSize="17sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:text="Pick an app already installed on this device. Parallax Virtual creates an isolated virtual copy without ZIP or game-library downloads."
+                        android:textColor="@color/text_muted"
+                        android:textSize="11sp" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btnAddApp"
+                        android:layout_width="match_parent"
+                        android:layout_height="58dp"
+                        android:layout_marginTop="17dp"
+                        android:background="@drawable/cyber_btn_primary"
+                        android:letterSpacing="0.06"
+                        android:text="+ ADD INSTALLED APP"
+                        android:textColor="@color/text_dark"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="CLONED APPS"
+                    android:textColor="@color/cyber_purple"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvCloneCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/deck_chip_muted"
+                    android:paddingStart="10dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="6dp"
+                    android:text="0 APPS"
+                    android:textColor="@color/cyber_cyan"
+                    android:textSize="9sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/clonedAppsContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="#CA111721"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="3dp"
+                app:strokeColor="#28FFFFFF"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="SANDBOX PRIVILEGE"
+                        android:textColor="@color/cyber_orange"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="Per-app switch controls root visibility inside the virtual container. It never grants Linux root, host-device root, or bypasses Android/SELinux security."
+                        android:textColor="@color/text_muted"
+                        android:textSize="10sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>
