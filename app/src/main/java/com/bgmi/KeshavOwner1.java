@@ -103,9 +103,13 @@ public class KeshavOwner1 extends Application {
             BlackBoxCore.get().doCreate();
         } catch (Throwable throwable) {
             Log.e(TAG, "Virtual core create failed", throwable);
-            // Preserve fail-closed behavior while allowing the uncaught handler to
-            // capture a useful report if this startup failure cannot recover.
-            throw throwable;
+            if (throwable instanceof RuntimeException) {
+                throw (RuntimeException) throwable;
+            }
+            if (throwable instanceof Error) {
+                throw (Error) throwable;
+            }
+            throw new RuntimeException("Virtual core create failed", throwable);
         }
 
         // Activation is host-only. Virtual app processes must not restart it.
