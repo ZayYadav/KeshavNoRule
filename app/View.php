@@ -64,8 +64,8 @@ final class View
         }
 
         $brandName = self::e(trim((string)($settings['brand_name'] ?? '')) ?: (string)Config::get('app_name'));
-        $brandMark = self::e(strtoupper(trim((string)($settings['brand_mark'] ?? 'TD'))) ?: 'TD');
-        $title = self::e((string)($settings['splash_title'] ?? 'TEAM DARK'));
+        $brandMark = self::e(strtoupper(trim((string)($settings['brand_mark'] ?? 'NR'))) ?: 'NR');
+        $title = self::e((string)($settings['splash_title'] ?? 'NO RULE'));
         $subtitle = self::e((string)($settings['splash_subtitle'] ?? 'Secure control plane'));
         $stars = str_repeat('<i></i>', 18);
 
@@ -146,8 +146,8 @@ CURL);
 #include <curl/curl.h>
 #include <string>
 
-std::string TeamDarkLogin(const std::string& userKey,
-                          const std::string& serial) {
+std::string NoRuleLogin(const std::string& userKey,
+                        const std::string& serial) {
     const std::string endpoint = "{{ENDPOINT}}";
     CURL* curl = curl_easy_init();
     if (!curl) return {};
@@ -201,7 +201,7 @@ import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 
-public final class TeamDarkApi {
+public final class NoRuleApi {
     private static final String ENDPOINT = "{{ENDPOINT}}";
 
     public static String login(String userKey, String serial) throws Exception {
@@ -251,7 +251,7 @@ import java.net.URL
 import java.net.URLEncoder
 import javax.net.ssl.HttpsURLConnection
 
-object TeamDarkApi {
+object NoRuleApi {
     private const val ENDPOINT = "{{ENDPOINT}}"
 
     fun login(userKey: String, serial: String): String {
@@ -289,7 +289,7 @@ KOTLIN);
         return '<section class="premium-section owner-connect-api" id="connect-api">'
             .'<div class="owner-connect-shell">'
             .'<div class="owner-connect-head"><div><span class="eyebrow">OWNER DEVELOPER CONSOLE</span>'
-            .'<h2>Connect API</h2><p>Runtime-generated integration samples for the live Team Dark Loader endpoint. The URL is resolved from the current server APP_URL every time this page renders, so this UI does not carry a second hardcoded domain.</p></div>'
+            .'<h2>Connect API</h2><p>Runtime-generated integration samples for the live No Rule Panel endpoint. The URL is resolved from the current server APP_URL every time this page renders, so this UI does not carry a second hardcoded domain.</p></div>'
             .'<span class="owner-connect-live"><i></i> Live endpoint</span></div>'
             .'<div class="owner-endpoint-card"><div class="owner-endpoint-top"><span>Resolved endpoint</span>'
             .'<button class="owner-copy-btn" type="button" data-copy-target="td-connect-endpoint">Copy URL</button></div>'
@@ -314,7 +314,7 @@ KOTLIN);
         $app = self::e($rawApp);
         $brandSubtitle = self::e(trim((string)($settings['brand_subtitle'] ?? '')) ?: 'Secure control plane');
         $brandFooter = self::e(trim((string)($settings['brand_footer'] ?? '')) ?: $rawApp.' secure control plane');
-        $brandMark = self::e(strtoupper(trim((string)($settings['brand_mark'] ?? 'TD'))) ?: 'TD');
+        $brandMark = self::e(strtoupper(trim((string)($settings['brand_mark'] ?? 'NR'))) ?: 'NR');
         $safeTitle = self::e($title);
         $path = (string)(
             parse_url((string)($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH)
