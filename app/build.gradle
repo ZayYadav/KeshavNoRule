@@ -5,8 +5,6 @@ plugins {
 
 apply plugin: 'top.niunaijun.blackobfuscator'
 
-
-
 class Scrambler {
     Random random = new Random()
 
@@ -18,9 +16,10 @@ class Scrambler {
 Scrambler scrambler = new Scrambler()
 
 android {
+    // Keep the source/JNI namespace stable. The installed app id is Parallax Virtual.
     namespace 'com.bgmi'
     compileSdk 34
-    
+
     signingConfigs {
         debug {
             storeFile file("zen.jks")
@@ -35,18 +34,18 @@ android {
             keyAlias "key0"
         }
     }
-    
+
     lint {
         baseline = file("lint-baseline.xml")
     }
 
     defaultConfig {
-        applicationId "com.bgmi"
+        applicationId "parallax.VIRTUAL"
         minSdk 24
         //noinspection OldTargetApi,EditedTargetSdkVersion,ExpiredTargetSdkVersion
         targetSdk 28
         versionCode 1
-        versionName "2024.09.21"
+        versionName "1.0-parallax-virtual"
 
         vectorDrawables {
             useSupportLibrary true
@@ -62,7 +61,6 @@ android {
             abiFilters "arm64-v8a"
         }
 
-        // Keep only the app's shipped locale to reduce packaged resources.
         resourceConfigurations += ['en']
     }
 
@@ -108,10 +106,8 @@ android {
         includeInBundle = false
     }
 
-    // APK size kam karne ke liye native libs ko compress karke store karo
     packagingOptions {
         jniLibs {
-            // Legacy packaging keeps native libraries compressed inside the APK.
             useLegacyPackaging = true
         }
         resources {
@@ -137,8 +133,7 @@ android {
 
 dependencies {
     implementation fileTree(dir: "libs", includes: ["*.aar"])
-  //  implementation project(':MundoCore')
-implementation 'com.github.tiann:FreeReflection:3.2.2'
+    implementation 'com.github.tiann:FreeReflection:3.2.2'
     implementation 'com.github.CodingGay.BlackReflection:core:1.1.4'
     annotationProcessor 'com.github.CodingGay.BlackReflection:compiler:1.1.4'
     implementation 'androidx.appcompat:appcompat:1.6.1'
