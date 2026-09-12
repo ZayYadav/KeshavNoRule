@@ -29,12 +29,12 @@ import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.content.FileProvider;
 
+import com.bgmi.debug.DebugLibraryInspector;
 import com.bgmi.utils.KeshavOwner7;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -67,6 +67,7 @@ public class KeshavOwner3 extends AppCompatActivity {
     public static final String EXTRA_DEBUG_ENABLED = "parallax.debug.enabled";
     public static final String EXTRA_DEBUG_LIBRARY_URI = "parallax.debug.lib_uri";
     public static final String EXTRA_DEBUG_LIBRARY_NAME = "parallax.debug.lib_name";
+    public static final String EXTRA_DEBUG_LIBRARY_SHA256 = "parallax.debug.lib_sha256";
     public static final String EXTRA_DEBUG_TARGET_PACKAGE = "parallax.debug.target_package";
     public static final String EXTRA_DEBUG_SESSION_ID = "parallax.debug.session_id";
 
@@ -554,6 +555,12 @@ public class KeshavOwner3 extends AppCompatActivity {
         launchIntent.putExtra(EXTRA_DEBUG_ENABLED, true);
         launchIntent.putExtra(EXTRA_DEBUG_LIBRARY_URI, uri.toString());
         launchIntent.putExtra(EXTRA_DEBUG_LIBRARY_NAME, debugLibrary.getName());
+        try {
+            launchIntent.putExtra(EXTRA_DEBUG_LIBRARY_SHA256,
+                    DebugLibraryInspector.sha256(debugLibrary));
+        } catch (Exception exception) {
+            return false;
+        }
         launchIntent.putExtra(EXTRA_DEBUG_TARGET_PACKAGE, packageName);
         launchIntent.putExtra(EXTRA_DEBUG_SESSION_ID, UUID.randomUUID().toString());
         launchIntent.setClipData(ClipData.newRawUri("Parallax Debug Library", uri));
@@ -727,9 +734,10 @@ public class KeshavOwner3 extends AppCompatActivity {
             throw throwable;
         }
 
-        if (total < 4L || !isElfFile(output)) {
+        DebugLibraryInspector.Result inspection = DebugLibraryInspector.inspect(output);
+        if (!inspection.compatible) {
             output.delete();
-            throw new IllegalArgumentException("Selected file is not an ELF shared library");
+            throw new IllegalArgumentException(inspection.message);
         }
 
         File[] previous = dir.listFiles();
@@ -759,8 +767,7 @@ public class KeshavOwner3 extends AppCompatActivity {
             File file = new File(stored).getCanonicalFile();
             if (!file.getPath().startsWith(root.getPath() + File.separator)) return null;
             if (!file.isFile() || !file.getName().toLowerCase(Locale.US).endsWith(".so")) return null;
-            if (file.length() <= 0L || file.length() > MAX_DEBUG_LIBRARY_BYTES) return null;
-            return isElfFile(file) ? file : null;
+            return DebugLibraryInspector.inspect(file).compatible ? file : null;
         } catch (Throwable ignored) {
             return null;
         }
@@ -836,19 +843,6 @@ public class KeshavOwner3 extends AppCompatActivity {
         }
         String last = uri.getLastPathSegment();
         return last == null ? null : last;
-    }
-
-    private boolean isElfFile(File file) {
-        if (file == null || !file.isFile()) return false;
-        try (FileInputStream input = new FileInputStream(file)) {
-            int b0 = input.read();
-            int b1 = input.read();
-            int b2 = input.read();
-            int b3 = input.read();
-            return b0 == 0x7f && b1 == 'E' && b2 == 'L' && b3 == 'F';
-        } catch (Throwable ignored) {
-            return false;
-        }
     }
 
     private String sanitizePathSegment(String value) {
