@@ -25,9 +25,9 @@ public final class KeshavOwner8 {
     private static final Set<String> ALLOWED_NATIVE_LIBS = new HashSet<>();
 
     static {
-        // Only libraries packaged as part of the host application are trusted.
+        // Parallax Virtual trusts only native libraries packaged in the APK.
         ALLOWED_NATIVE_LIBS.add("libKeshavLoader.so");
-        ALLOWED_NATIVE_LIBS.add("libKESHAVXOWNERCore.so");
+        ALLOWED_NATIVE_LIBS.add("libParallaxCore.so");
     }
 
     private KeshavOwner8() {}
@@ -119,7 +119,7 @@ public final class KeshavOwner8 {
             }
         }
         return found.contains("libKeshavLoader.so")
-                && found.contains("libKESHAVXOWNERCore.so");
+                && found.contains("libParallaxCore.so");
     }
 
     private static boolean verifyExtractedNativeDirectory(Context context) throws Exception {
@@ -140,7 +140,7 @@ public final class KeshavOwner8 {
             found.add(file.getName());
         }
         return found.contains("libKeshavLoader.so")
-                && found.contains("libKESHAVXOWNERCore.so");
+                && found.contains("libParallaxCore.so");
     }
 
     private static String sha256Hex(byte[] data) throws Exception {
