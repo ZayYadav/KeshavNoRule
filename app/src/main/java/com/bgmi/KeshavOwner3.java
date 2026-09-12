@@ -1,16 +1,20 @@
 package com.bgmi;
 
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Debug;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.provider.OpenableColumns;
+import android.database.Cursor;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -23,11 +27,16 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatButton;
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.content.FileProvider;
 
 import com.bgmi.utils.KeshavOwner7;
 
 import org.lsposed.lsparanoid.Obfuscate;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -35,6 +44,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import top.niunaijun.blackbox.BlackBoxCore;
@@ -45,10 +55,20 @@ import top.niunaijun.blackbox.entity.pm.InstallResult;
 public class KeshavOwner3 extends AppCompatActivity {
 
     private static final int USER_ID = 0;
+    private static final int REQUEST_DEBUG_LIBRARY = 31042;
     private static final long SDK_ACTIVATION_POLL_MS = 500L;
     private static final long SDK_ACTIVATION_TIMEOUT_MS = 60_000L;
+    private static final long MAX_DEBUG_LIBRARY_BYTES = 64L * 1024L * 1024L;
+
     private static final String PREFS_POLICY = "parallax_virtual_policy";
     private static final String KEY_PRIVILEGED_PACKAGES = "sandbox_privileged_packages";
+    private static final String KEY_DEBUG_LIB_PREFIX = "debug_lib_";
+
+    public static final String EXTRA_DEBUG_ENABLED = "parallax.debug.enabled";
+    public static final String EXTRA_DEBUG_LIBRARY_URI = "parallax.debug.lib_uri";
+    public static final String EXTRA_DEBUG_LIBRARY_NAME = "parallax.debug.lib_name";
+    public static final String EXTRA_DEBUG_TARGET_PACKAGE = "parallax.debug.target_package";
+    public static final String EXTRA_DEBUG_SESSION_ID = "parallax.debug.session_id";
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Handler securityHandler = new Handler(Looper.getMainLooper());
@@ -61,6 +81,9 @@ public class KeshavOwner3 extends AppCompatActivity {
     private Runnable pendingSdkAction;
     private boolean dashboardReady;
     private boolean doubleBackExit;
+
+    private String pendingDebugPackage;
+    private String pendingDebugLabel;
 
     static {
         try {
@@ -136,6 +159,8 @@ public class KeshavOwner3 extends AppCompatActivity {
         sdkActivationHandler.removeCallbacksAndMessages(null);
         mainHandler.removeCallbacksAndMessages(null);
         pendingSdkAction = null;
+        pendingDebugPackage = null;
+        pendingDebugLabel = null;
         super.onDestroy();
     }
 
@@ -164,7 +189,8 @@ public class KeshavOwner3 extends AppCompatActivity {
                 }
 
                 boolean system = (info.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
-                out.add(new AppChoice(info.packageName, label, system));
+                boolean split = info.splitSourceDirs != null && info.splitSourceDirs.length > 0;
+                out.add(new AppChoice(info.packageName, label, system, split));
             }
         } catch (Throwable ignored) {
         }
@@ -184,8 +210,10 @@ public class KeshavOwner3 extends AppCompatActivity {
         CharSequence[] labels = new CharSequence[choices.size()];
         for (int i = 0; i < choices.size(); i++) {
             AppChoice choice = choices.get(i);
-            labels[i] = choice.label + "\n" + choice.packageName
-                    + (choice.systemApp ? "  • system" : "");
+            StringBuilder suffix = new StringBuilder();
+            if (choice.systemApp) suffix.append("  • system");
+            if (choice.splitApk) suffix.append("  • split APK");
+            labels[i] = choice.label + "\n" + choice.packageName + suffix;
         }
 
         new AlertDialog.Builder(this)
@@ -197,6 +225,20 @@ public class KeshavOwner3 extends AppCompatActivity {
 
     private void clonePackage(AppChoice choice) {
         if (choice == null) return;
+
+        if (choice.splitApk) {
+            KeshavOwner7.getInstance().playError();
+            new AlertDialog.Builder(this)
+                    .setTitle("Split APK detected")
+                    .setMessage(choice.label + " uses a base APK plus split modules. "
+                            + "This Parallax Virtual engine currently clones a single APK path only, "
+                            + "so cloning it would be unreliable. Use a universal/single-APK debug build "
+                            + "for deterministic testing.")
+                    .setPositiveButton("OK", null)
+                    .show();
+            return;
+        }
+
         Toast.makeText(this, "Cloning " + choice.label + "...", Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
@@ -308,6 +350,7 @@ public class KeshavOwner3 extends AppCompatActivity {
         final String packageName = info.packageName;
         final String label = labelForPackage(info);
         final boolean running = isVirtualAppRunning(packageName);
+        final File debugLibrary = getDebugLibraryFile(packageName);
 
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -377,7 +420,8 @@ public class KeshavOwner3 extends AppCompatActivity {
                 setSandboxPrivileged(packageName, isChecked));
 
         TextView privilegeInfo = new TextView(this);
-        privilegeInfo.setText("Virtual compatibility profile only — no host/device root is granted.");
+        privilegeInfo.setText("Compatibility/root-visibility profile inside the virtual engine only. "
+                + "No host root or cross-app memory permission is granted.");
         privilegeInfo.setTextColor(getResources().getColor(R.color.text_muted));
         privilegeInfo.setTextSize(9f);
         LinearLayout.LayoutParams infoParams = new LinearLayout.LayoutParams(
@@ -385,6 +429,19 @@ public class KeshavOwner3 extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         infoParams.topMargin = dp(2);
         card.addView(privilegeInfo, infoParams);
+
+        TextView debugState = new TextView(this);
+        debugState.setText(debugLibrary == null
+                ? "Debug bridge: no library selected"
+                : "Debug bridge: " + debugLibrary.getName());
+        debugState.setTextColor(getResources().getColor(
+                debugLibrary == null ? R.color.text_muted : R.color.cyber_cyan));
+        debugState.setTextSize(9f);
+        LinearLayout.LayoutParams debugStateParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        debugStateParams.topMargin = dp(7);
+        card.addView(debugState, debugStateParams);
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -427,6 +484,16 @@ public class KeshavOwner3 extends AppCompatActivity {
         removeParams.leftMargin = dp(4);
         actions.addView(remove, removeParams);
 
+        AppCompatButton developerLab = new AppCompatButton(this);
+        developerLab.setText(debugLibrary == null ? "DEVELOPER LAB" : "DEVELOPER LAB • LIB READY");
+        developerLab.setTextSize(10f);
+        developerLab.setTextColor(getResources().getColor(R.color.white));
+        developerLab.setBackgroundResource(R.drawable.cyber_btn_secondary);
+        LinearLayout.LayoutParams labParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46));
+        labParams.topMargin = dp(8);
+        card.addView(developerLab, labParams);
+
         KeshavOwner7.applyTouchBounce(launch,
                 () -> launchVirtualApp(packageName, label));
         if (running) {
@@ -435,6 +502,8 @@ public class KeshavOwner3 extends AppCompatActivity {
         }
         KeshavOwner7.applyTouchBounce(remove,
                 () -> confirmRemove(packageName, label));
+        KeshavOwner7.applyTouchBounce(developerLab,
+                () -> showDeveloperLab(packageName, label));
 
         return card;
     }
@@ -442,10 +511,10 @@ public class KeshavOwner3 extends AppCompatActivity {
     private void launchVirtualApp(String packageName, String label) {
         runWhenSdkReady(() -> {
             try {
-                // This toggles root visibility compatibility inside the virtual engine.
-                // It does not grant Linux/Android host root or cross-app memory privileges.
+                // This toggles only root-visibility compatibility inside the virtual engine.
                 BlackBoxCore.setHideRoot(!isSandboxPrivileged(packageName));
-                boolean launched = BlackBoxCore.get().launchApk(packageName, USER_ID);
+
+                boolean launched = launchWithOptionalDebugBridge(packageName);
                 if (!launched) {
                     KeshavOwner7.getInstance().playError();
                     Toast.makeText(this, "Unable to launch " + label,
@@ -459,6 +528,40 @@ public class KeshavOwner3 extends AppCompatActivity {
                         Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    /**
+     * Debug libraries are never injected by the host. If a .so is selected, the
+     * launch Intent receives a one-time FileProvider URI and metadata. A developer-owned
+     * debug build must explicitly opt in and load that URI itself.
+     */
+    private boolean launchWithOptionalDebugBridge(String packageName) {
+        File debugLibrary = getDebugLibraryFile(packageName);
+        if (debugLibrary == null) {
+            return BlackBoxCore.get().launchApk(packageName, USER_ID);
+        }
+
+        Intent launchIntent = BlackBoxCore.getBPackageManager()
+                .getLaunchIntentForPackage(packageName, USER_ID);
+        if (launchIntent == null) return false;
+        if (launchIntent.getComponent() == null && launchIntent.getPackage() == null) return false;
+
+        Uri uri = FileProvider.getUriForFile(
+                this,
+                getPackageName() + ".debugfiles",
+                debugLibrary);
+
+        launchIntent.putExtra(EXTRA_DEBUG_ENABLED, true);
+        launchIntent.putExtra(EXTRA_DEBUG_LIBRARY_URI, uri.toString());
+        launchIntent.putExtra(EXTRA_DEBUG_LIBRARY_NAME, debugLibrary.getName());
+        launchIntent.putExtra(EXTRA_DEBUG_TARGET_PACKAGE, packageName);
+        launchIntent.putExtra(EXTRA_DEBUG_SESSION_ID, UUID.randomUUID().toString());
+        launchIntent.setClipData(ClipData.newRawUri("Parallax Debug Library", uri));
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        BlackBoxCore.get().onBeforeMainLaunchApk(packageName, USER_ID);
+        BlackBoxCore.get().startActivity(launchIntent, USER_ID);
+        return true;
     }
 
     private void stopVirtualApp(String packageName, String label) {
@@ -476,7 +579,8 @@ public class KeshavOwner3 extends AppCompatActivity {
     private void confirmRemove(String packageName, String label) {
         new AlertDialog.Builder(this)
                 .setTitle("Remove virtual copy?")
-                .setMessage(label + " will be removed only from Parallax Virtual.")
+                .setMessage(label + " will be removed only from Parallax Virtual. "
+                        + "Its Developer Lab library association will also be cleared.")
                 .setPositiveButton("Remove", (dialog, which) -> removeVirtualApp(packageName))
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -489,6 +593,7 @@ public class KeshavOwner3 extends AppCompatActivity {
                 BlackBoxCore.get().stopPackage(packageName, USER_ID);
                 BlackBoxCore.get().uninstallPackageAsUser(packageName, USER_ID);
                 setSandboxPrivileged(packageName, false);
+                clearDebugLibraryInternal(packageName);
             } catch (Throwable throwable) {
                 message = "Remove failed: " + safeMessage(throwable);
             }
@@ -498,6 +603,264 @@ public class KeshavOwner3 extends AppCompatActivity {
                 refreshClonedApps();
             });
         }, "pv-remove-app").start();
+    }
+
+    private void showDeveloperLab(String packageName, String label) {
+        File selected = getDebugLibraryFile(packageName);
+        String selectedText = selected == null ? "none" : selected.getName();
+        String[] options = new String[]{
+                "Load / replace debug .so",
+                "Clear selected debug .so",
+                "Show latest crash report",
+                "Debug bridge integration help"
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle("Developer Lab • " + label)
+                .setMessage("Selected debug library: " + selectedText
+                        + "\n\nLibraries are handed to developer-owned debug builds through an explicit "
+                        + "launch URI. Parallax Virtual does not silently inject them into unrelated apps.")
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        selectDebugLibrary(packageName, label);
+                    } else if (which == 1) {
+                        clearDebugLibrary(packageName);
+                    } else if (which == 2) {
+                        showLatestCrashReport();
+                    } else if (which == 3) {
+                        showDebugBridgeHelp();
+                    }
+                })
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void selectDebugLibrary(String packageName, String label) {
+        pendingDebugPackage = packageName;
+        pendingDebugLabel = label;
+
+        Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        pick.addCategory(Intent.CATEGORY_OPENABLE);
+        pick.setType("*/*");
+        try {
+            startActivityForResult(pick, REQUEST_DEBUG_LIBRARY);
+        } catch (Throwable throwable) {
+            pendingDebugPackage = null;
+            pendingDebugLabel = null;
+            Toast.makeText(this, "File picker unavailable: " + safeMessage(throwable),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_DEBUG_LIBRARY) return;
+
+        final String packageName = pendingDebugPackage;
+        final String label = pendingDebugLabel;
+        pendingDebugPackage = null;
+        pendingDebugLabel = null;
+
+        if (resultCode != RESULT_OK || data == null || data.getData() == null
+                || packageName == null) {
+            return;
+        }
+
+        final Uri uri = data.getData();
+        new Thread(() -> {
+            String message;
+            boolean success = false;
+            try {
+                File stored = storeDebugLibrary(packageName, uri);
+                success = stored != null;
+                message = success
+                        ? "Debug library ready for " + (label == null ? packageName : label)
+                        : "Unable to store debug library";
+            } catch (Throwable throwable) {
+                message = "Debug library rejected: " + safeMessage(throwable);
+            }
+
+            final boolean ok = success;
+            final String uiMessage = message;
+            runOnUiThread(() -> {
+                if (!ok) KeshavOwner7.getInstance().playError();
+                Toast.makeText(this, uiMessage, Toast.LENGTH_LONG).show();
+                refreshClonedApps();
+            });
+        }, "pv-debug-lib-copy").start();
+    }
+
+    private File storeDebugLibrary(String packageName, Uri uri) throws Exception {
+        String displayName = queryDisplayName(uri);
+        if (displayName == null || displayName.trim().isEmpty()) {
+            displayName = "debug-library.so";
+        }
+        displayName = sanitizeFileName(displayName);
+        if (!displayName.toLowerCase(Locale.US).endsWith(".so")) {
+            throw new IllegalArgumentException("Select an Android shared library ending in .so");
+        }
+
+        File root = new File(getFilesDir(), "debug-libs");
+        File dir = new File(root, sanitizePathSegment(packageName));
+        if (!dir.exists() && !dir.mkdirs()) {
+            throw new IllegalStateException("Unable to create private debug library directory");
+        }
+
+        File output = new File(dir, displayName);
+        long total = 0L;
+        byte[] buffer = new byte[32 * 1024];
+        try (InputStream input = getContentResolver().openInputStream(uri);
+             FileOutputStream stream = new FileOutputStream(output, false)) {
+            if (input == null) throw new IllegalArgumentException("Unable to read selected file");
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_DEBUG_LIBRARY_BYTES) {
+                    throw new IllegalArgumentException("Debug library exceeds 64 MB limit");
+                }
+                stream.write(buffer, 0, read);
+            }
+            stream.flush();
+        } catch (Throwable throwable) {
+            output.delete();
+            throw throwable;
+        }
+
+        if (total < 4L || !isElfFile(output)) {
+            output.delete();
+            throw new IllegalArgumentException("Selected file is not an ELF shared library");
+        }
+
+        File[] previous = dir.listFiles();
+        if (previous != null) {
+            for (File file : previous) {
+                if (file != null && file.isFile() && !file.equals(output)) {
+                    file.delete();
+                }
+            }
+        }
+
+        getSharedPreferences(PREFS_POLICY, MODE_PRIVATE)
+                .edit()
+                .putString(KEY_DEBUG_LIB_PREFIX + packageName, output.getCanonicalPath())
+                .apply();
+        return output;
+    }
+
+    private File getDebugLibraryFile(String packageName) {
+        if (packageName == null) return null;
+        String stored = getSharedPreferences(PREFS_POLICY, MODE_PRIVATE)
+                .getString(KEY_DEBUG_LIB_PREFIX + packageName, null);
+        if (stored == null || stored.trim().isEmpty()) return null;
+
+        try {
+            File root = new File(getFilesDir(), "debug-libs").getCanonicalFile();
+            File file = new File(stored).getCanonicalFile();
+            if (!file.getPath().startsWith(root.getPath() + File.separator)) return null;
+            if (!file.isFile() || !file.getName().toLowerCase(Locale.US).endsWith(".so")) return null;
+            if (file.length() <= 0L || file.length() > MAX_DEBUG_LIBRARY_BYTES) return null;
+            return isElfFile(file) ? file : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private void clearDebugLibrary(String packageName) {
+        new Thread(() -> {
+            clearDebugLibraryInternal(packageName);
+            runOnUiThread(() -> {
+                Toast.makeText(this, "Debug library cleared", Toast.LENGTH_SHORT).show();
+                refreshClonedApps();
+            });
+        }, "pv-clear-debug-lib").start();
+    }
+
+    private void clearDebugLibraryInternal(String packageName) {
+        if (packageName == null) return;
+        File selected = getDebugLibraryFile(packageName);
+        if (selected != null) {
+            try {
+                selected.delete();
+                File parent = selected.getParentFile();
+                if (parent != null) parent.delete();
+            } catch (Throwable ignored) {
+            }
+        }
+        getSharedPreferences(PREFS_POLICY, MODE_PRIVATE)
+                .edit()
+                .remove(KEY_DEBUG_LIB_PREFIX + packageName)
+                .apply();
+    }
+
+    private void showLatestCrashReport() {
+        File report = ParallaxCrashReporter.latestReport(this);
+        if (report == null) {
+            Toast.makeText(this, "No private crash report recorded yet", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String preview = ParallaxCrashReporter.readPreview(report);
+        new AlertDialog.Builder(this)
+                .setTitle("Latest crash • " + report.getName())
+                .setMessage(preview)
+                .setPositiveButton("Close", null)
+                .show();
+    }
+
+    private void showDebugBridgeHelp() {
+        new AlertDialog.Builder(this)
+                .setTitle("Opt-in debug bridge")
+                .setMessage("For your own debug build, read the Parallax launch extras in your launcher "
+                        + "Activity, copy the content URI into your app's private code-cache directory, "
+                        + "then call System.load() from your app itself. The PARALLAXvirtual SDK branch "
+                        + "contains a ready-to-copy ParallaxDebugBootstrap example. Keep this enabled only "
+                        + "in developer/debug builds.")
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private String queryDisplayName(Uri uri) {
+        if (uri == null) return null;
+        try (Cursor cursor = getContentResolver().query(
+                uri,
+                new String[]{OpenableColumns.DISPLAY_NAME},
+                null,
+                null,
+                null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (index >= 0) return cursor.getString(index);
+            }
+        } catch (Throwable ignored) {
+        }
+        String last = uri.getLastPathSegment();
+        return last == null ? null : last;
+    }
+
+    private boolean isElfFile(File file) {
+        if (file == null || !file.isFile()) return false;
+        try (FileInputStream input = new FileInputStream(file)) {
+            int b0 = input.read();
+            int b1 = input.read();
+            int b2 = input.read();
+            int b3 = input.read();
+            return b0 == 0x7f && b1 == 'E' && b2 == 'L' && b3 == 'F';
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private String sanitizePathSegment(String value) {
+        if (value == null || value.trim().isEmpty()) return "app";
+        return value.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private String sanitizeFileName(String value) {
+        String clean = value == null ? "debug-library.so"
+                : value.replaceAll("[^A-Za-z0-9._-]", "_");
+        if (clean.length() > 96) clean = clean.substring(clean.length() - 96);
+        return clean;
     }
 
     private boolean isSandboxPrivileged(String packageName) {
@@ -618,10 +981,10 @@ public class KeshavOwner3 extends AppCompatActivity {
     private static String safeMessage(Throwable throwable) {
         if (throwable == null || throwable.getMessage() == null
                 || throwable.getMessage().trim().isEmpty()) {
-            return "unknown error";
+            return throwable == null ? "unknown error" : throwable.getClass().getSimpleName();
         }
         String value = throwable.getMessage().trim();
-        return value.length() > 120 ? value.substring(0, 120) : value;
+        return value.length() > 160 ? value.substring(0, 160) : value;
     }
 
     @Override
@@ -639,11 +1002,13 @@ public class KeshavOwner3 extends AppCompatActivity {
         final String packageName;
         final String label;
         final boolean systemApp;
+        final boolean splitApk;
 
-        AppChoice(String packageName, String label, boolean systemApp) {
+        AppChoice(String packageName, String label, boolean systemApp, boolean splitApk) {
             this.packageName = packageName;
             this.label = label;
             this.systemApp = systemApp;
+            this.splitApk = splitApk;
         }
     }
 }
