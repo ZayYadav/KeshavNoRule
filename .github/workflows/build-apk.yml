@@ -16,11 +16,18 @@ jobs:
   build:
     name: Parallax Virtual Release APK
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
-      - name: Checkout
+      - name: Checkout loader
         uses: actions/checkout@v4
+
+      - name: Checkout Parallax Virtual SDK
+        uses: actions/checkout@v4
+        with:
+          repository: ZayYadav/ParallaxSDK
+          ref: PARALLAXvirtual
+          path: _sdk/ParallaxSDK
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -39,9 +46,37 @@ jobs:
           sdkmanager \
             "platform-tools" \
             "platforms;android-34" \
+            "platforms;android-36" \
             "build-tools;34.0.0" \
+            "build-tools;36.0.0" \
             "ndk;24.0.8215888" \
+            "ndk;27.2.12479018" \
             "cmake;3.22.1"
+
+      - name: Build fresh Parallax Virtual SDK AAR
+        working-directory: _sdk/ParallaxSDK/BLACK-OPNE
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :ParallaxCore:testDebugUnitTest :ParallaxCore:assembleRelease --stacktrace --no-daemon
+          AAR="$(find RIYAZ-VIP/build/outputs/aar -type f -name '*release*.aar' | head -n1)"
+          test -n "$AAR"
+          echo "Fresh SDK: $AAR"
+          rm -f ../../../app/libs/*.aar
+          cp "$AAR" ../../../app/libs/ParallaxVirtualCore-release.aar
+
+      - name: Verify fresh SDK has no runtime-loader artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAR="app/libs/ParallaxVirtualCore-release.aar"
+          test -f "$AAR"
+          unzip -Z1 "$AAR" | grep -q '^jni/arm64-v8a/libParallaxCore.so$'
+          if unzip -Z1 "$AAR" | grep -Eq '(^|/)(KESHAVXOWNER\.so|libbgmi\.so|libpubgm\.so|libkorea\.so)$'; then
+            echo "Unexpected legacy runtime loader artifact found in SDK AAR"
+            exit 1
+          fi
 
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
@@ -49,7 +84,7 @@ jobs:
       - name: Build release APK
         run: ./gradlew clean :app:assembleRelease --stacktrace --no-daemon
 
-      - name: Verify signed APK and native allowlist
+      - name: Verify package, signature and native allowlist
         shell: bash
         run: |
           set -euo pipefail
@@ -58,6 +93,8 @@ jobs:
           test -n "$APK"
 
           echo "APK: $APK"
+          "${ANDROID_HOME}/build-tools/34.0.0/aapt" dump badging "$APK" | grep -q "package: name='parallax.VIRTUAL'"
+
           CERT_OUT="$("${ANDROID_HOME}/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK")"
           echo "$CERT_OUT"
           NORMALIZED_CERTS="$(printf '%s' "$CERT_OUT" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
@@ -70,9 +107,16 @@ jobs:
               | sort
           )
 
-          EXPECTED="$(printf '%s\n' 'libKESHAVXOWNERCore.so' 'libKeshavLoader.so' | sort)"
+          EXPECTED="$(printf '%s\n' 'libKeshavLoader.so' 'libParallaxCore.so' | sort)"
           ACTUAL="$(printf '%s\n' "${LIBS[@]}" | sort)"
+          echo "Native libs:"
+          printf '%s\n' "${LIBS[@]}"
           test "$ACTUAL" = "$EXPECTED"
+
+          if unzip -Z1 "$APK" | grep -Eq '(^|/)(KESHAVXOWNER\.so|libbgmi\.so|libpubgm\.so|libkorea\.so)$'; then
+            echo "Unexpected legacy runtime loader artifact found in APK"
+            exit 1
+          fi
 
           cp "$APK" app/build/outputs/apk/release/Parallax-Virtual.apk
 
