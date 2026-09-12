@@ -59,10 +59,10 @@ function teamdarkGateway(string $endpoint, string $appName, bool $headOnly = fal
         .'<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
         .'<meta name="theme-color" content="#010204">'
         .'<meta name="color-scheme" content="dark">'
-        .'<title>TEAM DARK • Secure API Gateway</title>'
+        .'<title>NO RULE • Secure API Gateway</title>'
         .'<link rel="stylesheet" href="/assets/connect-gateway.css?v=20260910-1">'
         .'</head><body>'
-        .'<main class="gateway" aria-label="Team Dark secure API gateway">'
+        .'<main class="gateway" aria-label="No Rule secure API gateway">'
         .'<canvas id="gw-particles" data-gateway-particles aria-hidden="true"></canvas>'
         .'<div class="gw-grid" aria-hidden="true"></div>'
         .'<div class="gw-beam a" aria-hidden="true"></div>'
@@ -73,11 +73,11 @@ function teamdarkGateway(string $endpoint, string $appName, bool $headOnly = fal
         .'<div class="gw-letterbox top" aria-hidden="true"></div>'
         .'<div class="gw-letterbox bottom" aria-hidden="true"></div>'
         .'<section class="gw-stage">'
-        .'<div class="gw-kicker"><i></i><span>TEAM DARK // SECURE NETWORK</span><i></i></div>'
-        .'<div class="gw-mark" aria-hidden="true"><b>TD</b></div>'
+        .'<div class="gw-kicker"><i></i><span>NO RULE // SECURE NETWORK</span><i></i></div>'
+        .'<div class="gw-mark" aria-hidden="true"><b>NR</b></div>'
         .'<div class="gw-subkicker">API GATEWAY // CHANNEL VERIFIED</div>'
         .'<h1 class="gw-title">CONNECT</h1>'
-        .'<p class="gw-copy">'.$safeAppName.' application license gateway for authorized Team Dark clients. Browser view is presentation-only; authenticated client traffic continues through the protected POST channel.</p>'
+        .'<p class="gw-copy">'.$safeAppName.' application license gateway for authorized No Rule clients. Browser view is presentation-only; authenticated client traffic continues through the protected POST channel.</p>'
         .'<div class="gw-status">'
         .'<span>Gateway online</span><span>TLS protected</span><span>Auth required</span>'
         .'</div>'
@@ -92,7 +92,7 @@ function teamdarkGateway(string $endpoint, string $appName, bool $headOnly = fal
         .'</div></div>'
         .'<div class="gw-actions"><a href="/login">Panel login</a></div>'
         .'</section>'
-        .'<div class="gw-corner">TEAM DARK CONTROL PLANE</div>'
+        .'<div class="gw-corner">NO RULE CONTROL PLANE</div>'
         .'<div class="gw-time"><span>Gateway session</span><b data-gateway-time>00:00:000</b></div>'
         .'</main>'
         .'<script src="/assets/connect-gateway.js?v=20260910-1" defer></script>'
@@ -184,7 +184,7 @@ try {
     teamdarkJson($result);
 } catch (Throwable $e) {
     error_log(
-        'TeamDark /connect error: '
+        'No Rule /connect error: '
         .get_class($e)
         .' at '
         .basename($e->getFile())
