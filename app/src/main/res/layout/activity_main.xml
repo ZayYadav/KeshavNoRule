@@ -171,7 +171,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="SANDBOX PRIVILEGE"
+                        android:text="DEVELOPER SANDBOX PROFILE"
                         android:textColor="@color/cyber_orange"
                         android:textSize="10sp"
                         android:textStyle="bold" />
@@ -180,7 +180,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="Per-app switch controls root visibility inside the virtual container. It never grants Linux root, host-device root, or bypasses Android/SELinux security."
+                        android:text="Per-app compatibility profiles tune root visibility inside the virtual container for controlled testing. They do not grant Linux/Android host root, cross-app memory access, or bypass SELinux/security boundaries."
                         android:textColor="@color/text_muted"
                         android:textSize="10sp" />
                 </LinearLayout>
