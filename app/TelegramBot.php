@@ -177,7 +177,7 @@ final class TelegramBot
                 $chatId,
                 "🔗 <b>Link your panel account</b>\n\n1) Login to the panel.\n2) On Dashboard enter this Chat ID:\n<code>"
                 .$chatId
-                ."</code>\n3) Panel gives a TDLINK code.\n4) Send:\n<code>/link TDLINK-XXXXXXXXXXXXXXXXXXXXXXXX</code>\n\nThe code expires in 15 minutes.",
+                ."</code>\n3) Panel gives an NRLINK code.\n4) Send:\n<code>/link NRLINK-XXXXXXXXXXXXXXXXXXXXXXXX</code>\n\nThe code expires in 15 minutes.",
                 $keyboard
             );
             return;
